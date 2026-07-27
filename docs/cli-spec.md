@@ -1625,7 +1625,7 @@ CI 在独立仓库内完成以下检查：
 4. 构建一次 npm tarball，并用同一个 tarball 完成 smoke 和 Trusted Publishing；
 5. 以同版本打包一个 `luna-devops-<version>.skill`；
 6. 汇总二进制、npm tarball、Skill、SBOM、provenance、manifest 和 checksum；
-7. 使用 LiteyukiAutoBot GitHub App 创建或幂等补齐 GitHub Release。
+7. 优先使用 LiteyukiAutoBot GitHub App 创建或幂等补齐 GitHub Release；仓库未配置机器人凭据时，使用仅具备当前仓库 `contents: write` 权限的 `GITHUB_TOKEN` 完成发布。
 
 `release-metadata.mjs`、`publish-npm.mjs`、`release-manifest.mjs` 是发布逻辑的唯一实现位置，不能把版本判断、远端幂等检查和 checksum 规则散落到 YAML shell 片段中：
 
@@ -1644,7 +1644,7 @@ npm 正式发布采用 Trusted Publishing，不在 GitHub Secret 中保存长期
 2. 在干净环境中使用仓库发布脚本生成并验证 tarball，再由维护者使用 2FA 手动执行 `npm publish <tarball> --access public --tag next`。这次发布会创建 `@liteyuki/luna-cli`，不需要提前在 npm 单独创建包，也不创建自动化 Token。
 3. 首次发布成功后，在 npm 包设置中添加 GitHub Actions Trusted Publisher：
    - Organization or user：`LiteyukiStudio`
-   - Repository：`devops`
+   - Repository：`luna-cli`
    - Workflow filename：`cli-release.yml`
    - Environment：`npm`
    - Allowed actions：`npm publish`
@@ -1655,6 +1655,11 @@ npm 正式发布采用 Trusted Publishing，不在 GitHub Secret 中保存长期
 8. `package.json.repository.url` 与 GitHub 仓库精确匹配。公开 GitHub 仓库向公开 npm 包发布时由 npm 自动生成 provenance，不额外传入 `--provenance`。
 
 Trusted Publisher 只允许绑定一个工作流。不要把 `npm publish` 抽进另一个 reusable workflow；若未来确需使用 `workflow_call`，npm 侧仍配置最外层调用工作流文件名，并保持 `id-token: write` 传递链清晰。
+
+GitHub Release 的品牌机器人不是 npm Trusted Publishing 的前置条件。配置
+`LITEYUKI_AUTO_BOT_CLIENT_ID` Repository Variable 和
+`LITEYUKI_AUTO_BOT_PRIVATE_KEY` Repository Secret 后，Release 由
+LiteyukiAutoBot 创建；任一凭据缺失时工作流回退到短期 `GITHUB_TOKEN`，不得因此阻断已经通过验证的 npm、二进制和 Skill 发布。
 
 第一阶段采用“受保护 GitHub Environment 审批后直接 `npm publish`”。如果后续希望把发布审批移到 npm，可把 Trusted Publisher 的 Allowed actions 改为仅允许 `npm stage publish`，工作流同步改为 staged publishing，再由维护者使用 2FA 审批；两种模式不能在失败时自动互相回退。
 
