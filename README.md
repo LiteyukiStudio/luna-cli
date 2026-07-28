@@ -22,13 +22,15 @@ CLI 目前处于预发布阶段。源码清单使用 `0.0.0-development` 占位�
 - 从 OpenAPI 生成并注册普通业务 HTTP 命令，并为特殊传输提供显式协议命令；
 - 面向人类的 `login`、`logout`、`whoami`、`doctor` 顶层短命令；
 - 检查当前登录、认证、服务端版本、OpenAPI 契约和能力开关的 `health doctor` 诊断；
-- 在每个 OpenAPI 业务命令前自动协商 API 代际、最低 CLI 版本和契约摘要，并按实例缓存成功结果；
+- 在每个 OpenAPI 业务命令前自动协商 API 代际和最低 CLI 版本，并记录精确契约摘要供诊断；
 - npm 包、Linux/macOS Bun 独立二进制的 CI、打包、安装 smoke 与发布门禁。
 
 `src/entry.ts` 已作为 npm 与 Bun 二进制的统一入口，共享契约和客户端会被安全打包进发布产物。预发布版本已经发布到 npm，且发布产物会经过 npm/pnpm 全局安装、中文帮助、机器 Help 和受支持独立二进制的 smoke。
 
-普通 OpenAPI 业务命令会自动读取 `/api/v1/meta` 并在不兼容时 fail
-closed；`luna doctor` 用于主动查看详细诊断。标记为 hidden 的浏览器回调、
+普通 OpenAPI 业务命令会自动读取 `/api/v1/meta`，在 API 代际不受支持或 CLI
+低于服务端最低版本时 fail closed。精确 OpenAPI 摘要不同通常表示服务端新增了接口
+或更新了契约，不会阻断同一 API 代际的已有命令；`luna doctor` 会将其作为诊断警告。
+标记为 hidden 的浏览器回调、
 Webhook、内部接收器和底层协议操作不会注册为 canonical raw command，SSE、
 下载和终端等能力只通过对应的专用协议命令提供。`high` 和 `critical` 风险操作
 在交互终端中必须逐次明确确认；非交互或 Agent 模式必须显式传入 `--yes`，
@@ -149,9 +151,11 @@ The CLI is in prerelease. The source manifest uses the `0.0.0-development` place
 
 `src/entry.ts` is the shared npm and Bun entry point, and workspace packages are bundled safely into the distribution. Prereleases are available on npm and pass npm/pnpm global-install, localized Help, machine Help, and supported standalone-binary smoke tests.
 
-Canonical OpenAPI commands automatically negotiate the API generation, minimum
-CLI version, and OpenAPI digest through `/api/v1/meta`; `luna doctor` exposes
-the detailed diagnostics. Hidden browser callbacks, webhooks, internal receivers,
+Canonical OpenAPI commands automatically negotiate the API generation and
+minimum CLI version through `/api/v1/meta`. The exact OpenAPI digest is
+diagnostic metadata: `luna doctor` reports a mismatch, while compatible
+commands in the same API generation remain available. Hidden browser callbacks,
+webhooks, internal receivers,
 and low-level protocol operations are not registered as canonical raw commands;
 SSE, downloads, and terminals are exposed only through their dedicated protocol
 commands. High- and critical-risk operations require an explicit interactive

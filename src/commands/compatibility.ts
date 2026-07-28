@@ -9,10 +9,14 @@ export interface ServerCompatibilityRequirements {
   readonly supportedApiVersions?: readonly string[]
 }
 
+export interface ServerCompatibilityResult {
+  readonly openapiDigestMatches: boolean
+}
+
 export function assertServerCompatibility(
   meta: LunaApiMeta,
   requirements: ServerCompatibilityRequirements,
-): void {
+): ServerCompatibilityResult {
   const supportedApiVersions
     = requirements.supportedApiVersions ?? SUPPORTED_SERVER_API_VERSIONS
   if (!supportedApiVersions.includes(meta.apiVersion)) {
@@ -62,28 +66,11 @@ export function assertServerCompatibility(
     }
   }
 
-  if (
-    requirements.openapiDigest === 'unavailable'
-    || !requirements.openapiDigest.startsWith('sha256:')
-  ) {
-    throw new CliCommandError(
-      'local_openapi_contract_unavailable',
-      'The CLI does not contain a verifiable OpenAPI contract digest.',
-      { status: 500 },
-    )
-  }
-  if (requirements.openapiDigest !== meta.openapiDigest) {
-    throw new CliCommandError(
-      'openapi_digest_mismatch',
-      'The CLI OpenAPI contract does not match the selected Luna server.',
-      {
-        status: 412,
-        details: {
-          local: requirements.openapiDigest,
-          server: meta.openapiDigest,
-        },
-      },
-    )
+  return {
+    openapiDigestMatches:
+      isOpenApiDigest(requirements.openapiDigest)
+      && isOpenApiDigest(meta.openapiDigest)
+      && requirements.openapiDigest === meta.openapiDigest,
   }
 }
 
@@ -113,4 +100,8 @@ function semverCore(value: string): readonly [number, number, number] | undefine
 
 function isDevelopmentVersion(value: string): boolean {
   return value === '0.0.0-development'
+}
+
+function isOpenApiDigest(value: string): boolean {
+  return /^sha256:[0-9a-f]{64}$/i.test(value)
 }

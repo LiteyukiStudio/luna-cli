@@ -4162,7 +4162,10 @@ export interface operations {
                         apiVersion: string;
                         /** @example 0.1.0 */
                         serverVersion: string;
-                        /** @example sha256:0123456789abcdef */
+                        /**
+                         * @description Exact OpenAPI snapshot digest for diagnostics and cache invalidation, not a compatibility version.
+                         * @example sha256:0123456789abcdef
+                         */
                         openapiDigest: string;
                         /** @example 0.1.0 */
                         minimumCliVersion: string;

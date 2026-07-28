@@ -5,7 +5,7 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:ec160714a26755f3b92133c66c4c588d74703de91baee9e790cb259fb5d6b832",
+  "sourceDigest": "sha256:e1b0bfe287548854b465a2ceaeb3e15c6f2f614b83ce412c713451a935221e9c",
   "operationCount": 226
 } as const satisfies OpenApiSnapshotMetadata;
 

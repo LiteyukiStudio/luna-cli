@@ -960,10 +960,12 @@ GET /api/v1/meta
 CLI 在登录和首次调用实例时缓存非敏感能力快照，但每次遇到 `unsupported_feature`、契约摘要变化或缓存过期时重新读取。命令不受当前实例支持时，必须在发请求前返回稳定错误和服务端升级建议，不能发送一个已知会失败的请求。`help catalog` 仍展示当前 CLI 的完整能力，并可通过 `serverSupported` 标记当前实例是否支持。
 
 当前实现会在每个 OpenAPI 业务命令第一次访问实例时读取该接口，同时校验
-`apiVersion`、`minimumCliVersion` 和 `openapiDigest`；校验成功后按实例 origin
-缓存到当前 CLI 进程。缺少元数据接口、未知 API 代际、CLI 版本过低或契约摘要不一致
-都会在发送业务请求前 fail closed。通用 `api request` 作为人类诊断逃生口不执行该
-预检，也不能用于 Agent 业务编排。
+`apiVersion` 和 `minimumCliVersion`；校验成功后按实例 origin 缓存到当前 CLI
+进程。缺少元数据接口、未知 API 代际或 CLI 版本过低会在发送业务请求前 fail
+closed。`openapiDigest` 表示精确契约快照，用于诊断、缓存失效和提示重新发现命令，
+不能单独作为兼容性判据：同一 API 代际新增接口、补充 Schema 或调整文档都会改变
+摘要，但不应阻断旧 CLI 已知的命令。通用 `api request` 作为人类诊断逃生口不执行
+该预检，也不能用于 Agent 业务编排。
 
 `/api/v1/meta` 必须允许未登录客户端读取，并配置独立限流；响应不得包含内部地址、密钥、Provider 配置或其他敏感部署信息。第一版 CLI 连接到缺少该接口、返回未知 `apiVersion` 或不满足 `minCliVersion` 的实例时必须 fail closed，返回 `server_too_old` 或 `unsupported_api_version`，不得通过试探业务接口猜测能力。
 

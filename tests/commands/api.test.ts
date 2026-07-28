@@ -167,14 +167,16 @@ describe('automatic server compatibility negotiation', () => {
     ])
   })
 
-  it('fails closed before sending a command with a mismatched contract', async () => {
+  it('allows additive contract changes within the supported API generation', async () => {
     const paths: string[] = []
     const adapter = compatibleAdapter(paths, 'sha256:different')
 
-    await expect(adapter.execute(listApplicationsRequest()))
-      .rejects
-      .toMatchObject({ code: 'openapi_digest_mismatch' })
-    expect(paths).toEqual(['/api/v1/meta'])
+    await adapter.execute(listApplicationsRequest())
+
+    expect(paths).toEqual([
+      '/api/v1/meta',
+      '/api/v1/projects/project%20explicit/applications',
+    ])
   })
 
   it('keeps the generic diagnostic request available as an escape hatch', async () => {

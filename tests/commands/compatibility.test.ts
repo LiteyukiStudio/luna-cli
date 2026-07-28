@@ -5,27 +5,44 @@ import {
   isVersionAtLeast,
 } from '../../src/commands/index.js'
 
+const contractDigest = `sha256:${'a'.repeat(64)}`
+const differentContractDigest = `sha256:${'b'.repeat(64)}`
+
 const meta = {
   apiVersion: 'v1',
   serverVersion: '0.1.0',
-  openapiDigest: 'sha256:contract',
+  openapiDigest: contractDigest,
   minimumCliVersion: '0.0.7',
   features: {},
 }
 
 describe('server compatibility', () => {
   it('accepts a supported API version, CLI version, and contract digest', () => {
-    expect(() => assertServerCompatibility(meta, {
+    expect(assertServerCompatibility(meta, {
       cliVersion: '0.0.7',
-      openapiDigest: 'sha256:contract',
-    })).not.toThrow()
+      openapiDigest: contractDigest,
+    })).toEqual({ openapiDigestMatches: true })
   })
 
   it('accepts the source development version during local development', () => {
     expect(() => assertServerCompatibility(meta, {
       cliVersion: '0.0.0-development',
-      openapiDigest: 'sha256:contract',
+      openapiDigest: contractDigest,
     })).not.toThrow()
+  })
+
+  it('treats an exact OpenAPI digest mismatch as diagnostic metadata', () => {
+    expect(assertServerCompatibility(meta, {
+      cliVersion: '0.0.7',
+      openapiDigest: differentContractDigest,
+    })).toEqual({ openapiDigestMatches: false })
+  })
+
+  it('does not block compatible API generations when a digest is unavailable', () => {
+    expect(assertServerCompatibility(meta, {
+      cliVersion: '0.0.7',
+      openapiDigest: 'unavailable',
+    })).toEqual({ openapiDigestMatches: false })
   })
 
   it.each([
@@ -34,7 +51,7 @@ describe('server compatibility', () => {
       value: { ...meta, apiVersion: 'v2' },
       requirements: {
         cliVersion: '0.0.7',
-        openapiDigest: 'sha256:contract',
+        openapiDigest: contractDigest,
       },
     },
     {
@@ -42,15 +59,7 @@ describe('server compatibility', () => {
       value: meta,
       requirements: {
         cliVersion: '0.0.6',
-        openapiDigest: 'sha256:contract',
-      },
-    },
-    {
-      expectedCode: 'openapi_digest_mismatch',
-      value: meta,
-      requirements: {
-        cliVersion: '0.0.7',
-        openapiDigest: 'sha256:different',
+        openapiDigest: contractDigest,
       },
     },
   ])('rejects $expectedCode', ({ expectedCode, requirements, value }) => {
