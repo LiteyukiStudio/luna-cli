@@ -28,7 +28,9 @@ const httpMethods = new Set([
 const allowedNonCommandClassifications = new Set([
   "protocol-adapter",
   "browser-callback",
+  "browser-workflow",
   "webhook-receiver",
+  "internal-observability",
 ]);
 const bypassableRiskPolicyErrors = new Set([
   "confirmation_required",
@@ -84,6 +86,46 @@ export const NON_COMMAND_ROUTE_CLASSIFICATIONS = Object.freeze({
   "POST /api/v1/oauth/revoke": Object.freeze({
     classification: "protocol-adapter",
     reason: "Consumed by the CLI logout adapter and not exposed as a raw business command.",
+  }),
+  "POST /api/v1/projects/{projectId}/billing-owner-transfer-requests": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Starts the interactive inbox confirmation workflow for transferring future billing ownership.",
+  }),
+  "GET /api/v1/inbox": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Lists messages for the interactive web message center.",
+  }),
+  "GET /api/v1/inbox/unread-count": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Supplies the unread badge for the interactive web message center.",
+  }),
+  "GET /api/v1/inbox/stream": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Streams invalidation hints to the interactive web message center.",
+  }),
+  "GET /api/v1/inbox/{messageId}": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Loads message details for the interactive web message center.",
+  }),
+  "POST /api/v1/inbox/{messageId}/read": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Updates read state through the interactive web message center.",
+  }),
+  "POST /api/v1/inbox/read-all": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Updates bulk read state through the interactive web message center.",
+  }),
+  "POST /api/v1/inbox/{messageId}/archive": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Archives a message through the interactive web message center.",
+  }),
+  "POST /api/v1/inbox/action-requests/{requestId}/decision": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Applies a typed decision after interactive inbox confirmation.",
+  }),
+  "POST /api/v1/telemetry/v1/traces": Object.freeze({
+    classification: "internal-observability",
+    reason: "Relays browser OTLP traces to the server-configured collector and is not a user business command.",
   }),
   "POST /api/v1/runtime/clusters/{clusterId}/pods/terminal/authorize": Object.freeze({
     classification: "protocol-adapter",

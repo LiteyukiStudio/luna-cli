@@ -365,3 +365,43 @@ test("uses the exact audit classification for browser verification UI", () => {
   );
   assert.equal(result.totals.excluded, 2);
 });
+
+test("accepts exact browser workflow and internal observability audits", () => {
+  const routes = extractGinRoutes(
+    `func register(router *gin.Engine) {
+      v1 := router.Group("/api/v1")
+      v1.GET("/inbox", handlers.ListInboxMessages)
+      v1.POST("/telemetry/v1/traces", handlers.RelayBrowserTraces)
+    }`,
+    "fixture/router-internal-entrypoints.go",
+  );
+  const operations = routes.map(route => ({
+    key: route.key,
+    method: route.method,
+    path: route.path,
+    commandPath: "",
+    classification: route.path === "/api/v1/inbox"
+      ? "browser-workflow"
+      : "internal-observability",
+    hidden: true,
+    exclusionReason: "Audited non-command entry point.",
+    risk: "low",
+  }));
+  const result = evaluateCoverage({
+    routes,
+    openApiOperations: operations,
+    cliCommands: [],
+    classifications: {
+      "GET /api/v1/inbox": NON_COMMAND_ROUTE_CLASSIFICATIONS["GET /api/v1/inbox"],
+      "POST /api/v1/telemetry/v1/traces":
+        NON_COMMAND_ROUTE_CLASSIFICATIONS["POST /api/v1/telemetry/v1/traces"],
+    },
+  });
+
+  assert.equal(result.ok, true, result.errors.join("\n"));
+  assert.deepEqual(
+    result.rows.map(route => route.classification),
+    ["browser-workflow", "internal-observability"],
+  );
+  assert.equal(result.totals.excluded, 2);
+});

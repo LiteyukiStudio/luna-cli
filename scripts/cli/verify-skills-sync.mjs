@@ -11,6 +11,8 @@ const errors = [];
 const localProtocolCategories = new Set(["api", "completion", "help", "version"]);
 const categoryReferences = new Map([
   ["access-token", "security.md"],
+  ["ai-assistant", "ai-assistant.md"],
+  ["ai-assistant-internal", "ai-assistant.md"],
   ["app-templates", "deployment.md"],
   ["application", "deployment.md"],
   ["auth", "security.md"],

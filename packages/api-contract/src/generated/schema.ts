@@ -1262,6 +1262,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/billing-owner-transfer-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request transfer of a project's future billing ownership
+         * @description Creates a pending inbox action request for an active project member. Historical usage and ledger entries are not transferred.
+         */
+        post: operations["createBillingOwnerTransferRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/members/{memberId}": {
         parameters: {
             query?: never;
@@ -1379,7 +1399,7 @@ export interface paths {
         };
         /**
          * Export persistent runtime data
-         * @description Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive session, project Owner/Admin, resource-state, and `data_export` Step-up checks. Personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.
+         * @description Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive authentication-context, project Owner/Admin, resource-state, OAuth Scope, and `data_export` Step-up checks. Browser callers may use their session cookie and Luna CLI may use its OAuth bearer token; personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.
          */
         get: operations["exportDeploymentTargetData"];
         put?: never;
@@ -1401,7 +1421,7 @@ export interface paths {
         put?: never;
         /**
          * Authorize a persistent runtime data export
-         * @description Requires an interactive project Owner/Admin session, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. Returns a random 60-second one-time ticket bound to the current user, session, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.
+         * @description Requires a browser session or Luna CLI OAuth bearer, project Owner/Admin membership, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. OAuth callers also require `deployment:data_export`; personal access tokens are rejected. Returns a random 60-second one-time ticket bound to the current user, authentication context, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.
          */
         post: operations["authorizeDeploymentTargetDataExport"];
         delete?: never;
@@ -2115,6 +2135,177 @@ export interface paths {
         get: operations["listNotificationDeliveries"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current user's inbox messages
+         * @description Returns non-archived messages owned by the authenticated user. Read state and action-request state are independent.
+         */
+        get: operations["listInboxMessages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current user's unread inbox count */
+        get: operations["getInboxUnreadCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream inbox invalidation hints for the current user
+         * @description Emits invalidation hints only. Clients must reload the list and unread count from the database-backed endpoints after every event or reconnect.
+         */
+        get: operations["streamInboxChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/{messageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one inbox message owned by the current user */
+        get: operations["getInboxMessage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/{messageId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark one current-user inbox message as read */
+        post: operations["markInboxMessageRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark all current-user inbox messages as read
+         * @description This does not accept, reject, or otherwise mutate linked action requests.
+         */
+        post: operations["markAllInboxMessagesRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/{messageId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive one current-user inbox message
+         * @description Archiving a message does not mutate its linked action request.
+         */
+        post: operations["archiveInboxMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/action-requests/{requestId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept or reject an inbox action request
+         * @description Revalidates the recipient, request version, expiry, requester authorization, and current resource state before applying the typed business decision.
+         */
+        post: operations["decideInboxActionRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/telemetry/v1/traces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Relay authenticated browser OTLP traces
+         * @description Accepts an OTLP/HTTP protobuf payload from the signed-in web client and relays it to the server-configured collector without exposing collector credentials or topology.
+         */
+        post: operations["relayBrowserTraces"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2987,10 +3178,371 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve AI assistant availability for the current browser session */
+        get: operations["getAICapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List conversations owned by the current session user */
+        get: operations["listAIConversations"];
+        put?: never;
+        /** Create a private AI conversation */
+        post: operations["createAIConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getAIConversation"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAIConversation"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAIConversation"];
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversationId}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAIConversationTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversationId}/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAITurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/ui-actions/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List unacknowledged UI actions for the initiating browser client */
+        get: operations["listPendingAIUIActions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/ui-actions/{actionId}/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge a browser UI action after route execution succeeds or fails */
+        post: operations["acknowledgeAIUIAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/turns/{turnId}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                turnId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["listAIRuns"];
+        put?: never;
+        post: operations["createAIRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAIRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Replay and stream durable run events */
+        get: operations["streamAIRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelAIRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}/input": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitAIRunInput"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}/approvals/{toolCallId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decideAIToolApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/runs/{runId}/mfa/{toolCallId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resumeAIRunAfterMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/ai/delegations/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange a bound Run Actor Grant for a 60-second tool delegation */
+        post: operations["exchangeAIRunActorGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/ai/tools/{operationId}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute one registered diagnostic operation with a bound delegation */
+        post: operations["executeRegisteredAITool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/ai/tools/{operationId}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-authorize a registered operation and inspect its bound policy */
+        post: operations["verifyRegisteredAITool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/v1/ai/provider-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Return the versioned Provider and runtime policy required by Agent */
+        get: operations["getInternalAIProviderConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/ai/provider/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask Agent to perform a minimal read-only Provider connection test */
+        post: operations["testAIProviderConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Versioned AI Agent response projected through the Luna API BFF. */
+        AIObject: {
+            [key: string]: unknown;
+        };
+        AIDelegationExchangeInput: {
+            runActorGrant: string;
+            runId: string;
+            toolCallId: string;
+            operationId: string;
+            requestedScopes: string[];
+            argumentsHash: string;
+            /** @description True only after the Agent validated the current parameter-bound approval. */
+            approvalGranted: boolean;
+            /** @description Present only after a matching Step-up resume. */
+            mfaPurpose?: string;
+            /** @description API-issued assertion revalidated for the delegated user */
+            stepUpAssertionId?: string;
+        };
+        AIDelegationResponse: {
+            accessToken: string;
+            /** @constant */
+            tokenType: "Bearer";
+            /** @constant */
+            expiresIn: 60;
+            operationId: string;
+        };
+        AIProviderInternalConfig: {
+            version: string;
+            provider: {
+                /** Format: uri */
+                baseUrl: string;
+                model: string;
+                /** @description In-memory Agent use only; never returned to browser APIs. */
+                apiKey: string;
+                configured: boolean;
+            };
+            runtime: {
+                providerTimeoutMs: number;
+                runTimeoutMs: number;
+                agentConcurrentRuns: number;
+            };
+        };
         ErrorResponse: {
             /** @description Stable machine-readable error code. */
             code: string;
@@ -3000,6 +3552,102 @@ export interface components {
             detail?: string;
             /** @description Step-up purpose returned with `mfa_required`. */
             purpose?: string;
+            /** @description Optional machine-readable error context. Scope failures include `requiredScope`. */
+            details?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        InboxCategory: "action" | "project" | "billing" | "security" | "delivery" | "system";
+        /** @enum {string} */
+        InboxPriority: "low" | "normal" | "high" | "critical";
+        /** @enum {string} */
+        InboxActionRequestStatus: "pending" | "processing" | "completed" | "rejected" | "cancelled" | "expired" | "failed";
+        /** @enum {string} */
+        InboxDecision: "accept" | "reject";
+        InboxDecisionInput: {
+            decision: components["schemas"]["InboxDecision"];
+            /** Format: int64 */
+            expectedVersion: number;
+        };
+        BillingOwnerTransferRequestInput: {
+            recipientUserId: string;
+        };
+        InboxActionRequestSummary: {
+            id: string;
+            /** @enum {string} */
+            type: "project.billing_owner_transfer";
+            status: components["schemas"]["InboxActionRequestStatus"];
+            /** Format: int64 */
+            rowVersion: number;
+            /** Format: date-time */
+            expiresAt: string | null;
+            allowedDecisions: components["schemas"]["InboxDecision"][];
+        };
+        InboxActionRequest: {
+            id: string;
+            /** @enum {string} */
+            type: "project.billing_owner_transfer";
+            requesterUserId: string;
+            recipientUserId: string;
+            projectId: string;
+            resourceType: string;
+            resourceId: string;
+            status: components["schemas"]["InboxActionRequestStatus"];
+            /** Format: int64 */
+            rowVersion: number;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: date-time */
+            respondedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        InboxMessage: {
+            id: string;
+            type: string;
+            category: components["schemas"]["InboxCategory"];
+            priority: components["schemas"]["InboxPriority"];
+            actorId: string;
+            projectId: string;
+            resourceType: string;
+            resourceId: string;
+            titleKey: string;
+            contentKey: string;
+            params: {
+                [key: string]: unknown;
+            };
+            actionRequestId: string;
+            actionRequest?: components["schemas"]["InboxActionRequestSummary"] | null;
+            /** @description Empty or same-origin absolute application path. Protocol URLs and network-path references are rejected by the service. */
+            deepLink: "" | string;
+            groupKey: string;
+            /** Format: date-time */
+            readAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaginatedInboxMessages: {
+            items: components["schemas"]["InboxMessage"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "createdAt" | "updatedAt" | "priority";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        InboxUnreadCount: {
+            /** Format: int64 */
+            unreadCount: number;
         };
         OAuthApplication: {
             id: string;
@@ -3063,11 +3711,55 @@ export interface components {
             occurrences: number;
             latest: components["schemas"]["DashboardActivity"];
         };
+        /**
+         * @description Point-in-time upstream observation. unavailable means the authoritative upstream could not be queried.
+         * @enum {string}
+         */
+        ObservationStatus: "ready" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "unknown" | "declared";
+        SystemComponentInstallation: {
+            id: string;
+            componentId: string;
+            componentVersion: string;
+            runtimeClusterId: string;
+            projectId: string;
+            applicationId: string;
+            deploymentTargetId: string;
+            releaseId: string;
+            namespace: string;
+            /** @description Durable installation workflow result. It is not the current Kubernetes workload status. */
+            status: string;
+            message: string;
+            controllerType: string;
+            mode: string;
+            config: string;
+            lastError: string;
+            installedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            runtimeStatus: components["schemas"]["ObservationStatus"];
+            observationCode?: string;
+            /** Format: date-time */
+            observedAt?: string;
+        };
+        SystemComponentStatusResponse: {
+            items: components["schemas"]["SystemComponentInstallation"][];
+            gatewayTrafficProbeEnabled: boolean;
+        };
+        SystemComponentInstallResponse: {
+            installation: components["schemas"]["SystemComponentInstallation"];
+            application?: components["schemas"]["BusinessObject"];
+            deploymentTarget?: components["schemas"]["BusinessObject"];
+            release?: components["schemas"]["BusinessObject"];
+        };
         DashboardReadinessItem: {
-            /** @enum {string} */
-            status: "ready" | "degraded" | "unavailable" | "available" | "missing";
+            status: components["schemas"]["ObservationStatus"];
             available: number;
             total: number;
+            observationCode?: string;
+            /** Format: date-time */
+            observedAt: string;
         };
         DashboardOverview: {
             /** Format: date-time */
@@ -3249,7 +3941,7 @@ export interface components {
         };
         ApplicationInput: {
             name: string;
-            /** @description Immutable application identifier, unique within its project space and used to derive stable resource IDs. */
+            /** @description Human-readable identifier that is immutable while the application exists and unique among active applications in the project space. It may be reused after deletion cleanup; the internal application ID is generated independently. */
             identifier: string;
             /** @enum {string} */
             sourceType: "repository" | "image";
@@ -3277,8 +3969,7 @@ export interface components {
             allowedEmailDomains?: string[];
             allowedOidcGroups?: string[];
             invitedEmails?: string[];
-            /** @enum {string} */
-            defaultRole?: "platform_admin" | "user";
+            defaultRole?: components["schemas"]["PlatformRole"];
         };
         AuthProviderInput: {
             /** @enum {string} */
@@ -3340,8 +4031,6 @@ export interface components {
             accessToken?: string;
             refreshToken?: string;
             scopes?: string[];
-            /** @enum {string} */
-            status?: "connected" | "expired" | "revoked";
         };
         GitProviderInput: {
             /** @enum {string} */
@@ -3388,7 +4077,7 @@ export interface components {
         };
         ProjectInput: {
             name: string;
-            /** @description Immutable project-space identifier used to derive the project ID and Kubernetes Namespace. */
+            /** @description Human-readable identifier that is immutable while the project space exists and unique among active project spaces. It may be reused after deletion cleanup; the internal project ID is generated independently and the identifier derives the Kubernetes Namespace. */
             identifier: string;
             description?: string;
             /** @enum {string} */
@@ -3414,10 +4103,127 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
-        /** @description Deployment target create/update payload. Other build and Kubernetes fields are accepted by the implemented endpoint; `webConsoleEnabled` is documented here because it has inherited policy semantics. */
+        /** @description Complete deployment target create/update payload used by the console, CLI, and Agent. Repository sources require repositoryBindingId; image sources require imageRef. Omitted optional fields use platform defaults. */
         DeploymentTargetInput: {
-            /** @description Immutable deployment stage identifier, unique within the application. */
-            stage?: string;
+            /** @description Display name. Defaults to the normalized stage. */
+            name?: string;
+            /** @description Optional project environment reference. */
+            environmentId?: string;
+            /**
+             * @description Immutable stage identifier, unique among active deployment targets in the application. It may be reused after deletion cleanup.
+             * @default dev
+             * @enum {string}
+             */
+            stage: "dev" | "test" | "staging" | "prod";
+            /** @description Runtime cluster ID available to the project. Empty selects the platform default cluster. */
+            clusterId?: string;
+            /** @description Optional Kubernetes namespace override. Empty uses the project namespace. */
+            namespace?: string;
+            /**
+             * @default Deployment
+             * @enum {string}
+             */
+            workloadType: "Deployment" | "StatefulSet";
+            /** @default 1 */
+            replicas: number;
+            /**
+             * @description Kubernetes CPU quantity for each replica.
+             * @default 1
+             */
+            cpuRequest: string;
+            /**
+             * @description Kubernetes memory quantity for each replica.
+             * @default 1Gi
+             */
+            memoryRequest: string;
+            /** @description Optional Kubernetes CPU limit. */
+            cpuLimit?: string;
+            /** @description Optional Kubernetes memory limit. */
+            memoryLimit?: string;
+            /** @enum {string} */
+            imagePullPolicy?: "Always" | "IfNotPresent" | "Never";
+            /** @description JSON string array or line-separated container command. */
+            containerCommand?: string;
+            /** @description JSON string array or line-separated container arguments. */
+            containerArgs?: string;
+            /** @description JSON Kubernetes lifecycle object. */
+            lifecycle?: string;
+            /** @description JSON array of Kubernetes init containers. */
+            initContainers?: string;
+            /** @description JSON array of Kubernetes sidecar containers. */
+            sidecarContainers?: string;
+            /** @description JSON Kubernetes readiness probe. */
+            readinessProbe?: string;
+            /** @description JSON Kubernetes liveness probe. */
+            livenessProbe?: string;
+            /** @description JSON Kubernetes startup probe. */
+            startupProbe?: string;
+            runAsUser?: string;
+            runAsGroup?: string;
+            fsGroup?: string;
+            /** @enum {string} */
+            fsGroupChangePolicy?: "Always" | "OnRootMismatch";
+            /** @default false */
+            readOnlyRootFilesystem: boolean;
+            /**
+             * @description Tri-state string; empty inherits the platform default.
+             * @enum {string}
+             */
+            allowPrivilegeEscalation?: "" | "true" | "false";
+            /** @description JSON string array or line-separated Linux capabilities to add. */
+            capabilityAdd?: string;
+            /** @description JSON string array or line-separated Linux capabilities to drop. */
+            capabilityDrop?: string;
+            /** @description JSON object or key=value lines. */
+            nodeSelector?: string;
+            /** @description JSON Kubernetes toleration array. */
+            tolerations?: string;
+            /** @description JSON Kubernetes affinity object. */
+            affinity?: string;
+            /** @description JSON Kubernetes topology spread constraint array. */
+            topologySpreadConstraints?: string;
+            priorityClassName?: string;
+            /** @description Optional Kubernetes ServiceAccount name used by the workload Pods. */
+            serviceAccountName?: string;
+            /**
+             * @description Tri-state string controlling ServiceAccount token mounting; empty uses the Kubernetes default.
+             * @enum {string}
+             */
+            automountServiceAccountToken?: "" | "true" | "false";
+            /** @enum {string} */
+            serviceType?: "ClusterIP" | "NodePort" | "LoadBalancer";
+            /** @description JSON object or key=value lines. */
+            serviceAnnotations?: string;
+            /** @enum {string} */
+            serviceExternalTrafficPolicy?: "Cluster" | "Local";
+            /** @enum {string} */
+            serviceSessionAffinity?: "None" | "ClientIP";
+            /** @default false */
+            autoScalingEnabled: boolean;
+            autoScalingMinReplicas?: number;
+            autoScalingMaxReplicas?: number;
+            autoScalingCpuPercent?: number;
+            autoScalingMemoryPercent?: number;
+            /** @description JSON Kubernetes horizontal pod autoscaler behavior object. */
+            autoScalingBehavior?: string;
+            /**
+             * @description Legacy single-port fallback used when servicePorts is empty.
+             * @default 8080
+             */
+            servicePort: number;
+            /** @description Unique container service ports. */
+            servicePorts?: {
+                name?: string;
+                port: number;
+                appProtocol?: string;
+            }[];
+            /**
+             * @description Repository builds source code; image deploys an existing image directly.
+             * @enum {string}
+             */
+            sourceType?: "repository" | "image";
+            /** @description Required when sourceType is repository; must belong to the same application. */
+            repositoryBindingId?: string;
             /**
              * @description Selects the repository Dockerfile or a platform-rendered template Dockerfile.
              * @default repository_dockerfile
@@ -3430,6 +4236,35 @@ export interface components {
             buildTemplateVersion?: string;
             /** @description JSON object containing validated template parameters. */
             buildTemplateValues?: string;
+            /** @default Dockerfile */
+            dockerfilePath: string;
+            /** @default . */
+            buildContext: string;
+            /** @description Optional working directory within the build context. */
+            buildDirectory?: string;
+            /** @description Newline-separated Docker build arguments in KEY=value form. */
+            buildArgs?: string;
+            /** @description Optional reusable build environment reference. */
+            buildEnvironmentId?: string;
+            /** @default 2 */
+            buildCpuRequest: string;
+            /** @default 4Gi */
+            buildMemoryRequest: string;
+            /** @default 1800 */
+            buildTimeoutSeconds: number;
+            /** @description Registry credential used to push repository builds. */
+            targetRegistryId?: string;
+            /** @description Combined target repository and tag for repository builds. */
+            targetImageRef?: string;
+            targetRepository?: string;
+            /** @default latest */
+            targetTag: string;
+            /** @description Existing OCI image reference used when sourceType is image. */
+            imageRef?: string;
+            /** @description Comma-separated build selector labels. */
+            buildLabels?: string;
+            /** @description Project build variable set IDs. */
+            buildVariableSetIds?: string[];
             /** @description Optional deployment-level values that override matching application, project, and global keys. */
             buildVariables?: {
                 [key: string]: string;
@@ -3438,13 +4273,64 @@ export interface components {
             buildSecrets?: {
                 [key: string]: string;
             };
+            /** @default true */
+            buildHooksEnabled: boolean;
+            buildHookBindings?: {
+                hookConfigId: string;
+                phase: string;
+                runOrder?: number;
+            }[];
+            /** @default false */
+            autoDeploy: boolean;
+            branchPattern?: string;
+            tagPattern?: string;
             /**
-             * @description `null` inherits the project-space master switch and `false` disables Web Console for this deployment target. `true` is normalized to inheritance for compatibility and cannot bypass a disabled project-space switch.
+             * @default queue
+             * @enum {string}
+             */
+            concurrencyPolicy: "queue" | "parallel";
+            /** @description Legacy shorthand for live runtime configuration references. */
+            runtimeConfigSetIds?: string[];
+            runtimeConfigRefs?: {
+                setId: string;
+                /**
+                 * @default live
+                 * @enum {string}
+                 */
+                mode: "live" | "snapshot";
+            }[];
+            /** @description JSON object or newline-separated runtime environment variables. */
+            envVars?: string;
+            /** @description Serialized runtime ConfigMap references. */
+            configRefs?: string;
+            /** @description Serialized runtime Secret references; plaintext secret values are not accepted here. */
+            secretRefs?: string;
+            /** @description JSON array of runtime configuration file mounts. */
+            configFiles?: string;
+            /** @description JSON array of runtime secret file inputs. Existing plaintext values are never returned. */
+            secretFiles?: string;
+            /** @default false */
+            dataRetentionEnabled: boolean;
+            /** @default 1Gi */
+            dataCapacity: string;
+            /** @default /data */
+            dataMountPath: string;
+            /** @description JSON array of managed, existingClaim, or emptyDir data-volume objects. */
+            dataVolumes?: string;
+            dataStorageClassName?: string;
+            /** @enum {string} */
+            dataAccessMode?: "ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany";
+            /** @enum {string} */
+            dataVolumeMode?: "Filesystem" | "Block";
+            /** @default false */
+            requireApproval: boolean;
+            /**
+             * @description `null` inherits the project-space master switch and `false` disables Web Console for this deployment target.
              * @default null
              */
             webConsoleEnabled: boolean | null;
-        } & {
-            [key: string]: unknown;
+            /** @default true */
+            enabled: boolean;
         };
         DeploymentTarget: {
             id: string;
@@ -3539,8 +4425,7 @@ export interface components {
         };
         ProjectMemberInput: {
             email: string;
-            /** @enum {string} */
-            role: "owner" | "admin" | "developer" | "viewer";
+            role: components["schemas"]["ProjectRole"];
         };
         RegistryCredentialInput: {
             name?: string;
@@ -3580,8 +4465,8 @@ export interface components {
             repo: string;
             cloneUrl?: string;
             defaultBranch?: string;
-            /** @enum {string} */
-            webhookStatus?: "pending" | "created" | "disabled" | "failed";
+            /** @description Desired webhook configuration. Current webhook availability is observed from the Git provider. */
+            webhookEnabled?: boolean;
         };
         UpdateConfigsInput: {
             values: {
@@ -3614,6 +4499,10 @@ export interface components {
         DataRetentionResultResponse: {
             items: components["schemas"]["DataRetentionResult"][];
         };
+        /** @enum {string} */
+        PlatformRole: "platform_admin" | "user";
+        /** @enum {string} */
+        ProjectRole: "owner" | "admin" | "developer" | "viewer";
         CurrentUser: {
             id: string;
             /** Format: email */
@@ -3621,7 +4510,7 @@ export interface components {
             name: string;
             avatarUrl: string;
             passwordSet: boolean;
-            role: string;
+            role: components["schemas"]["PlatformRole"];
             /** @enum {string} */
             language: "zh-CN" | "en-US";
             /**
@@ -3711,8 +4600,7 @@ export interface components {
             email: string;
             name: string;
             password?: string;
-            /** @enum {string} */
-            role?: "platform_admin" | "user";
+            role?: components["schemas"]["PlatformRole"];
             /** @enum {string} */
             language?: "zh-CN" | "en-US";
             disabled?: boolean;
@@ -3851,12 +4739,11 @@ export interface components {
         SystemComponentInstallInput: {
             clusterId: string;
             namespace?: string;
-            values?: {
-                [key: string]: unknown;
-            };
-            parameters?: {
-                [key: string]: string;
-            };
+            mode?: string;
+            /** Format: uri */
+            apiBaseUrl: string;
+            /** Format: uri */
+            traefikMetricsUrl?: string;
         };
         NotificationChannelInput: {
             name: string;
@@ -3931,6 +4818,21 @@ export interface components {
             hostEnvVar?: string;
             portEnvVar?: string;
             enabled?: boolean;
+        };
+        ServiceBindingCheckItem: {
+            code: string;
+            status: string;
+            resource?: string;
+            detail?: string;
+        };
+        ServiceBindingCheckResult: {
+            bindingId: string;
+            /** Format: date-time */
+            checkedAt: string;
+            /** @enum {string} */
+            status: "ready" | "unavailable" | "declared" | "disabled" | "invalid";
+            observationCode?: string;
+            checks: components["schemas"]["ServiceBindingCheckItem"][];
         };
         TopologyEdgeInput: components["schemas"]["ServiceBindingInput"] & {
             relationType?: string;
@@ -4066,6 +4968,24 @@ export interface components {
         };
     };
     responses: {
+        /** @description A valid interactive browser session is required. */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The requested state transition conflicts with the current durable state. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description The request is invalid or cannot be processed. */
         BadRequest: {
             headers: {
@@ -4102,6 +5022,8 @@ export interface components {
         ClusterId: string;
         CredentialId: string;
         IdentityId: string;
+        InboxMessageId: string;
+        InboxRequestId: string;
         MemberId: string;
         OAuthCode: string;
         OAuthState: string;
@@ -5604,13 +6526,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful business response. */
+            /** @description Point-in-time service dependency observation. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["ServiceBindingCheckResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -6574,6 +7496,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
         };
     };
     listProjectPins: {
@@ -6769,6 +7693,37 @@ export interface operations {
             };
         };
     };
+    createBillingOwnerTransferRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingOwnerTransferRequestInput"];
+            };
+        };
+        responses: {
+            /** @description Pending billing-owner transfer action request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxActionRequest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     updateProjectMember: {
         parameters: {
             query?: never;
@@ -6863,6 +7818,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
         };
     };
     getApplication: {
@@ -7003,6 +7960,8 @@ export interface operations {
                     "application/json": components["schemas"]["DeploymentTarget"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
         };
     };
     updateDeploymentTarget: {
@@ -7091,7 +8050,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Interactive session cookie is missing or invalid (`auth.session.missing` or another authentication error). */
+            /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7100,7 +8059,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description A personal access token was used (`auth.interactive_session_required`), the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`). */
+            /** @description A personal access token was used (`mfa.session_required`), the OAuth grant lacks `deployment:data_export`, the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7178,7 +8137,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Interactive browser session is missing or invalid. */
+            /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -7187,7 +8146,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project role is insufficient, a personal access token was used, or `data_export` Step-up verification is required. */
+            /** @description Project role is insufficient, the OAuth grant lacks `deployment:data_export`, a personal access token was used, or `data_export` Step-up verification is required. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7828,7 +8787,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["SystemComponentStatusResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -7967,7 +8926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["SystemComponentInstallResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -8725,6 +9684,352 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listInboxMessages: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "updatedAt" | "priority";
+                sortOrder?: components["parameters"]["SortOrder"];
+                filter?: "all" | "unread" | "action";
+                category?: components["schemas"]["InboxCategory"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated user-scoped inbox messages. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInboxMessages"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Inbox query failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getInboxUnreadCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current unread count from the database fact source. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxUnreadCount"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Inbox unread-count query failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    streamInboxChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unbuffered SSE invalidation stream. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-cache, no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Inbox stream initialization failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["InboxMessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User-scoped inbox message. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxMessage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Inbox message query failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    markInboxMessageRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["InboxMessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message marked as read. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Inbox message update failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    markAllInboxMessagesRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All visible messages marked as read. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Inbox message update failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    archiveInboxMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["InboxMessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Message archived. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Inbox message update failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    decideInboxActionRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requestId: components["parameters"]["InboxRequestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InboxDecisionInput"];
+            };
+        };
+        responses: {
+            /** @description Updated action-request summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxActionRequestSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The action request has expired. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Action-request decision failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No typed action-request decision handler is available. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    relayBrowserTraces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-protobuf": string;
+            };
+        };
+        responses: {
+            /** @description Trace payload accepted, or server-side browser telemetry is disabled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Trace payload exceeds the one MiB relay limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description OTLP protobuf content type is required. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Per-user browser telemetry rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Telemetry rate limiting or collector relay is unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listPlatformEvents: {
@@ -10448,6 +11753,612 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getAICapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Capability result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listAIConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated conversation list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createAIConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Conversation created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAIConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAIConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation physically deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateAIConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Updated conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAIConversationTimeline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Durable conversation timeline snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createAITurn: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Turn and initial run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listPendingAIUIActions: {
+        parameters: {
+            query: {
+                clientInstanceId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending UI actions bound to the current user and browser client */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    acknowledgeAIUIAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                actionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description UI action acknowledgement accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listAIRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                turnId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated run list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createAIRun: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                turnId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Regenerated run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAIRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Run state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    streamAIRunEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unbuffered recoverable SSE stream of persisted content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelAIRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancellation accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitAIRunInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Supplemental input accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    decideAIToolApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+                toolCallId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description Approval decision accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    resumeAIRunAfterMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: string;
+                toolCallId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIObject"];
+            };
+        };
+        responses: {
+            /** @description MFA resume accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    exchangeAIRunActorGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIDelegationExchangeInput"];
+            };
+        };
+        responses: {
+            /** @description Short-lived operation-bound delegation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIDelegationResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    executeRegisteredAITool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: "getDashboard" | "listProjects" | "listPlatformEvents" | "getProject" | "listApplications" | "listBuildRuns" | "listReleases" | "listRuntimeClusters" | "listGatewayRoutes" | "listGatewayCertificates" | "listProjectHookRuns" | "listNotificationDeliveries" | "listRuntimeEvents";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    arguments: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Redacted diagnostic result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    verifyRegisteredAITool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: "getDashboard" | "listPlatformEvents" | "getProject" | "listApplications" | "listBuildRuns" | "listReleases" | "listRuntimeClusters" | "listGatewayRoutes" | "listGatewayCertificates" | "listProjectHookRuns" | "listNotificationDeliveries" | "listRuntimeEvents";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current policy verification */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getInternalAIProviderConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-cacheable Provider configuration, including the decrypted API key for in-memory Agent use. */
+            200: {
+                headers: {
+                    ETag?: string;
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIProviderInternalConfig"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    testAIProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stable Provider connection result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent or Provider is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
 }

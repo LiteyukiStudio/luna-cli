@@ -5,8 +5,8 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:e1b0bfe287548854b465a2ceaeb3e15c6f2f614b83ce412c713451a935221e9c",
-  "operationCount": 226
+  "sourceDigest": "sha256:2c076d1ed60af35e79725be6ba7d871d5f0a47f27b65696e566c62d6c5d106d1",
+  "operationCount": 259
 } as const satisfies OpenApiSnapshotMetadata;
 
 export const OPENAPI_OPERATION_SNAPSHOTS = [
@@ -2278,6 +2278,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "boolean"
             },
             "defaultRole": {
+              "ref": "#/components/schemas/PlatformRole",
               "type": "string",
               "enum": [
                 "platform_admin",
@@ -2847,6 +2848,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string"
             },
             "role": {
+              "ref": "#/components/schemas/PlatformRole",
               "type": "string",
               "enum": [
                 "platform_admin",
@@ -2934,6 +2936,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string"
             },
             "role": {
+              "ref": "#/components/schemas/PlatformRole",
               "type": "string",
               "enum": [
                 "platform_admin",
@@ -3077,9 +3080,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "application/json"
         ],
         "schemaRefs": [
-          "#/components/schemas/BusinessObject"
+          "#/components/schemas/ServiceBindingCheckResult"
         ],
-        "description": "Successful business response."
+        "description": "Point-in-time service dependency observation."
       },
       {
         "status": "400",
@@ -4518,14 +4521,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "string"
               }
             },
-            "status": {
-              "type": "string",
-              "enum": [
-                "connected",
-                "expired",
-                "revoked"
-              ]
-            },
             "username": {
               "type": "string"
             }
@@ -4623,14 +4618,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "items": {
                 "type": "string"
               }
-            },
-            "status": {
-              "type": "string",
-              "enum": [
-                "connected",
-                "expired",
-                "revoked"
-              ]
             },
             "username": {
               "type": "string"
@@ -6157,6 +6144,26 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "contentTypes": [],
         "schemaRefs": [],
         "description": "Created project."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
       }
     ],
     "summary": "Create project",
@@ -6186,7 +6193,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "identifier": {
               "type": "string",
-              "description": "Immutable project-space identifier used to derive the project ID and Kubernetes Namespace.",
+              "description": "Human-readable identifier that is immutable while the project space exists and unique among active project spaces. It may be reused after deletion cleanup; the internal project ID is generated independently and the identifier derives the Kubernetes Namespace.",
               "minLength": 2,
               "maxLength": 22,
               "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
@@ -6337,7 +6344,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "identifier": {
               "type": "string",
-              "description": "Immutable project-space identifier used to derive the project ID and Kubernetes Namespace.",
+              "description": "Human-readable identifier that is immutable while the project space exists and unique among active project spaces. It may be reused after deletion cleanup; the internal project ID is generated independently and the identifier derives the Kubernetes Namespace.",
               "minLength": 2,
               "maxLength": 22,
               "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
@@ -6642,6 +6649,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string"
             },
             "role": {
+              "ref": "#/components/schemas/ProjectRole",
               "type": "string",
               "enum": [
                 "owner",
@@ -6658,6 +6666,139 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "projectId"
       ],
       "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/projects/{projectId}/billing-owner-transfer-requests",
+    "tags": [
+      "Inbox",
+      "Billing"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ProjectId",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "201",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/InboxActionRequest"
+        ],
+        "description": "Pending billing-owner transfer action request."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "summary": "Request transfer of a project's future billing ownership",
+    "description": "Creates a pending inbox action request for an active project member. Historical usage and ledger entries are not transferred.",
+    "operationId": "createBillingOwnerTransferRequest",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/BillingOwnerTransferRequestInput"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/BillingOwnerTransferRequestInput",
+          "type": "object",
+          "required": [
+            "recipientUserId"
+          ],
+          "properties": {
+            "recipientUserId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "body",
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Billing-owner transfer is currently completed through the interactive inbox decision workflow."
     }
   },
   {
@@ -6728,6 +6869,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string"
             },
             "role": {
+              "ref": "#/components/schemas/ProjectRole",
               "type": "string",
               "enum": [
                 "owner",
@@ -6954,6 +7096,26 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "contentTypes": [],
         "schemaRefs": [],
         "description": "Created application."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
       }
     ],
     "summary": "Create application",
@@ -6990,7 +7152,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "identifier": {
               "type": "string",
-              "description": "Immutable application identifier, unique within its project space and used to derive stable resource IDs.",
+              "description": "Human-readable identifier that is immutable while the application exists and unique among active applications in the project space. It may be reused after deletion cleanup; the internal application ID is generated independently.",
               "minLength": 2,
               "maxLength": 22,
               "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
@@ -7152,7 +7314,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "identifier": {
               "type": "string",
-              "description": "Immutable application identifier, unique within its project space and used to derive stable resource IDs.",
+              "description": "Human-readable identifier that is immutable while the application exists and unique among active applications in the project space. It may be reused after deletion cleanup; the internal application ID is generated independently.",
               "minLength": 2,
               "maxLength": 22,
               "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
@@ -7398,6 +7560,26 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "#/components/schemas/DeploymentTarget"
         ],
         "description": "Created deployment target."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
       }
     ],
     "summary": "Create a deployment target",
@@ -7423,8 +7605,75 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "body": {
           "ref": "#/components/schemas/DeploymentTargetInput",
           "type": "object",
-          "description": "Deployment target create/update payload. Other build and Kubernetes fields are accepted by the implemented endpoint; `webConsoleEnabled` is documented here because it has inherited policy semantics.",
+          "description": "Complete deployment target create/update payload used by the console, CLI, and Agent. Repository sources require repositoryBindingId; image sources require imageRef. Omitted optional fields use platform defaults.",
           "properties": {
+            "affinity": {
+              "type": "string",
+              "description": "JSON Kubernetes affinity object."
+            },
+            "allowPrivilegeEscalation": {
+              "type": "string",
+              "description": "Tri-state string; empty inherits the platform default.",
+              "enum": [
+                "",
+                "true",
+                "false"
+              ]
+            },
+            "autoDeploy": {
+              "type": "boolean",
+              "default": false
+            },
+            "automountServiceAccountToken": {
+              "type": "string",
+              "description": "Tri-state string controlling ServiceAccount token mounting; empty uses the Kubernetes default.",
+              "enum": [
+                "",
+                "true",
+                "false"
+              ]
+            },
+            "autoScalingBehavior": {
+              "type": "string",
+              "description": "JSON Kubernetes horizontal pod autoscaler behavior object."
+            },
+            "autoScalingCpuPercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "autoScalingEnabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "autoScalingMaxReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "autoScalingMemoryPercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "autoScalingMinReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "branchPattern": {
+              "type": "string"
+            },
+            "buildArgs": {
+              "type": "string",
+              "description": "Newline-separated Docker build arguments in KEY=value form."
+            },
+            "buildContext": {
+              "type": "string",
+              "default": "."
+            },
+            "buildCpuRequest": {
+              "type": "string",
+              "default": "2"
+            },
             "buildDefinitionMode": {
               "type": "string",
               "description": "Selects the repository Dockerfile or a platform-rendered template Dockerfile.",
@@ -7433,6 +7682,49 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "template"
               ],
               "default": "repository_dockerfile"
+            },
+            "buildDirectory": {
+              "type": "string",
+              "description": "Optional working directory within the build context."
+            },
+            "buildEnvironmentId": {
+              "type": "string",
+              "description": "Optional reusable build environment reference."
+            },
+            "buildHookBindings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "hookConfigId",
+                  "phase"
+                ],
+                "properties": {
+                  "hookConfigId": {
+                    "type": "string"
+                  },
+                  "phase": {
+                    "type": "string"
+                  },
+                  "runOrder": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "buildHooksEnabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "buildLabels": {
+              "type": "string",
+              "description": "Comma-separated build selector labels."
+            },
+            "buildMemoryRequest": {
+              "type": "string",
+              "default": "4Gi"
             },
             "buildSecrets": {
               "type": "object",
@@ -7454,6 +7746,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string",
               "description": "Immutable built-in template version. An empty value selects the current version."
             },
+            "buildTimeoutSeconds": {
+              "type": "integer",
+              "default": 1800,
+              "minimum": 60,
+              "maximum": 86400
+            },
             "buildVariables": {
               "type": "object",
               "description": "Optional deployment-level values that override matching application, project, and global keys.",
@@ -7461,23 +7759,371 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "string"
               }
             },
+            "buildVariableSetIds": {
+              "type": "array",
+              "description": "Project build variable set IDs.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "capabilityAdd": {
+              "type": "string",
+              "description": "JSON string array or line-separated Linux capabilities to add."
+            },
+            "capabilityDrop": {
+              "type": "string",
+              "description": "JSON string array or line-separated Linux capabilities to drop."
+            },
+            "clusterId": {
+              "type": "string",
+              "description": "Runtime cluster ID available to the project. Empty selects the platform default cluster."
+            },
+            "concurrencyPolicy": {
+              "type": "string",
+              "enum": [
+                "queue",
+                "parallel"
+              ],
+              "default": "queue"
+            },
+            "configFiles": {
+              "type": "string",
+              "description": "JSON array of runtime configuration file mounts."
+            },
+            "configRefs": {
+              "type": "string",
+              "description": "Serialized runtime ConfigMap references."
+            },
+            "containerArgs": {
+              "type": "string",
+              "description": "JSON string array or line-separated container arguments."
+            },
+            "containerCommand": {
+              "type": "string",
+              "description": "JSON string array or line-separated container command."
+            },
+            "cpuLimit": {
+              "type": "string",
+              "description": "Optional Kubernetes CPU limit."
+            },
+            "cpuRequest": {
+              "type": "string",
+              "description": "Kubernetes CPU quantity for each replica.",
+              "default": "1"
+            },
+            "dataAccessMode": {
+              "type": "string",
+              "enum": [
+                "ReadWriteOnce",
+                "ReadOnlyMany",
+                "ReadWriteMany"
+              ]
+            },
+            "dataCapacity": {
+              "type": "string",
+              "default": "1Gi"
+            },
+            "dataMountPath": {
+              "type": "string",
+              "default": "/data"
+            },
+            "dataRetentionEnabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "dataStorageClassName": {
+              "type": "string"
+            },
+            "dataVolumeMode": {
+              "type": "string",
+              "enum": [
+                "Filesystem",
+                "Block"
+              ]
+            },
+            "dataVolumes": {
+              "type": "string",
+              "description": "JSON array of managed, existingClaim, or emptyDir data-volume objects."
+            },
+            "dockerfilePath": {
+              "type": "string",
+              "default": "Dockerfile"
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "environmentId": {
+              "type": "string",
+              "description": "Optional project environment reference."
+            },
+            "envVars": {
+              "type": "string",
+              "description": "JSON object or newline-separated runtime environment variables."
+            },
+            "fsGroup": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "fsGroupChangePolicy": {
+              "type": "string",
+              "enum": [
+                "Always",
+                "OnRootMismatch"
+              ]
+            },
+            "imagePullPolicy": {
+              "type": "string",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ]
+            },
+            "imageRef": {
+              "type": "string",
+              "description": "Existing OCI image reference used when sourceType is image."
+            },
+            "initContainers": {
+              "type": "string",
+              "description": "JSON array of Kubernetes init containers."
+            },
+            "lifecycle": {
+              "type": "string",
+              "description": "JSON Kubernetes lifecycle object."
+            },
+            "livenessProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes liveness probe."
+            },
+            "memoryLimit": {
+              "type": "string",
+              "description": "Optional Kubernetes memory limit."
+            },
+            "memoryRequest": {
+              "type": "string",
+              "description": "Kubernetes memory quantity for each replica.",
+              "default": "1Gi"
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name. Defaults to the normalized stage.",
+              "maxLength": 120
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Optional Kubernetes namespace override. Empty uses the project namespace."
+            },
+            "nodeSelector": {
+              "type": "string",
+              "description": "JSON object or key=value lines."
+            },
+            "priorityClassName": {
+              "type": "string"
+            },
+            "readinessProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes readiness probe."
+            },
+            "readOnlyRootFilesystem": {
+              "type": "boolean",
+              "default": false
+            },
+            "replicas": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "repositoryBindingId": {
+              "type": "string",
+              "description": "Required when sourceType is repository; must belong to the same application."
+            },
+            "requireApproval": {
+              "type": "boolean",
+              "default": false
+            },
+            "runAsGroup": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "runAsUser": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "runtimeConfigRefs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "setId"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "snapshot"
+                    ],
+                    "default": "live"
+                  },
+                  "setId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "runtimeConfigSetIds": {
+              "type": "array",
+              "description": "Legacy shorthand for live runtime configuration references.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "secretFiles": {
+              "type": "string",
+              "description": "JSON array of runtime secret file inputs. Existing plaintext values are never returned.",
+              "writeOnly": true
+            },
+            "secretRefs": {
+              "type": "string",
+              "description": "Serialized runtime Secret references; plaintext secret values are not accepted here."
+            },
+            "serviceAccountName": {
+              "type": "string",
+              "description": "Optional Kubernetes ServiceAccount name used by the workload Pods.",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            },
+            "serviceAnnotations": {
+              "type": "string",
+              "description": "JSON object or key=value lines."
+            },
+            "serviceExternalTrafficPolicy": {
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
+            "servicePort": {
+              "type": "integer",
+              "description": "Legacy single-port fallback used when servicePorts is empty.",
+              "default": 8080,
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "servicePorts": {
+              "type": "array",
+              "description": "Unique container service ports.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "port"
+                ],
+                "properties": {
+                  "appProtocol": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                },
+                "additionalProperties": false
+              },
+              "maxItems": 16
+            },
+            "serviceSessionAffinity": {
+              "type": "string",
+              "enum": [
+                "None",
+                "ClientIP"
+              ]
+            },
+            "serviceType": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "sidecarContainers": {
+              "type": "string",
+              "description": "JSON array of Kubernetes sidecar containers."
+            },
+            "sourceType": {
+              "type": "string",
+              "description": "Repository builds source code; image deploys an existing image directly.",
+              "enum": [
+                "repository",
+                "image"
+              ]
+            },
             "stage": {
               "type": "string",
-              "description": "Immutable deployment stage identifier, unique within the application.",
-              "minLength": 2,
-              "maxLength": 12,
-              "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+              "description": "Immutable stage identifier, unique among active deployment targets in the application. It may be reused after deletion cleanup.",
+              "enum": [
+                "dev",
+                "test",
+                "staging",
+                "prod"
+              ],
+              "default": "dev"
+            },
+            "startupProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes startup probe."
+            },
+            "tagPattern": {
+              "type": "string"
+            },
+            "targetImageRef": {
+              "type": "string",
+              "description": "Combined target repository and tag for repository builds."
+            },
+            "targetRegistryId": {
+              "type": "string",
+              "description": "Registry credential used to push repository builds."
+            },
+            "targetRepository": {
+              "type": "string"
+            },
+            "targetTag": {
+              "type": "string",
+              "default": "latest"
+            },
+            "tolerations": {
+              "type": "string",
+              "description": "JSON Kubernetes toleration array."
+            },
+            "topologySpreadConstraints": {
+              "type": "string",
+              "description": "JSON Kubernetes topology spread constraint array."
             },
             "webConsoleEnabled": {
               "type": [
                 "boolean",
                 "null"
               ],
-              "description": "`null` inherits the project-space master switch and `false` disables Web Console for this deployment target. `true` is normalized to inheritance for compatibility and cannot bypass a disabled project-space switch.",
+              "description": "`null` inherits the project-space master switch and `false` disables Web Console for this deployment target.",
               "default": null
+            },
+            "workloadType": {
+              "type": "string",
+              "enum": [
+                "Deployment",
+                "StatefulSet"
+              ],
+              "default": "Deployment"
             }
           },
-          "additionalProperties": true
+          "additionalProperties": false
         }
       },
       "required": [
@@ -7563,8 +8209,75 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "body": {
           "ref": "#/components/schemas/DeploymentTargetInput",
           "type": "object",
-          "description": "Deployment target create/update payload. Other build and Kubernetes fields are accepted by the implemented endpoint; `webConsoleEnabled` is documented here because it has inherited policy semantics.",
+          "description": "Complete deployment target create/update payload used by the console, CLI, and Agent. Repository sources require repositoryBindingId; image sources require imageRef. Omitted optional fields use platform defaults.",
           "properties": {
+            "affinity": {
+              "type": "string",
+              "description": "JSON Kubernetes affinity object."
+            },
+            "allowPrivilegeEscalation": {
+              "type": "string",
+              "description": "Tri-state string; empty inherits the platform default.",
+              "enum": [
+                "",
+                "true",
+                "false"
+              ]
+            },
+            "autoDeploy": {
+              "type": "boolean",
+              "default": false
+            },
+            "automountServiceAccountToken": {
+              "type": "string",
+              "description": "Tri-state string controlling ServiceAccount token mounting; empty uses the Kubernetes default.",
+              "enum": [
+                "",
+                "true",
+                "false"
+              ]
+            },
+            "autoScalingBehavior": {
+              "type": "string",
+              "description": "JSON Kubernetes horizontal pod autoscaler behavior object."
+            },
+            "autoScalingCpuPercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "autoScalingEnabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "autoScalingMaxReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "autoScalingMemoryPercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "autoScalingMinReplicas": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "branchPattern": {
+              "type": "string"
+            },
+            "buildArgs": {
+              "type": "string",
+              "description": "Newline-separated Docker build arguments in KEY=value form."
+            },
+            "buildContext": {
+              "type": "string",
+              "default": "."
+            },
+            "buildCpuRequest": {
+              "type": "string",
+              "default": "2"
+            },
             "buildDefinitionMode": {
               "type": "string",
               "description": "Selects the repository Dockerfile or a platform-rendered template Dockerfile.",
@@ -7573,6 +8286,49 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "template"
               ],
               "default": "repository_dockerfile"
+            },
+            "buildDirectory": {
+              "type": "string",
+              "description": "Optional working directory within the build context."
+            },
+            "buildEnvironmentId": {
+              "type": "string",
+              "description": "Optional reusable build environment reference."
+            },
+            "buildHookBindings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "hookConfigId",
+                  "phase"
+                ],
+                "properties": {
+                  "hookConfigId": {
+                    "type": "string"
+                  },
+                  "phase": {
+                    "type": "string"
+                  },
+                  "runOrder": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "buildHooksEnabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "buildLabels": {
+              "type": "string",
+              "description": "Comma-separated build selector labels."
+            },
+            "buildMemoryRequest": {
+              "type": "string",
+              "default": "4Gi"
             },
             "buildSecrets": {
               "type": "object",
@@ -7594,6 +8350,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string",
               "description": "Immutable built-in template version. An empty value selects the current version."
             },
+            "buildTimeoutSeconds": {
+              "type": "integer",
+              "default": 1800,
+              "minimum": 60,
+              "maximum": 86400
+            },
             "buildVariables": {
               "type": "object",
               "description": "Optional deployment-level values that override matching application, project, and global keys.",
@@ -7601,23 +8363,371 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "string"
               }
             },
+            "buildVariableSetIds": {
+              "type": "array",
+              "description": "Project build variable set IDs.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "capabilityAdd": {
+              "type": "string",
+              "description": "JSON string array or line-separated Linux capabilities to add."
+            },
+            "capabilityDrop": {
+              "type": "string",
+              "description": "JSON string array or line-separated Linux capabilities to drop."
+            },
+            "clusterId": {
+              "type": "string",
+              "description": "Runtime cluster ID available to the project. Empty selects the platform default cluster."
+            },
+            "concurrencyPolicy": {
+              "type": "string",
+              "enum": [
+                "queue",
+                "parallel"
+              ],
+              "default": "queue"
+            },
+            "configFiles": {
+              "type": "string",
+              "description": "JSON array of runtime configuration file mounts."
+            },
+            "configRefs": {
+              "type": "string",
+              "description": "Serialized runtime ConfigMap references."
+            },
+            "containerArgs": {
+              "type": "string",
+              "description": "JSON string array or line-separated container arguments."
+            },
+            "containerCommand": {
+              "type": "string",
+              "description": "JSON string array or line-separated container command."
+            },
+            "cpuLimit": {
+              "type": "string",
+              "description": "Optional Kubernetes CPU limit."
+            },
+            "cpuRequest": {
+              "type": "string",
+              "description": "Kubernetes CPU quantity for each replica.",
+              "default": "1"
+            },
+            "dataAccessMode": {
+              "type": "string",
+              "enum": [
+                "ReadWriteOnce",
+                "ReadOnlyMany",
+                "ReadWriteMany"
+              ]
+            },
+            "dataCapacity": {
+              "type": "string",
+              "default": "1Gi"
+            },
+            "dataMountPath": {
+              "type": "string",
+              "default": "/data"
+            },
+            "dataRetentionEnabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "dataStorageClassName": {
+              "type": "string"
+            },
+            "dataVolumeMode": {
+              "type": "string",
+              "enum": [
+                "Filesystem",
+                "Block"
+              ]
+            },
+            "dataVolumes": {
+              "type": "string",
+              "description": "JSON array of managed, existingClaim, or emptyDir data-volume objects."
+            },
+            "dockerfilePath": {
+              "type": "string",
+              "default": "Dockerfile"
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "environmentId": {
+              "type": "string",
+              "description": "Optional project environment reference."
+            },
+            "envVars": {
+              "type": "string",
+              "description": "JSON object or newline-separated runtime environment variables."
+            },
+            "fsGroup": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "fsGroupChangePolicy": {
+              "type": "string",
+              "enum": [
+                "Always",
+                "OnRootMismatch"
+              ]
+            },
+            "imagePullPolicy": {
+              "type": "string",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ]
+            },
+            "imageRef": {
+              "type": "string",
+              "description": "Existing OCI image reference used when sourceType is image."
+            },
+            "initContainers": {
+              "type": "string",
+              "description": "JSON array of Kubernetes init containers."
+            },
+            "lifecycle": {
+              "type": "string",
+              "description": "JSON Kubernetes lifecycle object."
+            },
+            "livenessProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes liveness probe."
+            },
+            "memoryLimit": {
+              "type": "string",
+              "description": "Optional Kubernetes memory limit."
+            },
+            "memoryRequest": {
+              "type": "string",
+              "description": "Kubernetes memory quantity for each replica.",
+              "default": "1Gi"
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name. Defaults to the normalized stage.",
+              "maxLength": 120
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Optional Kubernetes namespace override. Empty uses the project namespace."
+            },
+            "nodeSelector": {
+              "type": "string",
+              "description": "JSON object or key=value lines."
+            },
+            "priorityClassName": {
+              "type": "string"
+            },
+            "readinessProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes readiness probe."
+            },
+            "readOnlyRootFilesystem": {
+              "type": "boolean",
+              "default": false
+            },
+            "replicas": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "repositoryBindingId": {
+              "type": "string",
+              "description": "Required when sourceType is repository; must belong to the same application."
+            },
+            "requireApproval": {
+              "type": "boolean",
+              "default": false
+            },
+            "runAsGroup": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "runAsUser": {
+              "type": "string",
+              "pattern": "^[0-9]*$"
+            },
+            "runtimeConfigRefs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "setId"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "live",
+                      "snapshot"
+                    ],
+                    "default": "live"
+                  },
+                  "setId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "runtimeConfigSetIds": {
+              "type": "array",
+              "description": "Legacy shorthand for live runtime configuration references.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "secretFiles": {
+              "type": "string",
+              "description": "JSON array of runtime secret file inputs. Existing plaintext values are never returned.",
+              "writeOnly": true
+            },
+            "secretRefs": {
+              "type": "string",
+              "description": "Serialized runtime Secret references; plaintext secret values are not accepted here."
+            },
+            "serviceAccountName": {
+              "type": "string",
+              "description": "Optional Kubernetes ServiceAccount name used by the workload Pods.",
+              "maxLength": 253,
+              "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            },
+            "serviceAnnotations": {
+              "type": "string",
+              "description": "JSON object or key=value lines."
+            },
+            "serviceExternalTrafficPolicy": {
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
+            "servicePort": {
+              "type": "integer",
+              "description": "Legacy single-port fallback used when servicePorts is empty.",
+              "default": 8080,
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "servicePorts": {
+              "type": "array",
+              "description": "Unique container service ports.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "port"
+                ],
+                "properties": {
+                  "appProtocol": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                },
+                "additionalProperties": false
+              },
+              "maxItems": 16
+            },
+            "serviceSessionAffinity": {
+              "type": "string",
+              "enum": [
+                "None",
+                "ClientIP"
+              ]
+            },
+            "serviceType": {
+              "type": "string",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ]
+            },
+            "sidecarContainers": {
+              "type": "string",
+              "description": "JSON array of Kubernetes sidecar containers."
+            },
+            "sourceType": {
+              "type": "string",
+              "description": "Repository builds source code; image deploys an existing image directly.",
+              "enum": [
+                "repository",
+                "image"
+              ]
+            },
             "stage": {
               "type": "string",
-              "description": "Immutable deployment stage identifier, unique within the application.",
-              "minLength": 2,
-              "maxLength": 12,
-              "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+              "description": "Immutable stage identifier, unique among active deployment targets in the application. It may be reused after deletion cleanup.",
+              "enum": [
+                "dev",
+                "test",
+                "staging",
+                "prod"
+              ],
+              "default": "dev"
+            },
+            "startupProbe": {
+              "type": "string",
+              "description": "JSON Kubernetes startup probe."
+            },
+            "tagPattern": {
+              "type": "string"
+            },
+            "targetImageRef": {
+              "type": "string",
+              "description": "Combined target repository and tag for repository builds."
+            },
+            "targetRegistryId": {
+              "type": "string",
+              "description": "Registry credential used to push repository builds."
+            },
+            "targetRepository": {
+              "type": "string"
+            },
+            "targetTag": {
+              "type": "string",
+              "default": "latest"
+            },
+            "tolerations": {
+              "type": "string",
+              "description": "JSON Kubernetes toleration array."
+            },
+            "topologySpreadConstraints": {
+              "type": "string",
+              "description": "JSON Kubernetes topology spread constraint array."
             },
             "webConsoleEnabled": {
               "type": [
                 "boolean",
                 "null"
               ],
-              "description": "`null` inherits the project-space master switch and `false` disables Web Console for this deployment target. `true` is normalized to inheritance for compatibility and cannot bypass a disabled project-space switch.",
+              "description": "`null` inherits the project-space master switch and `false` disables Web Console for this deployment target.",
               "default": null
+            },
+            "workloadType": {
+              "type": "string",
+              "enum": [
+                "Deployment",
+                "StatefulSet"
+              ],
+              "default": "Deployment"
             }
           },
-          "additionalProperties": true
+          "additionalProperties": false
         }
       },
       "required": [
@@ -7707,6 +8817,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "security": [
       {
         "SessionCookie": []
+      },
+      {
+        "BearerToken": []
       }
     ],
     "parameters": [
@@ -7774,7 +8887,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schemaRefs": [
           "#/components/schemas/ErrorResponse"
         ],
-        "description": "Interactive session cookie is missing or invalid (`auth.session.missing` or another authentication error)."
+        "description": "Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked."
       },
       {
         "status": "403",
@@ -7784,7 +8897,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schemaRefs": [
           "#/components/schemas/ErrorResponse"
         ],
-        "description": "A personal access token was used (`auth.interactive_session_required`), the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`)."
+        "description": "A personal access token was used (`mfa.session_required`), the OAuth grant lacks `deployment:data_export`, the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`)."
       },
       {
         "status": "404",
@@ -7828,7 +8941,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Export persistent runtime data",
-    "description": "Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive session, project Owner/Admin, resource-state, and `data_export` Step-up checks. Personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.",
+    "description": "Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive authentication-context, project Owner/Admin, resource-state, OAuth Scope, and `data_export` Step-up checks. Browser callers may use their session cookie and Luna CLI may use its OAuth bearer token; personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.",
     "operationId": "exportDeploymentTargetData",
     "inputSchema": {
       "type": "object",
@@ -7870,6 +8983,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "security": [
       {
         "SessionCookie": []
+      },
+      {
+        "BearerToken": []
       }
     ],
     "parameters": [
@@ -7930,7 +9046,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schemaRefs": [
           "#/components/schemas/ErrorResponse"
         ],
-        "description": "Interactive browser session is missing or invalid."
+        "description": "Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked."
       },
       {
         "status": "403",
@@ -7940,7 +9056,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schemaRefs": [
           "#/components/schemas/ErrorResponse"
         ],
-        "description": "Project role is insufficient, a personal access token was used, or `data_export` Step-up verification is required."
+        "description": "Project role is insufficient, the OAuth grant lacks `deployment:data_export`, a personal access token was used, or `data_export` Step-up verification is required."
       },
       {
         "status": "404",
@@ -7974,7 +9090,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Authorize a persistent runtime data export",
-    "description": "Requires an interactive project Owner/Admin session, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. Returns a random 60-second one-time ticket bound to the current user, session, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.",
+    "description": "Requires a browser session or Luna CLI OAuth bearer, project Owner/Admin membership, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. OAuth callers also require `deployment:data_export`; personal access tokens are rejected. Returns a random 60-second one-time ticket bound to the current user, authentication context, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.",
     "operationId": "authorizeDeploymentTargetDataExport",
     "inputSchema": {
       "type": "object",
@@ -8311,14 +9427,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "repo": {
               "type": "string"
             },
-            "webhookStatus": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "created",
-                "disabled",
-                "failed"
-              ]
+            "webhookEnabled": {
+              "type": "boolean",
+              "description": "Desired webhook configuration. Current webhook availability is observed from the Git provider."
             }
           }
         }
@@ -8414,14 +9525,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "repo": {
               "type": "string"
             },
-            "webhookStatus": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "created",
-                "disabled",
-                "failed"
-              ]
+            "webhookEnabled": {
+              "type": "boolean",
+              "description": "Desired webhook configuration. Current webhook availability is observed from the Git provider."
             }
           }
         }
@@ -9843,7 +10949,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "application/json"
         ],
         "schemaRefs": [
-          "#/components/schemas/BusinessObjectList"
+          "#/components/schemas/SystemComponentStatusResponse"
         ],
         "description": "Successful business response."
       },
@@ -10328,7 +11434,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "application/json"
         ],
         "schemaRefs": [
-          "#/components/schemas/BusinessObject"
+          "#/components/schemas/SystemComponentInstallResponse"
         ],
         "description": "Successful business response."
       },
@@ -11751,24 +12857,26 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "ref": "#/components/schemas/SystemComponentInstallInput",
           "type": "object",
           "required": [
+            "apiBaseUrl",
             "clusterId"
           ],
           "properties": {
+            "apiBaseUrl": {
+              "type": "string",
+              "format": "uri"
+            },
             "clusterId": {
+              "type": "string"
+            },
+            "mode": {
               "type": "string"
             },
             "namespace": {
               "type": "string"
             },
-            "parameters": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "values": {
-              "type": "object",
-              "additionalProperties": true
+            "traefikMetricsUrl": {
+              "type": "string",
+              "format": "uri"
             }
           }
         }
@@ -13329,6 +14437,937 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         }
       },
       "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/inbox",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "page",
+        "in": "query",
+        "ref": "#/components/parameters/Page",
+        "schema": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        }
+      },
+      {
+        "name": "pageSize",
+        "in": "query",
+        "ref": "#/components/parameters/PageSize",
+        "schema": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      {
+        "name": "sortBy",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "createdAt",
+            "updatedAt",
+            "priority"
+          ],
+          "default": "createdAt"
+        }
+      },
+      {
+        "name": "sortOrder",
+        "in": "query",
+        "ref": "#/components/parameters/SortOrder",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        }
+      },
+      {
+        "name": "filter",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "all",
+            "unread",
+            "action"
+          ],
+          "default": "all"
+        }
+      },
+      {
+        "name": "category",
+        "in": "query",
+        "schema": {
+          "ref": "#/components/schemas/InboxCategory",
+          "type": "string",
+          "enum": [
+            "action",
+            "project",
+            "billing",
+            "security",
+            "delivery",
+            "system"
+          ]
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/PaginatedInboxMessages"
+        ],
+        "description": "Paginated user-scoped inbox messages."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox query failed."
+      }
+    ],
+    "summary": "List the current user's inbox messages",
+    "description": "Returns non-archived messages owned by the authenticated user. Read state and action-request state are independent.",
+    "operationId": "listInboxMessages",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        },
+        "pageSize": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "sortBy": {
+          "type": "string",
+          "enum": [
+            "createdAt",
+            "updatedAt",
+            "priority"
+          ],
+          "default": "createdAt"
+        },
+        "sortOrder": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        },
+        "filter": {
+          "type": "string",
+          "enum": [
+            "all",
+            "unread",
+            "action"
+          ],
+          "default": "all"
+        },
+        "category": {
+          "ref": "#/components/schemas/InboxCategory",
+          "type": "string",
+          "enum": [
+            "action",
+            "project",
+            "billing",
+            "security",
+            "delivery",
+            "system"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "The first inbox experience is provided by the interactive web message center."
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/inbox/unread-count",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/InboxUnreadCount"
+        ],
+        "description": "Current unread count from the database fact source."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox unread-count query failed."
+      }
+    ],
+    "summary": "Get the current user's unread inbox count",
+    "operationId": "getInboxUnreadCount",
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "The unread badge is consumed by the interactive web message center."
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/inbox/stream",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "text/event-stream"
+        ],
+        "schemaRefs": [],
+        "description": "Unbuffered SSE invalidation stream."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox stream initialization failed."
+      }
+    ],
+    "summary": "Stream inbox invalidation hints for the current user",
+    "description": "Emits invalidation hints only. Clients must reload the list and unread count from the database-backed endpoints after every event or reconnect.",
+    "operationId": "streamInboxChanges",
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Browser EventSource transport for the interactive message center."
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/inbox/{messageId}",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "messageId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/InboxMessageId",
+        "schema": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/InboxMessage"
+        ],
+        "description": "User-scoped inbox message."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox message query failed."
+      }
+    ],
+    "summary": "Get one inbox message owned by the current user",
+    "operationId": "getInboxMessage",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      },
+      "required": [
+        "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Inbox message details are currently provided by the interactive web message center."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/inbox/{messageId}/read",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "messageId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/InboxMessageId",
+        "schema": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "204",
+        "contentTypes": [],
+        "schemaRefs": [],
+        "description": "Message marked as read."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox message update failed."
+      }
+    ],
+    "summary": "Mark one current-user inbox message as read",
+    "operationId": "markInboxMessageRead",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      },
+      "required": [
+        "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Inbox read state is currently managed by the interactive web message center."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/inbox/read-all",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "204",
+        "contentTypes": [],
+        "schemaRefs": [],
+        "description": "All visible messages marked as read."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox message update failed."
+      }
+    ],
+    "summary": "Mark all current-user inbox messages as read",
+    "description": "This does not accept, reject, or otherwise mutate linked action requests.",
+    "operationId": "markAllInboxMessagesRead",
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Inbox read state is currently managed by the interactive web message center."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/inbox/{messageId}/archive",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "messageId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/InboxMessageId",
+        "schema": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "204",
+        "contentTypes": [],
+        "schemaRefs": [],
+        "description": "Message archived."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Inbox message update failed."
+      }
+    ],
+    "summary": "Archive one current-user inbox message",
+    "description": "Archiving a message does not mutate its linked action request.",
+    "operationId": "archiveInboxMessage",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "pattern": "^imsg_"
+        }
+      },
+      "required": [
+        "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Inbox archive state is currently managed by the interactive web message center."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/inbox/action-requests/{requestId}/decision",
+    "tags": [
+      "Inbox"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      },
+      {
+        "BearerToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "requestId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/InboxRequestId",
+        "schema": {
+          "type": "string",
+          "pattern": "^iar_"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/InboxActionRequestSummary"
+        ],
+        "description": "Updated action-request summary."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      },
+      {
+        "status": "410",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The action request has expired."
+      },
+      {
+        "status": "500",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Action-request decision failed."
+      },
+      {
+        "status": "503",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "No typed action-request decision handler is available."
+      }
+    ],
+    "summary": "Accept or reject an inbox action request",
+    "description": "Revalidates the recipient, request version, expiry, requester authorization, and current resource state before applying the typed business decision.",
+    "operationId": "decideInboxActionRequest",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/InboxDecisionInput"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "pattern": "^iar_"
+        },
+        "body": {
+          "ref": "#/components/schemas/InboxDecisionInput",
+          "type": "object",
+          "required": [
+            "decision",
+            "expectedVersion"
+          ],
+          "properties": {
+            "decision": {
+              "ref": "#/components/schemas/InboxDecision",
+              "type": "string",
+              "enum": [
+                "accept",
+                "reject"
+              ]
+            },
+            "expectedVersion": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "body",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "hidden": true,
+      "exclusionReason": "Typed action requests currently require the interactive inbox confirmation workflow."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/telemetry/v1/traces",
+    "tags": [
+      "Telemetry"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "204",
+        "contentTypes": [],
+        "schemaRefs": [],
+        "description": "Trace payload accepted, or server-side browser telemetry is disabled."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "413",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Trace payload exceeds the one MiB relay limit."
+      },
+      {
+        "status": "415",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "OTLP protobuf content type is required."
+      },
+      {
+        "status": "429",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Per-user browser telemetry rate limit exceeded."
+      },
+      {
+        "status": "503",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Telemetry rate limiting or collector relay is unavailable."
+      }
+    ],
+    "summary": "Relay authenticated browser OTLP traces",
+    "description": "Accepts an OTLP/HTTP protobuf payload from the signed-in web client and relays it to the server-configured collector without exposing collector credentials or topology.",
+    "operationId": "relayBrowserTraces",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/x-protobuf"
+      ],
+      "schemaRefs": []
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "type": "string",
+          "format": "binary"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "xLunaCli": {
+      "classification": "internal-observability",
+      "hidden": true,
+      "agentAllowed": false,
+      "exclusionReason": "Browser telemetry ingestion transport is not a user business command."
     }
   },
   {
@@ -20043,5 +22082,1849 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     ],
     "summary": "Get Gateway Traffic Status",
     "operationId": "getGatewayTrafficStatus"
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/capabilities",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Capability result"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      }
+    ],
+    "summary": "Resolve AI assistant availability for the current browser session",
+    "operationId": "getAICapabilities"
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/conversations",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Paginated conversation list"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      }
+    ],
+    "summary": "List conversations owned by the current session user",
+    "operationId": "listAIConversations"
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/conversations",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "201",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Conversation created"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      }
+    ],
+    "summary": "Create a private AI conversation",
+    "operationId": "createAIConversation",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/conversations/{conversationId}",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "conversationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Conversation"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "getAIConversation",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "delete",
+    "path": "/api/v1/ai/conversations/{conversationId}",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "conversationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "204",
+        "contentTypes": [],
+        "schemaRefs": [],
+        "description": "Conversation physically deleted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "deleteAIConversation",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "patch",
+    "path": "/api/v1/ai/conversations/{conversationId}",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "conversationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Updated conversation"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "updateAIConversation",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "body",
+        "conversationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/conversations/{conversationId}/timeline",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "conversationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Durable conversation timeline snapshot"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "getAIConversationTimeline",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "conversationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/conversations/{conversationId}/turns",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "conversationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Turn and initial run accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "createAITurn",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string"
+        },
+        "Idempotency-Key": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "Idempotency-Key",
+        "body",
+        "conversationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/ui-actions/pending",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "clientInstanceId",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Pending UI actions bound to the current user and browser client"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      }
+    ],
+    "summary": "List unacknowledged UI actions for the initiating browser client",
+    "operationId": "listPendingAIUIActions",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "clientInstanceId": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 80,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "clientInstanceId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/ui-actions/{actionId}/ack",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "actionId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "UI action acknowledgement accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "summary": "Acknowledge a browser UI action after route execution succeeds or fails",
+    "operationId": "acknowledgeAIUIAction",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "actionId",
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/turns/{turnId}/runs",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "turnId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Paginated run list"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "listAIRuns",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "turnId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "turnId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/turns/{turnId}/runs",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "turnId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Regenerated run accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "createAIRun",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "turnId": {
+          "type": "string"
+        },
+        "Idempotency-Key": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "Idempotency-Key",
+        "body",
+        "turnId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/runs/{runId}",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Run state"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "getAIRun",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/ai/runs/{runId}/events",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "after",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        }
+      },
+      {
+        "name": "Last-Event-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "text/event-stream"
+        ],
+        "schemaRefs": [],
+        "description": "Unbuffered recoverable SSE stream of persisted content"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "summary": "Replay and stream durable run events",
+    "operationId": "streamAIRunEvents",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "after": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "Last-Event-ID": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/runs/{runId}/cancel",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Cancellation accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      }
+    ],
+    "operationId": "cancelAIRun",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/runs/{runId}/input",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Supplemental input accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "submitAIRunInput",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "body",
+        "runId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/runs/{runId}/approvals/{toolCallId}/decision",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "toolCallId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Approval decision accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "decideAIToolApproval",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "body",
+        "runId",
+        "toolCallId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/ai/runs/{runId}/mfa/{toolCallId}/resume",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "runId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "toolCallId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "202",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "MFA resume accepted"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "404",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested resource was not found."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "operationId": "resumeAIRunAfterMFA",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIObject"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        },
+        "body": {
+          "ref": "#/components/schemas/AIObject",
+          "type": "object",
+          "description": "Versioned AI Agent response projected through the Luna API BFF.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "body",
+        "runId",
+        "toolCallId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/internal/v1/ai/delegations/exchange",
+    "tags": [
+      "AI Assistant Internal"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "AIAgentServiceToken": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIDelegationResponse"
+        ],
+        "description": "Short-lived operation-bound delegation"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      }
+    ],
+    "summary": "Exchange a bound Run Actor Grant for a 60-second tool delegation",
+    "operationId": "exchangeAIRunActorGrant",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": [
+        "#/components/schemas/AIDelegationExchangeInput"
+      ]
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "ref": "#/components/schemas/AIDelegationExchangeInput",
+          "type": "object",
+          "required": [
+            "approvalGranted",
+            "argumentsHash",
+            "operationId",
+            "requestedScopes",
+            "runActorGrant",
+            "runId",
+            "toolCallId"
+          ],
+          "properties": {
+            "approvalGranted": {
+              "type": "boolean",
+              "description": "True only after the Agent validated the current parameter-bound approval."
+            },
+            "argumentsHash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "mfaPurpose": {
+              "type": "string",
+              "description": "Present only after a matching Step-up resume."
+            },
+            "operationId": {
+              "type": "string"
+            },
+            "requestedScopes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "runActorGrant": {
+              "type": "string"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "stepUpAssertionId": {
+              "type": "string",
+              "description": "API-issued assertion revalidated for the delegated user"
+            },
+            "toolCallId": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/internal/v1/ai/tools/{operationId}/execute",
+    "tags": [
+      "AI Assistant Internal"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "AIDelegationToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "operationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "getDashboard",
+            "listProjects",
+            "listPlatformEvents",
+            "getProject",
+            "listApplications",
+            "listBuildRuns",
+            "listReleases",
+            "listRuntimeClusters",
+            "listGatewayRoutes",
+            "listGatewayCertificates",
+            "listProjectHookRuns",
+            "listNotificationDeliveries",
+            "listRuntimeEvents"
+          ]
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Redacted diagnostic result"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      },
+      {
+        "status": "409",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The requested state transition conflicts with the current durable state."
+      }
+    ],
+    "summary": "Execute one registered diagnostic operation with a bound delegation",
+    "operationId": "executeRegisteredAITool",
+    "requestBody": {
+      "required": true,
+      "contentTypes": [
+        "application/json"
+      ],
+      "schemaRefs": []
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "enum": [
+            "getDashboard",
+            "listProjects",
+            "listPlatformEvents",
+            "getProject",
+            "listApplications",
+            "listBuildRuns",
+            "listReleases",
+            "listRuntimeClusters",
+            "listGatewayRoutes",
+            "listGatewayCertificates",
+            "listProjectHookRuns",
+            "listNotificationDeliveries",
+            "listRuntimeEvents"
+          ]
+        },
+        "body": {
+          "type": "object",
+          "required": [
+            "arguments"
+          ],
+          "properties": {
+            "arguments": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "required": [
+        "body",
+        "operationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "post",
+    "path": "/internal/v1/ai/tools/{operationId}/verify",
+    "tags": [
+      "AI Assistant Internal"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "AIDelegationToken": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "operationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "getDashboard",
+            "listPlatformEvents",
+            "getProject",
+            "listApplications",
+            "listBuildRuns",
+            "listReleases",
+            "listRuntimeClusters",
+            "listGatewayRoutes",
+            "listGatewayCertificates",
+            "listProjectHookRuns",
+            "listNotificationDeliveries",
+            "listRuntimeEvents"
+          ]
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Current policy verification"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      }
+    ],
+    "summary": "Re-authorize a registered operation and inspect its bound policy",
+    "operationId": "verifyRegisteredAITool",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "type": "string",
+          "enum": [
+            "getDashboard",
+            "listPlatformEvents",
+            "getProject",
+            "listApplications",
+            "listBuildRuns",
+            "listReleases",
+            "listRuntimeClusters",
+            "listGatewayRoutes",
+            "listGatewayCertificates",
+            "listProjectHookRuns",
+            "listNotificationDeliveries",
+            "listRuntimeEvents"
+          ]
+        }
+      },
+      "required": [
+        "operationId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "method": "get",
+    "path": "/internal/v1/ai/provider-config",
+    "tags": [
+      "AI Assistant Internal"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "AIAgentServiceToken": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIProviderInternalConfig"
+        ],
+        "description": "Non-cacheable Provider configuration, including the decrypted API key for in-memory Agent use."
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      }
+    ],
+    "summary": "Return the versioned Provider and runtime policy required by Agent",
+    "operationId": "getInternalAIProviderConfig"
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/configs/ai/provider/test",
+    "tags": [
+      "AI Assistant"
+    ],
+    "deprecated": false,
+    "security": [
+      {
+        "SessionCookie": []
+      }
+    ],
+    "parameters": [],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/AIObject"
+        ],
+        "description": "Stable Provider connection result"
+      },
+      {
+        "status": "401",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "A valid interactive browser session is required."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "The authenticated principal is not allowed to perform this operation."
+      },
+      {
+        "status": "503",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "description": "Agent or Provider is unavailable"
+      }
+    ],
+    "summary": "Ask Agent to perform a minimal read-only Provider connection test",
+    "operationId": "testAIProviderConnection"
   }
 ] as const satisfies readonly OpenApiOperationSnapshot[];

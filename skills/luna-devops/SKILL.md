@@ -26,6 +26,7 @@ operation ID。
 | 余额、账单、用量、费率、Credits | `billing` | [账单](references/billing.md) |
 | 渠道、通知模板、规则、投递 | `notification` | [通知](references/notifications.md) |
 | 登录、OIDC、OAuth、MFA、用户、Token | `auth`、`user`、`access-token` | [安全与账号](references/security.md) |
+| AI 助手、会话、运行、审批、取消、界面动作 | `ai-assistant` | [AI 助手](references/ai-assistant.md) |
 | 全局配置、数据保留、系统组件 | `config`、`retention`、`system` | [系统管理](references/system.md) |
 | 健康、事件、失败、异常、跨领域排障 | `health`、`event` | [诊断](references/debugging.md) 和受影响领域 |
 
