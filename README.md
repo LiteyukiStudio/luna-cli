@@ -38,6 +38,12 @@ Webhook、内部接收器和底层协议操作不会注册为 canonical raw comm
 后端权限、Scope 与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
 人类诊断逃生口，不参与业务能力伪装。终端和数据导出要求 CLI OAuth 登录与
 对应 purpose 的有效 Step-up；个人访问令牌不能满足或绕过这一协议授权。
+`luna login` 默认只请求当前角色适用的常用 Scope；敏感 Scope 需要用户明确
+重新授权。已知命令会在发请求前检查 OAuth Grant，缺少 Scope 时返回
+`oauth_scope_required` 和可直接执行的 `luna login scope=...` 提示。
+命令元数据尚未声明 Scope 时，CLI 会使用服务端拒绝响应中的 `requiredScope`
+生成同样的重新授权提示。
+Scope 只表达调用能力，不能替代项目空间角色和后端权限检查。
 覆盖数量与比例不在本文维护，以 `pnpm check:platform-cli-coverage` 的实时输出为准。
 
 ## 安装
@@ -163,8 +169,12 @@ confirmation, or `--yes` in non-interactive and agent mode. CLI confirmation
 records caller intent only: server permissions, scopes, and step-up MFA remain
 authoritative. Terminal and data-export protocols require a CLI OAuth login and
 a valid step-up assertion for the matching purpose; personal access tokens cannot
-satisfy or bypass that authorization. Generic `api request` remains a human-only
-diagnostic escape hatch.
+satisfy or bypass that authorization. `luna login` requests only common scopes
+appropriate for the current role; sensitive scopes require explicit
+reauthorization. Known commands check the active OAuth grant before sending a
+request and return `oauth_scope_required` with a runnable login command when a
+scope is missing. Scopes never replace project roles or backend authorization.
+Generic `api request` remains a human-only diagnostic escape hatch.
 
 ### Installation
 

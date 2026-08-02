@@ -70,7 +70,7 @@ CLI 与 Web 控制台共用后端能力和 API 契约，但不直接复用浏览
 - 当前后端尚未实现 Device Authorization Grant；
 - Step-up MFA assertion 已支持绑定浏览器 Session 或内置 CLI OAuth Grant；个人访问令牌仍被明确拒绝。
 - 终端预授权、终端存活监控和数据导出一次性票据已使用统一认证上下文，可绑定浏览器 Session 或 CLI OAuth Grant。
-- 当前 OAuth 授权复用个人访问令牌的可创建 Scope 规则，而数据导出等必须 Step-up 的 Scope 被个人令牌目录刻意排除；不拆分 OAuth 与 PAT Scope 策略时，CLI 无法取得这些敏感能力的授权。
+- OAuth 与个人访问令牌已使用不同的 Scope 策略：普通用户可明确授权项目空间和账号级 OAuth Scope，平台管理 Scope 仍只允许平台管理员；要求 Step-up 的敏感 Scope 不进入个人访问令牌目录，也不进入默认 OAuth 推荐集合。
 - 当前 Bearer 鉴权通过 `RequiredAccessTokenScope` 维护独立的路由到 Scope 映射，未映射路由统一得到 `system:unmapped` 并被拒绝；通知、看板、数据保留、构建模板等现有路由仍有落入该分支的风险。只补 OpenAPI 和命令而不补 Scope 映射，CLI 仍会稳定返回 403。
 
 以上数字是设计审计快照，不作为长期硬编码基线。实现阶段必须由测试代码直接读取 Gin `router.Routes()` 和 OpenAPI 生成最新覆盖报告。
@@ -994,8 +994,9 @@ luna auth login server=https://devops.example.com
 - 公共客户端使用 `token_endpoint_auth_method=none`，不能在二进制内嵌 client secret。
 - 必须强制 PKCE S256。
 - Token Endpoint 必须接受该内置公共客户端不带 Client Secret 的换码与刷新请求；现有只支持 `client_secret_basic/post` 的实现必须先扩展。
-- OAuth Scope 校验必须与个人访问令牌的可创建 Scope 策略分离：PAT 继续禁止要求 Step-up 的敏感 Scope，第一方 `luna-cli` OAuth Client 可以在用户明确同意、角色允许且后续强制 Step-up 的前提下申请这些 Scope。
+- OAuth Scope 校验与个人访问令牌的可创建 Scope 策略已经分离：PAT 继续禁止要求 Step-up 的敏感 Scope，第一方 `luna-cli` OAuth Client 可以在用户明确同意、角色允许且后续强制 Step-up 的前提下申请这些 Scope。
 - 第一方 CLI Client 不自动获得 `*`；请求的每个 Scope 都必须进入授权确认页、Access Token、审计和服务端最终权限判断。
+- `luna login` 默认请求与当前角色匹配的推荐 Scope；敏感 Scope 需要重新执行授权。CLI 对已知命令会在发送请求前检查当前 OAuth Grant，缺少 Scope 时返回 `oauth_scope_required` 和可执行的重新登录命令；命令元数据尚未声明 Scope 时，服务端必须在 `auth.token.scope_insufficient` 的 `details.requiredScope` 中返回最终要求，CLI 将其转换为同样的重新授权提示。OAuth Scope 只表达调用能力，不能替代项目成员角色、资源归属和后端权限判断。
 - 只为该内置公共客户端允许 `http://127.0.0.1:{random-port}/callback` 或 `http://[::1]:{random-port}/callback`；主机必须是 loopback IP 字面量，path 固定，不允许任意主机、域名、userinfo 或额外路径通配。
 - Authorization Code 必须单次使用、短时有效并绑定 Client ID、redirect URI 和 PKCE challenge；Token Endpoint 使用标准 form 编码处理授权码、刷新和 Device Code grant。
 

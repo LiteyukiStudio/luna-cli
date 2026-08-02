@@ -25,5 +25,8 @@
 - 取得终端或导出授权票据不代表会话已连接或文件已下载。
 - 终端与数据导出的预授权要求 CLI OAuth 登录和对应 purpose 的 Step-up MFA；
   个人访问令牌不能用于绕过用户在场验证。
+- 数据导出还要求 OAuth Grant 显式包含 `deployment:data_export`。如果 CLI
+  返回 `oauth_scope_required`，将其中的重新授权命令交给用户执行，不自行扩大
+  Scope。
 - 收到 `mfa_required` 时遵循根 Skill 的用户在场验证流程，不能改用其他 Token 绕过。
 - 回滚和重启前确认目标版本与当前运行版本，执行后验证实际工作负载状态。

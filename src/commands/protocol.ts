@@ -97,7 +97,7 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         localParameter('overwrite', { type: 'boolean' }),
         localParameter('maxBytes', { type: 'integer', minimum: 1 }),
       ],
-      scopes: ['runtime:data:export'],
+      scopes: ['deployment:data_export'],
       examples: [
         'luna deployment data-export applicationId=app_example targetId=dplt_example destination=backup.tar.gz',
       ],
@@ -117,6 +117,7 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
+      scopes: ['cluster:manage'],
     }),
     webSocketDefinition({
       category: 'release',
@@ -133,6 +134,7 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
+      scopes: ['deployment:exec'],
     }),
   ]
 }

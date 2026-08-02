@@ -4,6 +4,10 @@ import type {
   NormalizedCommandMetadata,
   RuntimePorts,
 } from './types.js'
+import {
+  assertOAuthScopes,
+  withOAuthScopeRemediation,
+} from '../auth/scope-preflight.js'
 import { resolveRuntimeContext } from '../config/resolve.js'
 import { planOpenApiRequest } from './api.js'
 import { CliCommandError } from './errors.js'
@@ -88,6 +92,11 @@ export async function openProtocolRequest(
     })
   }
 
+  assertOAuthScopes(
+    runtime.credential,
+    runtime.sources.credential,
+    invocation.metadata.scopes,
+  )
   const token = runtime.credential?.type === 'oauth'
     ? runtime.credential.accessToken
     : runtime.credential?.type === 'access_token'
@@ -167,8 +176,13 @@ export async function openProtocolRequest(
       },
     )
   }
-  if (!response.ok)
-    throw await responseError(response)
+  if (!response.ok) {
+    throw withOAuthScopeRemediation(
+      await responseError(response),
+      runtime.credential,
+      runtime.sources.credential,
+    )
+  }
 
   const requestId = response.headers.get('x-request-id') ?? undefined
   return {

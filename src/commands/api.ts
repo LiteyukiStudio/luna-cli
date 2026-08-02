@@ -26,10 +26,12 @@ import {
   LunaClient,
 } from '@luna-devops/api-client'
 import {
+  assertOAuthScopes,
   beginOAuthLogin,
   refreshOAuthCredential,
   revokeOAuthCredential,
   storeValidatedOAuthCredential,
+  withOAuthScopeRemediation,
 } from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/index.js'
 import {
@@ -124,7 +126,7 @@ export class LunaApiAdapter implements ApiPort {
       }
     }
     await this.#ensureServerCompatibility(request.globals)
-    const result = await this.#send(planned, request.globals)
+    const result = await this.#send(planned, request.globals, request.metadata.scopes)
     const projectId = requestProjectId(request)
     return {
       schemaVersion: request.metadata.schemaVersion,
@@ -270,8 +272,9 @@ export class LunaApiAdapter implements ApiPort {
   async #send(
     planned: PlannedApiRequest,
     globals: CommandExecutionGlobals,
+    requiredScopes: readonly string[] = [],
   ): Promise<{ data: unknown, requestId: string, status: number }> {
-    const client = await this.#client(globals)
+    const client = await this.#client(globals, requiredScopes)
     const headers = new Headers(planned.headers)
     if (globals.idempotencyKey)
       headers.set('idempotency-key', globals.idempotencyKey)
@@ -285,8 +288,27 @@ export class LunaApiAdapter implements ApiPort {
       timeoutMs: globals.timeoutMs,
     })
     if (!result.ok)
-      throw apiFailure(result.error)
+      throw await this.#scopeAwareFailure(apiFailure(result.error), globals)
     return result
+  }
+
+  async #scopeAwareFailure(
+    error: CliCommandError,
+    globals: CommandExecutionGlobals,
+  ): Promise<CliCommandError> {
+    const config = await this.#config.read()
+    const runtime = resolveRuntimeContext(config, {
+      server: globals.server,
+      project: globals.project,
+      output: globals.output,
+      language: globals.lang,
+      env: this.#env,
+    })
+    return withOAuthScopeRemediation(
+      error,
+      runtime.credential,
+      runtime.sources.credential,
+    )
   }
 
   async #ensureServerCompatibility(
@@ -324,7 +346,10 @@ export class LunaApiAdapter implements ApiPort {
     this.#compatibleServers.add(cacheKey)
   }
 
-  async #client(globals: CommandExecutionGlobals): Promise<LunaClient> {
+  async #client(
+    globals: CommandExecutionGlobals,
+    requiredScopes: readonly string[] = [],
+  ): Promise<LunaClient> {
     if (globals.insecureSkipTlsVerify) {
       throw new CliCommandError(
         'insecure_tls_unsupported',
@@ -345,6 +370,11 @@ export class LunaApiAdapter implements ApiPort {
       language: globals.lang,
       env: this.#env,
     })
+    assertOAuthScopes(
+      runtime.credential,
+      runtime.sources.credential,
+      requiredScopes,
+    )
     if (
       runtime.sources.credential === 'config'
       && runtime.credential?.type === 'oauth'
@@ -383,6 +413,11 @@ export class LunaApiAdapter implements ApiPort {
         env: this.#env,
       })
     }
+    assertOAuthScopes(
+      runtime.credential,
+      runtime.sources.credential,
+      requiredScopes,
+    )
     const credential = runtime.credential
     const token = credential?.type === 'oauth'
       ? credential.accessToken

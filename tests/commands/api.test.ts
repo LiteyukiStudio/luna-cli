@@ -1,6 +1,6 @@
 import type { ApiExecutionRequest, CommandExecutionGlobals } from '../../src/commands/index.js'
 import type { StoredLunaConfig } from '../../src/config/schema.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   CliCommandError,
   LunaApiAdapter,
@@ -249,6 +249,93 @@ describe('oAuth credential refresh', () => {
   })
 })
 
+describe('oauth scope preflight', () => {
+  it('rejects a canonical command before sending when the stored grant lacks a required scope', async () => {
+    const request = vi.fn()
+    const adapter = new LunaApiAdapter({
+      config: new MemoryConfigStore(oauthConfig()),
+      clientFactory: () => ({ request }) as never,
+    })
+
+    await expect(adapter.execute({
+      operationId: 'updateProject',
+      globals,
+      params: {
+        projectId: 'project alpha',
+        body: { name: 'Renamed project' },
+      },
+      metadata: normalizeMetadata({
+        category: 'project',
+        tool: 'update',
+        source: 'openapi',
+        operationId: 'updateProject',
+        method: 'patch',
+        path: '/api/v1/projects/{projectId}',
+        scopes: ['project:write'],
+        parameters: [
+          { name: 'projectId', location: 'path', required: true },
+          { name: 'body', location: 'body', required: true },
+        ],
+      }),
+    })).rejects.toMatchObject({
+      code: 'oauth_scope_required',
+      status: 403,
+      details: expect.objectContaining({
+        missingScopes: ['project:write'],
+      }),
+    })
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('uses the server-required scope when command metadata is incomplete', async () => {
+    const adapter = new LunaApiAdapter({
+      config: new MemoryConfigStore(activeOauthConfig()),
+      clientFactory: () => ({
+        request: async () => ({
+          ok: false,
+          error: {
+            code: 'auth.token.scope_insufficient',
+            message: 'Insufficient scope.',
+            status: 403,
+            retryable: false,
+            requestId: 'request-scope',
+            details: { requiredScope: 'application:update' },
+          },
+        }),
+      }) as never,
+    })
+
+    await expect(adapter.execute({
+      operationId: 'updateApplication',
+      globals,
+      params: {
+        projectId: 'project alpha',
+        applicationId: 'application-one',
+        body: { name: 'Renamed application' },
+      },
+      metadata: normalizeMetadata({
+        category: 'application',
+        tool: 'update',
+        source: 'openapi',
+        operationId: 'updateApplication',
+        method: 'patch',
+        path: '/api/v1/projects/{projectId}/applications/{applicationId}',
+        parameters: [
+          { name: 'projectId', location: 'path', required: true },
+          { name: 'applicationId', location: 'path', required: true },
+          { name: 'body', location: 'body', required: true },
+        ],
+      }),
+    })).rejects.toMatchObject({
+      code: 'oauth_scope_required',
+      details: expect.objectContaining({
+        missingScopes: ['application:update'],
+        remediation: 'luna login scope=application:update scope=project:read',
+      }),
+    })
+  })
+})
+
 function compatibleAdapter(paths: string[], serverDigest = 'sha256:contract') {
   return new LunaApiAdapter({
     config: {
@@ -322,4 +409,12 @@ function oauthConfig(): StoredLunaConfig {
     language: '',
     output: '',
   }
+}
+
+function activeOauthConfig(): StoredLunaConfig {
+  const config = oauthConfig()
+  if (config.credential?.type === 'oauth') {
+    config.credential.expiresAt = '2999-07-27T10:00:00.000Z'
+  }
+  return config
 }

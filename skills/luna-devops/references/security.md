@@ -28,6 +28,11 @@
 - 登录与 Step-up MFA 是不同事务，已有登录凭据不代表满足当前敏感操作。
 - CLI 终端和数据导出要求 OAuth 登录与对应 purpose 的有效 Step-up assertion。
   个人访问令牌不能满足或绕过该协议授权。
+- 收到 `oauth_scope_required` 时，停止当前操作并把错误返回的 `remediation`
+  命令交给用户在自己的终端执行。Agent 不自行重新登录、不静默扩大 Scope，也不
+  改用平台管理员或个人访问令牌重试。
+- OAuth Scope 只表示 Grant 允许调用对应 API；项目成员角色、资源归属和后端
+  权限检查仍然是最终裁决。
 
 ## Secret 与权限
 
