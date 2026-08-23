@@ -19,15 +19,16 @@ operation ID。
 | Git、GitHub、Gitea、仓库、分支、Webhook | `git` | [代码源](references/source.md) |
 | 镜像站、OCI、Harbor、DockerHub、镜像凭据 | `registry` | [镜像站](references/registry.md) |
 | BuildKit、Dockerfile、构建环境、构建模板、构建运行 | `build` | [构建](references/build.md) |
-| 应用、部署配置、发布、回滚、数据导出 | `application`、`deployment` | [应用与部署](references/deployment.md) |
-| Kubernetes、集群、工作负载、Pod、日志、终端 | `runtime` | [运行时](references/runtime.md) |
+| 应用、部署配置、发布、回滚 | `application`、`deployment` | [应用与部署](references/deployment.md) |
+| Kubernetes、集群、工作负载、Pod、存储卷、日志、终端 | `runtime`、`volume`、`volume-transfer` | [运行时](references/runtime.md) |
 | 域名、Gateway、HTTPRoute、TLS、证书 | `gateway` | [网关](references/gateway.md) |
 | 服务依赖、资源图、ServiceBinding | `topology` | [拓扑](references/topology.md) |
 | 余额、账单、用量、费率、Credits | `billing` | [账单](references/billing.md) |
 | 渠道、通知模板、规则、投递 | `notification` | [通知](references/notifications.md) |
 | 登录、OIDC、OAuth、MFA、用户、Token | `auth`、`user`、`access-token` | [安全与账号](references/security.md) |
 | AI 助手、会话、运行、审批、取消、界面动作 | `ai-assistant` | [AI 助手](references/ai-assistant.md) |
-| 全局配置、数据保留、系统组件 | `config`、`retention`、`system` | [系统管理](references/system.md) |
+| Agent 运营概览、跨用户轮次、工具成功率、工具调用和 Trace 诊断 | `agent-observability` | [Agent 可观测诊断](references/agent-observability.md) |
+| 全局配置、AI 模型设置、数据保留、系统组件 | `config`、`settings`、`retention`、`system` | [系统管理](references/system.md) |
 | 健康、事件、失败、异常、跨领域排障 | `health`、`event` | [诊断](references/debugging.md) 和受影响领域 |
 
 单领域任务只读取一个引用。跨领域任务先读取主领域，再按真实依赖追加；命令缺失时
@@ -109,8 +110,8 @@ operation ID。
   重放一次原命令。绝不能要求用户把验证码、恢复码或 Token 发送给 Agent。
 - OAuth Device Code 登录和 Step-up MFA 是不同事务；已登录不代表已经满足当前
   敏感操作的二次验证，个人访问令牌也不能绕过 Step-up MFA。
-- CLI 终端和数据导出必须使用 CLI OAuth 登录，并为对应 purpose 完成有效的
-  Step-up MFA。个人访问令牌不能满足或绕过这两个协议能力的用户在场要求。
+- CLI 终端必须使用 CLI OAuth 登录，并为对应 purpose 完成有效的 Step-up MFA。
+  个人访问令牌不能满足或绕过该协议能力的用户在场要求。
 - 不通过扩大 Scope、改用管理员账号、重新登录其他实例或绕过 CLI 恢复失败操作。
 
 ## 结果报告

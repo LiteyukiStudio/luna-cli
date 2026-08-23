@@ -180,6 +180,41 @@ describe("LunaClient", () => {
     })
   })
 
+  it("preserves unavailable observation and correlation evidence", async () => {
+    const fetch = vi.fn<FetchLike>().mockResolvedValue(new Response(JSON.stringify({
+      code: "ai.observability.trace_unavailable",
+      error: "Trace detail is unavailable",
+      observationCode: "ai.observability.trace_unavailable",
+      requestId: "req_observation",
+      retryable: true,
+      status: "unavailable",
+    }), {
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": "corr_observation",
+      },
+      status: 503,
+    }))
+    const client = clientWithFetch(fetch, { retry: { maxAttempts: 1 } })
+
+    const result = await client.request({ path: "/api/v1/ai/observability/traces/trace" })
+
+    expect(result).toMatchObject({
+      error: {
+        code: "ai.observability.trace_unavailable",
+        details: {
+          correlationId: "corr_observation",
+          observationCode: "ai.observability.trace_unavailable",
+          observationStatus: "unavailable",
+        },
+        requestId: "req_observation",
+        retryable: true,
+      },
+      ok: false,
+      status: 503,
+    })
+  })
+
   it("supports text and binary response adapters", async () => {
     const fetch = vi.fn<FetchLike>()
       .mockResolvedValueOnce(new Response("plain text", { status: 200 }))

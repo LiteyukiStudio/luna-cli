@@ -2,9 +2,10 @@
 
 ## 机器目录
 
-按任务查询 `config`、`retention` 或 `system` 分类，例如：
+按任务查询 `config`、`settings`、`retention` 或 `system` 分类，例如：
 
 - `luna help catalog category=config limit=100 output=json interactive=false agent=true`
+- `luna help catalog category=settings limit=100 output=json interactive=false agent=true`
 - `luna help catalog category=retention limit=100 output=json interactive=false agent=true`
 - `luna help catalog category=system limit=100 output=json interactive=false agent=true`
 

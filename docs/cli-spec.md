@@ -69,7 +69,7 @@ CLI 与 Web 控制台共用后端能力和 API 契约，但不直接复用浏览
 - 当前 OAuth Token Endpoint 仅支持 `client_secret_basic` 与 `client_secret_post`，还不能安全支持没有 Client Secret 的原生 CLI 公共客户端；
 - 当前后端尚未实现 Device Authorization Grant；
 - Step-up MFA assertion 已支持绑定浏览器 Session 或内置 CLI OAuth Grant；个人访问令牌仍被明确拒绝。
-- 终端预授权、终端存活监控和数据导出一次性票据已使用统一认证上下文，可绑定浏览器 Session 或 CLI OAuth Grant。
+- 终端预授权和终端存活监控已使用统一认证上下文，可绑定浏览器 Session 或 CLI OAuth Grant。
 - OAuth 与个人访问令牌已使用不同的 Scope 策略：普通用户可明确授权项目空间和账号级 OAuth Scope，平台管理 Scope 仍只允许平台管理员；要求 Step-up 的敏感 Scope 不进入个人访问令牌目录，也不进入默认 OAuth 推荐集合。
 - 当前 Bearer 鉴权通过 `RequiredAccessTokenScope` 维护独立的路由到 Scope 映射，未映射路由统一得到 `system:unmapped` 并被拒绝；通知、看板、数据保留、构建模板等现有路由仍有落入该分支的风险。只补 OpenAPI 和命令而不补 Scope 映射，CLI 仍会稳定返回 403。
 
@@ -100,7 +100,7 @@ Phase 0 至 Phase 4 只是实施顺序，任何一个 Phase 未完成时都不�
 2. 所有公开 JSON 与协议握手错误收敛到稳定 Error Envelope，并从语言无关的错误目录生成或校验 Go、OpenAPI、Web 和 CLI 定义。
 3. OAuth consent、OpenAPI security、Bearer 路由鉴权和 CLI Help 使用同一份 Scope 目录；任何允许 Bearer 调用的路由不得落入 `system:unmapped`。
 4. 服务端提供不含 Client Secret 的内置第一方公共 CLI Client、PKCE、Device Code、Refresh 和 Revoke 完整流程。
-5. Step-up MFA、终端预授权、终端存活监控和数据导出票据支持 OAuth Bearer 认证上下文，不再仅绑定浏览器 Session。
+5. Step-up MFA、终端预授权和终端存活监控支持 OAuth Bearer 认证上下文，不再仅绑定浏览器 Session。
 6. Node.js npm 包与 Bun 单二进制通过同一 `HttpTransport` 契约，代理、自定义 CA、重定向、取消、SSE、WebSocket 和二进制下载行为一致。
 7. 每个路由完成 `business-command`、`protocol-adapter`、`client-entry`、`server-entry` 或 `internal-observability` 分类，并由 CI 拒绝未分类的新路由。
 
@@ -497,7 +497,7 @@ project=<value> / --project <value>
 | `runtime-config` | `list`、`create`、`update`、`delete` |
 | `hook` | `config-list`、`config-create`、`config-update`、`config-delete`、`run-list`、`run-logs` |
 | `application` | `list`、`get`、`create`、`update`、`delete`、`topology` |
-| `deployment` | `target-list`、`target-create`、`target-update`、`target-delete`、`target-restart`、`metrics-follow`、`data-export` |
+| `deployment` | `target-list`、`target-create`、`target-update`、`target-delete`、`target-restart`、`metrics-follow` |
 | `release` | `list`、`create`、`image-candidate-list`、`logs`、`runtime-logs`、`exec`、`terminal`、`rollback` |
 | `gateway` | `route-list`、`route-create`、`route-update`、`route-delete`、`domain-check` |
 | `billing` | `summary`、`deployment-spend`、`ledger-list`、`usage-list`、`rate-list`、`rate-update`、`wallet-transaction-create`、`external-transaction-create`、`gateway-traffic-status` |
@@ -666,7 +666,7 @@ CLI 至少提供以下统一适配器：
 | `json` | 普通 REST API | 状态码、稳定错误、分页、Scope、请求 ID |
 | `sse` | 构建日志、部署指标 | 增量事件、断线重连、服务端游标、SIGINT、空闲超时 |
 | `websocket-terminal` | Pod 与发布终端 | 原始终端模式、stdin/stdout、resize、ping/pong、退出状态、信号恢复 |
-| `binary-download` | 数据导出 | `Content-Disposition`、文件名净化、覆盖确认、临时文件原子重命名、stdout 模式 |
+| `binary-download` | 专用文件传输适配器（当前未注册业务命令） | `Content-Disposition`、文件名净化、覆盖确认、临时文件原子重命名、stdout 模式 |
 | `oauth-protocol` | authorize、token、revoke、Device Code | PKCE、state、轮询间隔、刷新旋转、吊销与错误码 |
 
 所有适配器必须建立在统一 `HttpTransport` 上。Transport 至少负责：
@@ -813,16 +813,26 @@ Agent 不应在每轮对话中加载全部命令。`help catalog` 必须支持 `
 
 机器目录响应必须包含 `catalogVersion`、`openapiDigest` 和 `schemaDigest`。同一任务内摘要发生变化时，Agent 必须重新发现命令；禁止继续使用缓存参数猜测新契约。目录中的 `nextActions` 只能引用受信任命令注册表中的稳定 command path 和参数 Schema，不能把服务端 message、日志或第三方文本拼成待执行命令。
 
-### 7.3 Shell Completion
+### 7.3 Agent 可观测诊断
+
+Agent 运营诊断使用稳定 `agent-observability` 分类：`overview`、`turns`、`tools`、`tool-calls` 和 `trace` 为低风险只读命令，允许外部 CLI Agent 调用；`source-test` 可能接收未保存 Token，只允许人工平台管理员使用。平台内部 Agent 必须继续排除整个分类，避免递归读取自身或其他用户数据。
+
+这些命令要求平台管理员身份和 `agent-observability:read` Scope，同时支持 Cookie 与 Bearer 认证。列表默认 `page=1`、`pageSize=20`，上限 100；时间范围固定为 `1h|6h|24h|7d|30d|1y`，Agent 模式禁止无界分页和全量 Trace 抓取。数据源不可用时服务端返回 HTTP 503、`status=unavailable`、稳定 `observationCode`、request ID 和 `retryable=true`，所有实时响应使用 `Cache-Control: no-store`。
+
+CLI JSON Envelope 保留分页和 correlation ID，并在输出前移除原始 Trace blob、System Prompt 与受控 GenAI 内容属性。平台当前用户界面不依赖原始对话接口，因此 `conversations` 继续保持隐藏，不作为稳定 CLI 命令。
+
+### 7.4 Shell Completion
 
 由命令注册表生成 Bash、Zsh、Fish 和 PowerShell Completion：
 
 ```bash
-luna completion bash
-luna completion zsh
-luna completion fish
-luna completion powershell
+luna completion bash output=table
+luna completion zsh output=table
+luna completion fish output=table
+luna completion powershell output=table
 ```
+
+默认人类输出为可直接 source 或重定向的原始脚本；`output=json` 返回结构化的 `{ shell, script }` 供自动化使用。脚本在生成时从同一命令注册表展开分类、命令与别名、`key=value` 参数、安全枚举值和全局选项。Shell 补全热路径不再启动 CLI 进程、读取凭据或请求远端 API；敏感参数只生成空的 `key=` 候选。
 
 资源名称动态补全必须设置短超时，失败时静默回退到静态补全，不能阻塞 Shell。
 
@@ -1135,7 +1145,7 @@ luna auth mfa-verify purpose=kubeconfig_update
 
 ### 10.2 后端改造要求
 
-Step-up assertion 已统一绑定 Web Session 或内置 CLI OAuth Grant，终端和数据导出也使用同一认证上下文。以下要求作为已实现行为和后续回归边界保留：
+Step-up assertion 已统一绑定 Web Session 或内置 CLI OAuth Grant，终端也使用同一认证上下文。以下要求作为已实现行为和后续回归边界保留：
 
 - OAuth access token 可追溯到 OAuth grant 和授权会话；
 - `VerifyMFA` 同时支持浏览器 Session 与 OAuth Bearer 授权上下文；
@@ -1859,7 +1869,7 @@ criticalJourneyPassed
 23. Gin 新增路由但没有路由分类时，CI 明确失败并列出路由；新增非内部可观测白名单路由但没有 OpenAPI、operationId 或对应命令、协议适配、服务端入口登记时同样失败。
 24. 构建日志 SSE 能正常跟随和被 SIGINT 终止；断线时根据服务端是否支持游标决定恢复或提示重新读取。
 25. Pod 与发布 WebSocket 终端支持 TTY resize、stdin、退出状态和异常后的本地终端恢复。
-26. 数据导出默认拒绝覆盖已有文件，成功后原子落盘；`destination=@-` 只输出原始字节。
+26. 通用下载适配器默认拒绝覆盖已有文件并在成功后原子落盘；当前未注册对应业务命令，`destination=@-` 仍明确拒绝而不混入结构化输出。
 27. 创建构建或发布后，`wait=true` 能等待到终态，超时默认只停止本地等待，不误取消远端任务。
 28. 使用代理、自定义 CA 和 `NO_PROXY` 的企业网络环境可以登录并调用 API，跨源重定向不会携带 Authorization。
 29. CLI 连接不支持某项能力的旧实例时，根据 `/api/v1/meta` 返回 `unsupported_feature`，不会发送已知不兼容请求。

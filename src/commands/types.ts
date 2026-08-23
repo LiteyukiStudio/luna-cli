@@ -112,6 +112,8 @@ export interface CommandResult {
   readonly data: unknown
   readonly schemaVersion?: string
   readonly meta?: Readonly<Record<string, unknown>>
+  /** Raw human-readable text emitted only by explicitly trusted local commands. */
+  readonly trustedText?: string
 }
 
 export interface ProjectContextSnapshot {

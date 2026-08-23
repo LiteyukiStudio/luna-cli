@@ -60,6 +60,11 @@ function compactEntry(metadata: NormalizedCommandMetadata): Readonly<Record<stri
     transport: metadata.transport,
     projectContext: metadata.projectContext,
     scopes: metadata.scopes,
+    agentAllowed: metadata.agentAllowed,
+    mainParameters: metadata.parameters
+      .filter(parameter => parameter.location === 'path' || parameter.location === 'query')
+      .map(parameter => parameter.name)
+      .slice(0, 8),
     serverSupported: null,
   }
 }
@@ -78,7 +83,6 @@ function fullEntry(metadata: NormalizedCommandMetadata): Readonly<Record<string,
     schemaVersion: metadata.schemaVersion ?? 'unversioned',
     schemaDigest: metadata.schemaDigest ?? 'unavailable',
     mfaPurpose: metadata.mfaPurpose ?? null,
-    agentAllowed: metadata.agentAllowed,
     examples: metadata.examples ?? [],
   }
 }

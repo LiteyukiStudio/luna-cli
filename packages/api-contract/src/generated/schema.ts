@@ -350,126 +350,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/mfa/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get current user's MFA status
-         * @description Requires an interactive browser session. Personal access tokens cannot manage or verify MFA.
-         */
-        get: operations["getMFAStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/totp/enroll": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start TOTP enrollment
-         * @description Replaces any pending enrollment, stores the TOTP secret in the encrypted secret store, and returns the secret only for the current enrollment flow. Local accounts must re-enter their current password. OIDC accounts require non-impersonated primary authentication within the last five minutes; remember-token recovery does not refresh that timestamp.
-         */
-        post: operations["enrollMFA"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/totp/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm pending TOTP enrollment
-         * @description Accepts the current or adjacent 30-second TOTP window. On success, enables MFA and returns ten one-time recovery codes that are shown only once.
-         */
-        post: operations["confirmMFA"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Verify MFA for a sensitive-operation purpose
-         * @description Accepts exactly one TOTP code or one recovery code. A successful recovery code is consumed atomically. The resulting assertion is bound to the current user, browser session, and purpose.
-         */
-        post: operations["verifyMFA"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa/recovery-codes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Regenerate MFA recovery codes
-         * @description Requires a valid `mfa_manage` assertion. Replaces and invalidates all previous recovery codes; the new plaintext codes are returned only once.
-         */
-        post: operations["regenerateMFARecoveryCodes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/mfa": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Disable current user's MFA
-         * @description Requires a valid `mfa_manage` assertion. Deletes the TOTP secret, recovery codes, and all current step-up assertions. While the global policy is enabled, the last MFA-enabled platform administrator cannot disable MFA.
-         */
-        delete: operations["disableMFA"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/providers": {
         parameters: {
             query?: never;
@@ -661,26 +541,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/users/{userId}/mfa": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Reset another user's MFA enrollment
-         * @description Requires an interactive platform-administrator session and an active `user_admin_update` Step-up assertion. Deletes the target user's authenticator secret, recovery codes, and active Step-up assertions. Administrators cannot reset their own MFA through this endpoint and cannot remove the last enabled administrator MFA while the global policy is active.
-         */
-        delete: operations["adminResetUserMFA"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/configs/definitions": {
         parameters: {
             query?: never;
@@ -767,7 +627,7 @@ export interface paths {
         put?: never;
         /**
          * Permanently remove data matching a retention range
-         * @description Runs the same fixed whitelist and protection rules as preview, then writes only the aggregate result to the audit log. The operation does not accept table names or SQL expressions. When Step-up MFA is enabled, a valid `data_retention_cleanup` assertion is also required.
+         * @description Runs the same fixed whitelist and protection rules as preview, then writes only the aggregate result to the audit log. The operation does not accept table names or SQL expressions.
          */
         post: operations["cleanupDataRetention"];
         delete?: never;
@@ -787,7 +647,7 @@ export interface paths {
         put?: never;
         /**
          * Authorize a runtime-cluster Pod terminal connection
-         * @description Normal HTTP preflight used before opening the Pod terminal WebSocket. Browser callers may use their existing session cookie; Luna CLI may use its OAuth bearer token when an active `runtime_terminal` Step-up assertion already exists. Personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, browser session or Luna CLI OAuth grant, assertion, cluster, and Pod. The WebSocket passes this ticket in its query string, consumes it atomically, repeats all authorization checks before upgrading, and revalidates identity, role, assertion, Pod identity, and platform ownership every three seconds while connected. Browser WebSockets that omit a ticket retain the existing cookie-based flow. Revocation or expiry closes the shell.
+         * @description Normal HTTP preflight used before opening the Pod terminal WebSocket. Browser callers use their current session cookie and Luna CLI uses its OAuth bearer token; personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, interactive subject, cluster, and Pod. The WebSocket consumes the ticket atomically, repeats authorization checks before upgrading, and continuously revalidates identity, role, Pod identity, and platform ownership.
          */
         post: operations["authorizeRuntimeClusterPodTerminal"];
         delete?: never;
@@ -805,7 +665,7 @@ export interface paths {
         };
         /**
          * List runtime clusters
-         * @description Returns the legacy array response when pagination parameters are omitted, or a paginated response when `page`/`pageSize` is supplied.
+         * @description Pagination is always applied; omitted parameters use page 1 and pageSize 20.
          */
         get: operations["listRuntimeClusters"];
         put?: never;
@@ -1161,7 +1021,7 @@ export interface paths {
         };
         /**
          * List projects
-         * @description Returns the legacy project array when pagination parameters are omitted. Returns a paginated object when page or pageSize is provided.
+         * @description Pagination is always applied; omitted parameters use page 1 and pageSize 20. Project discovery defaults to project spaces related to the caller. Platform administrators may explicitly request all project spaces.
          */
         get: operations["listProjects"];
         put?: never;
@@ -1337,6 +1197,299 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inspect persistent data before deleting an application */
+        get: operations["previewApplicationDeletion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List project-space volumes with current Kubernetes observations
+         * @description Returns only the requested page. Current state is observed from Kubernetes and is never served from a persisted status cache.
+         */
+        get: operations["listProjectVolumes"];
+        put?: never;
+        /**
+         * Create a blank volume, reference or adopt a claim, or restore a snapshot
+         * @description Existing-claim adoption is checked against live Pod references and existing Luna ownership. The endpoint never supports a force bypass.
+         */
+        post: operations["createProjectVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-storage-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List storage classes and volume capabilities from a runtime cluster */
+        get: operations["listProjectVolumeStorageClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volumes/{volumeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a project volume, bindings, recent transfers, and current observation */
+        get: operations["getProjectVolume"];
+        put?: never;
+        post?: never;
+        /** Queue managed claim deletion or detach a referenced claim */
+        delete: operations["deleteProjectVolume"];
+        options?: never;
+        head?: never;
+        /** Rename or expand a project volume */
+        patch: operations["updateProjectVolume"];
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volumes/{volumeId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry the most recent failed project volume operation */
+        post: operations["retryProjectVolumeOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volumes/{volumeId}/deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview active bindings, transfers, and underlying storage deletion impact */
+        post: operations["previewProjectVolumeDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Prepare a direct archive import and provisioning volume */
+        post: operations["createVolumeImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-imports/{transferId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Stream one complete archive directly into the prepared runtime Pod
+         * @description This request is not resumable. Content-Length and X-Content-SHA256 must match the transfer created earlier.
+         */
+        put: operations["uploadVolumeImportContent"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volumes/{volumeId}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue an asynchronous project volume export */
+        post: operations["createVolumeExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List project volume import and export transfers */
+        get: operations["listVolumeTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get volume transfer progress and terminal result */
+        get: operations["getVolumeTransfer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a new export from a failed export after rechecking the original permission
+         * @description Direct imports cannot be retried in place because an interrupted stream may have partially changed the destination volume. Start a new import instead.
+         */
+        post: operations["retryVolumeTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a non-terminal transfer
+         * @description The creating user may cancel their transfer. Other callers require `volume:delete` and an Owner or Admin project role.
+         */
+        post: operations["cancelVolumeTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}/download-authorizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a one-time volume export download ticket */
+        post: operations["authorizeVolumeTransferDownload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream one authorized export directly from the prepared runtime Pod
+         * @description The one-time ticket is consumed when the single direct stream opens.
+         */
+        get: operations["downloadVolumeTransferContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/volume-transfers/{transferId}/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a completed Block export manifest with a one-time ticket */
+        get: operations["downloadVolumeTransferManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/applications/{applicationId}/topology": {
         parameters: {
             query?: never;
@@ -1361,7 +1514,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List deployment targets for an application */
+        /**
+         * List deployment targets for an application
+         * @description Returns a no-store point-in-time Kubernetes observation for each target. Replica fields and status belong to the same observation; scaled-to-zero means the workload was observed with desiredReplicas=0 and is not serving a runtime instance.
+         */
         get: operations["listDeploymentTargets"];
         put?: never;
         /** Create a deployment target */
@@ -1390,7 +1546,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export": {
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/runtime-secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get configured runtime secret keys without values */
+        get: operations["getDeploymentTargetRuntimeSecretsSummary"];
+        /** Securely update deployment target runtime secrets */
+        put: operations["updateDeploymentTargetRuntimeSecrets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/export": {
         parameters: {
             query?: never;
             header?: never;
@@ -1398,10 +1572,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Export persistent runtime data
-         * @description Consumes a short-lived, one-time export ticket issued by the authorize endpoint, then repeats the interactive authentication-context, project Owner/Admin, resource-state, OAuth Scope, and `data_export` Step-up checks. Browser callers may use their session cookie and Luna CLI may use its OAuth bearer token; personal access tokens are rejected. Each export uses an isolated temporary Pod and streams a gzip archive without persisting the ticket or archive in business tables.
+         * Export one deployment target as a portable JSON bundle
+         * @description Exports desired deployment configuration and logical dependency descriptors. Resource IDs, credentials, secret values, runtime state, and workflow history are omitted. Importing the bundle never starts a build or release. If an existing target has a stage outside dev, test, staging, or prod, the exported file remains readable but preview requires a legal stage override before import.
          */
-        get: operations["exportDeploymentTargetData"];
+        get: operations["exportDeploymentTargetBundle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1410,7 +1584,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export/authorize": {
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports/preview": {
         parameters: {
             query?: never;
             header?: never;
@@ -1420,10 +1594,50 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Authorize a persistent runtime data export
-         * @description Requires a browser session or Luna CLI OAuth bearer, project Owner/Admin membership, a mutable project/application/deployment target, exportable runtime data, and an active `data_export` Step-up assertion when the global policy is enabled. OAuth callers also require `deployment:data_export`; personal access tokens are rejected. Returns a random 60-second one-time ticket bound to the current user, authentication context, project, application, and deployment target. Production uses the shared Redis ticket store and fails closed when Redis is unavailable.
+         * Validate a deployment target bundle and resolve destination references
+         * @description Stateless preview. The destination project and application are authoritative. The effective stage must be dev, test, staging, or prod; production is normalized to prod, and an invalid stage can be repaired with a legal override. Missing, ambiguous, forbidden, or incompatible references must be mapped explicitly before commit. No database record, Secret, build, release, or asynchronous task is created.
          */
-        post: operations["authorizeDeploymentTargetDataExport"];
+        post: operations["previewDeploymentTargetBundleImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports/reference-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List destination candidates for one portable deployment reference
+         * @description Returns a permission-scoped, searchable and fully paginated candidate page. Invisible and missing mapped resource IDs are intentionally indistinguishable during import validation to prevent resource enumeration. The response uses Cache-Control no-store.
+         */
+        post: operations["listDeploymentTargetBundleReferenceCandidates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a deployment target from a validated portable bundle
+         * @description Revalidates the bundle digest, destination mappings, permissions, billing gate, public stage invariant, dependency visibility, and Secret requirements. Creates one new deployment target transactionally and does not start a build, release, or deployment. A commit that is not ready, including one with an invalid stage, creates no target, Secret, build environment, or volume mount.
+         */
+        post: operations["importDeploymentTargetBundle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1441,7 +1655,7 @@ export interface paths {
         put?: never;
         /**
          * Authorize a release Web Console terminal connection
-         * @description Normal HTTP preflight used before opening the release terminal WebSocket. Browser callers may use their existing session cookie; Luna CLI may use its OAuth bearer token when an active `runtime_terminal` Step-up assertion already exists. Personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, browser session or Luna CLI OAuth grant, assertion, project, release, deployment target, cluster, and namespace. The WebSocket passes this ticket in its query string, consumes it atomically, repeats all authorization checks before upgrading, and revalidates identity, membership, role, resource state, Web Console policy, and assertion every three seconds while connected. Browser WebSockets that omit a ticket retain the existing cookie-based flow. Revocation or expiry closes the shell.
+         * @description Normal HTTP preflight used before opening the release terminal WebSocket. Browser callers use their current session cookie and Luna CLI uses its OAuth bearer token; personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, interactive subject, project, release, deployment target, cluster, and namespace. The WebSocket consumes the ticket atomically, repeats authorization checks before upgrading, and continuously revalidates identity, membership, role, resource state, and Web Console policy.
          */
         post: operations["authorizeReleaseRuntimeTerminal"];
         delete?: never;
@@ -2380,6 +2594,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/app-templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get App Template */
+        get: operations["getAppTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/order": {
         parameters: {
             query?: never;
@@ -2428,6 +2659,23 @@ export interface paths {
         post?: never;
         /** Delete Project Runtime Config Set */
         delete: operations["deleteProjectRuntimeConfigSet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/runtime-config-sets/{setId}/runtime-secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Securely update project runtime config set secrets */
+        put: operations["updateProjectRuntimeConfigSetRuntimeSecrets"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2849,6 +3097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/releases/{releaseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Release
+         * @description Returns the authoritative persisted workflow state for one release. The response is not cached.
+         */
+        get: operations["getRelease"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/releases/{releaseId}/logs": {
         parameters: {
             query?: never;
@@ -2895,6 +3163,66 @@ export interface paths {
         /** Exec Release Runtime Command */
         post: operations["execReleaseRuntimeCommand"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a persistent release runtime command session
+         * @description Creates an API-owned, non-TTY shell session for bounded Agent diagnostics. The session is bound to the current user session, Agent Run when present, release, deployment target, and container. Idle and absolute TTLs are enforced by the owning API instance.
+         */
+        post: operations["createReleaseRuntimeCommandSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions/{sessionId}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute a command in a persistent release runtime session
+         * @description Executes one bounded command serially in the existing shell. Authorization, project role, Web Console policy, Agent Run binding, and the parameter-bound approval are revalidated for every command.
+         */
+        post: operations["executeReleaseRuntimeCommandSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Close a persistent release runtime command session
+         * @description Closes the API-owned shell and releases its Kubernetes exec stream. Closing does not execute a workload command.
+         */
+        delete: operations["closeReleaseRuntimeCommandSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2962,7 +3290,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Gateway Route
+         * @description Returns one gateway route with a no-store point-in-time Gateway API observation.
+         */
+        get: operations["getGatewayRoute"];
         /** Update Gateway Route */
         put: operations["updateGatewayRoute"];
         post?: never;
@@ -3082,7 +3414,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Billing Rate Rules */
+        /**
+         * List current billing prices
+         * @description Returns every configured billing meter, including disabled meters, for the authenticated user.
+         */
         get: operations["listBillingRateRules"];
         /** Update Billing Rate Rules */
         put: operations["updateBillingRateRules"];
@@ -3185,11 +3520,118 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Resolve AI assistant availability for the current browser session */
+        /**
+         * Resolve AI assistant enablement and access for the current browser session
+         * @description Returns the platform-and-user enablement decision plus the configured browser input limit. It does not probe Agent or Provider runtime health; transient runtime failures are reported by the requested AI operation and never hide the assistant entry point.
+         */
         get: operations["getAICapabilities"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List enabled AI models available to the current user */
+        get: operations["listAIModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-tools/web-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search the public web through the platform-controlled provider
+         * @description Agent-only read operation. The API applies the current user's egress policy, validates every redirect, rotates the configured proxy pool, and treats returned content as untrusted external data.
+         */
+        post: operations["webSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-tools/fetch-web-page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch a public web page through the platform-controlled egress boundary
+         * @description Agent-only read operation. Private, reserved, credential-bearing and policy-blocked targets are rejected before the response is reduced to bounded untrusted text and links.
+         */
+        post: operations["fetchWebPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all platform AI model configurations */
+        get: operations["listAIModelConfigs"];
+        put?: never;
+        /**
+         * Create a platform AI model configuration
+         * @description Creates a catalog entry. If the catalog has no enabled model, the first entry is enabled even when enabled=false so the platform always retains an available model.
+         */
+        post: operations["createAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/configs/ai/models/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a platform AI model configuration
+         * @description Updates a catalog entry. Disabling the final enabled model is rejected atomically with conflict code ai.last_model_cannot_be_disabled, including when administrators mutate the catalog concurrently.
+         */
+        put: operations["updateAIModel"];
+        post?: never;
+        /**
+         * Delete a platform AI model configuration
+         * @description Deletes a catalog entry. Historical runs keep their own price snapshots and are unaffected. Deleting the final enabled model is rejected atomically with conflict code ai.last_model_cannot_be_deleted, including when administrators mutate the catalog concurrently.
+         */
+        delete: operations["deleteAIModel"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3257,6 +3699,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createAITurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversationId}/tool-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute an interaction-card tool action without adding its arguments to chat input */
+        post: operations["executeAIInteractionCardToolAction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3396,23 +3855,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ai/runs/{runId}/mfa/{toolCallId}/resume": {
+    "/api/v1/ai/tool-approval-exemptions": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List the current user's revocable approve-always tool preferences */
+        get: operations["listAIToolApprovalExemptions"];
         put?: never;
-        post: operations["resumeAIRunAfterMFA"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/internal/v1/ai/delegations/exchange": {
+    "/api/v1/ai/tool-approval-exemptions/{operationId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3421,42 +3881,45 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Exchange a bound Run Actor Grant for a 60-second tool delegation */
-        post: operations["exchangeAIRunActorGrant"];
+        post?: never;
+        /** Revoke one approve-always preference for the current user and operation */
+        delete: operations["revokeAIToolApprovalExemption"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/progress/projects/{projectId}/{operationType}/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the authoritative progress snapshot for an AI interaction card */
+        get: operations["getAIProgress"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/internal/v1/ai/tools/{operationId}/execute": {
+    "/api/v1/ai/progress/projects/{projectId}/{operationType}/{operationId}/stream": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Stream authoritative progress snapshots for an AI interaction card
+         * @description Emits an immediate `progress.snapshot`, sends later revisions, and closes after a terminal state. Reconnecting always reconciles from the latest platform state.
+         */
+        get: operations["streamAIProgress"];
         put?: never;
-        /** Execute one registered diagnostic operation with a bound delegation */
-        post: operations["executeRegisteredAITool"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/internal/v1/ai/tools/{operationId}/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Re-authorize a registered operation and inspect its bound policy */
-        post: operations["verifyRegisteredAITool"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3497,62 +3960,801 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/configs/ai/observability/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test one unsaved or saved Agent observability query source without blocking configuration persistence
+         * @description Use this administrator-only command to verify one Prometheus, Loki, or Tempo source. Unsaved credentials are accepted as write-only input, so strict Agent mode is intentionally disabled.
+         */
+        post: operations["testAgentObservabilitySource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return selected-period Agent token, tool, turn, success, and latency totals used by the operations overview
+         * @description Start Agent operations diagnosis here. The bounded snapshot defaults to one hour and reports source availability with a stable observation code before any detailed query is attempted.
+         */
+        get: operations["getAgentObservabilityOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/traces/{traceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a normalized Agent turn Span timeline from Tempo
+         * @description Load one known 32-character Trace ID after a turn or tool-call query identifies it. Luna CLI applies an additional output redaction boundary to raw spans and captured GenAI content.
+         */
+        get: operations["getAgentObservabilityTrace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Agent conversations across all users for platform-admin observability */
+        get: operations["listAgentObservabilityConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one cross-user Agent conversation with messages, turns, and linked traces */
+        get: operations["getAgentObservabilityConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Agent turns across all users for platform-admin observability
+         * @description Narrow an abnormal overview to bounded cross-user turns. Defaults to the last hour, page 1, and 20 items; supports search, stable sorting, and at most 100 items per page.
+         */
+        get: operations["listAgentObservabilityTurns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List selected-period Agent tool success summaries for the platform-admin operations UI
+         * @description Narrow an abnormal overview to bounded per-operation tool totals and success rates. Defaults to the last hour, page 1, and 20 items; search and sorting are server-side.
+         */
+        get: operations["listAgentObservabilityTools"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/observability/tools/{operationId}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List selected-period redacted calls for one Agent tool
+         * @description Load bounded, already-redacted call evidence for one known operation ID after the tool summary identifies an anomaly. Encrypted executable arguments are never returned.
+         */
+        get: operations["listAgentObservabilityToolCalls"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AIAssistantAccess: {
+            /** @description Whether the platform enables the assistant for the current authenticated user. Runtime Agent or Provider health never changes this value. */
+            enabled: boolean;
+            /** @description Maximum UTF-8 request body size enforced by the Luna API BFF. */
+            maxInputBytes: number;
+        };
+        AIModelOption: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            maxContextTokens: number;
+            /** Format: int64 */
+            maxOutputTokens: number;
+        };
+        AIModelConfig: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            maxContextTokens: number;
+            /** Format: int64 */
+            maxOutputTokens: number;
+            inputCreditsPerMillion: string;
+            outputCreditsPerMillion: string;
+            cachedInputCreditsPerMillion: string;
+            cachedOutputCreditsPerMillion: string;
+            enabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AIModelWriteInput: {
+            name: string;
+            /** Format: int64 */
+            maxContextTokens: number;
+            /** Format: int64 */
+            maxOutputTokens: number;
+            inputCreditsPerMillion: string;
+            outputCreditsPerMillion: string;
+            cachedInputCreditsPerMillion: string;
+            cachedOutputCreditsPerMillion: string;
+            enabled?: boolean;
+        };
+        AIModelPricingSnapshot: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            maxContextTokens: number;
+            /** Format: int64 */
+            maxOutputTokens: number;
+            inputCreditsPerMillion: string;
+            outputCreditsPerMillion: string;
+            cachedInputCreditsPerMillion: string;
+            cachedOutputCreditsPerMillion: string;
+        };
+        AICreateTurnInput: {
+            modelId: string;
+            input: {
+                parts: {
+                    /** @constant */
+                    type: "text";
+                    text: string;
+                }[];
+            };
+            pageContext: {
+                [key: string]: unknown;
+            };
+            clientInstanceId: string;
+        };
         /** @description Versioned AI Agent response projected through the Luna API BFF. */
         AIObject: {
             [key: string]: unknown;
         };
-        AIDelegationExchangeInput: {
-            runActorGrant: string;
-            runId: string;
-            toolCallId: string;
-            operationId: string;
-            requestedScopes: string[];
-            argumentsHash: string;
-            /** @description True only after the Agent validated the current parameter-bound approval. */
-            approvalGranted: boolean;
-            /** @description Present only after a matching Step-up resume. */
-            mfaPurpose?: string;
-            /** @description API-issued assertion revalidated for the delegated user */
-            stepUpAssertionId?: string;
+        AIConversation: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            titleSource: "default" | "assistant" | "user";
+            status: string;
+            projectId?: string;
+            /** @description Model preference used by subsequent turns in this conversation. */
+            modelId?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
-        AIDelegationResponse: {
-            accessToken: string;
-            /** @constant */
-            tokenType: "Bearer";
-            /** @constant */
-            expiresIn: 60;
+        AIToolApprovalDecisionInput: {
+            /** @enum {string} */
+            decision: "approve" | "approve_always" | "reject";
+            reason?: string;
+        };
+        AIToolApprovalExemption: {
             operationId: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AIToolApprovalExemptionList: {
+            items: components["schemas"]["AIToolApprovalExemption"][];
+        };
+        AIInteractionCardToolActionInput: {
+            operationId: string;
+            arguments: {
+                [key: string]: unknown;
+            };
+            message: string;
+            clientInstanceId: string;
+        };
+        AIUIActionAcknowledgementInput: {
+            clientInstanceId: string;
+            /** @enum {string} */
+            status: "succeeded" | "failed";
+            actualPath?: string;
+            errorCode?: string;
+        } & ({
+            /** @constant */
+            status?: "succeeded";
+        } | {
+            /** @constant */
+            status?: "failed";
+        });
+        AIConversationCreateInput: {
+            projectId?: string;
+            modelId: string;
+            title?: string;
+        };
+        AIConversationUpdateInput: {
+            title?: string;
+            modelId?: string;
+        } | unknown | unknown;
+        AIConversationPage: {
+            items: components["schemas"]["AIConversation"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "updatedAt";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
+        };
+        AIConversationTimelineSummary: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            titleSource: "default" | "assistant" | "user";
+            status: string;
+            /** @description Model preference used by subsequent turns in this conversation. */
+            modelId?: string;
+        };
+        AIMessagePart: {
+            id: string;
+            partIndex: number;
+            /** @enum {string} */
+            type: "text" | "structured_data";
+            text?: string;
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        AITimelineItem: {
+            id: string;
+            timelineIndex: number;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @enum {string} */
+            type: "user_message" | "reasoning_summary" | "progress" | "assistant_message" | "tool_call" | "tool_result" | "system_notice";
+            status: string;
+            relatedItemId?: string;
+            /** @enum {string} */
+            display?: "summary" | "progress";
+            parts: components["schemas"]["AIMessagePart"][];
+            toolCall?: components["schemas"]["AIObject"];
+        };
+        AITimelineTurn: {
+            id: string;
+            turnIndex: number;
+            status: string;
+            input: {
+                id: string;
+                /** @enum {string} */
+                type: "user_message";
+                /** Format: date-time */
+                createdAt: string;
+                parts: components["schemas"]["AIMessagePart"][];
+            };
+            selectedRun?: {
+                id: string;
+                runIndex: number;
+                /** @enum {string} */
+                status: "queued" | "running" | "waiting_approval" | "waiting_input" | "completed" | "failed" | "canceled" | "interrupted";
+                /** Format: int64 */
+                expectedVersion?: number;
+                errorCode?: string;
+                /**
+                 * Format: int64
+                 * @description Provider-reported input tokens for the latest completed assistant model call in this Run.
+                 */
+                latestInputTokens?: number;
+                items: components["schemas"]["AITimelineItem"][];
+            };
+        };
+        AITimelineEventCursor: {
+            runId: string;
+            /** Format: int64 */
+            after: number;
+        };
+        AITimelinePageInfo: {
+            hasOlder: boolean;
+            /** @description Opaque cursor for the next older page; omitted when hasOlder is false. */
+            olderCursor?: string;
+        };
+        AITimelinePage: {
+            conversation: components["schemas"]["AIConversationTimelineSummary"];
+            /** @description Complete turns in chronological order within this page; a turn is never split across pages. */
+            turns: components["schemas"]["AITimelineTurn"][];
+            eventCursors: components["schemas"]["AITimelineEventCursor"][];
+            pageInfo: components["schemas"]["AITimelinePageInfo"];
+        };
+        /** @enum {string} */
+        AIProgressOperationType: "build_run" | "release" | "hook_run" | "app_template_installation";
+        AIProgressSnapshot: {
+            operationId: string;
+            operationType: components["schemas"]["AIProgressOperationType"];
+            /** @description Stable lexically sortable revision derived from the authoritative record update time. */
+            revision: string;
+            /** @enum {string} */
+            state: "queued" | "running" | "waiting_input" | "waiting_approval" | "succeeded" | "failed" | "cancelled";
+            /** @description Stable frontend i18n code. */
+            stageCode: string;
+            progress: {
+                /** @enum {string} */
+                mode: "determinate" | "indeterminate";
+                value?: number;
+            };
+            steps: {
+                id: string;
+                /** @description Stable frontend i18n code. */
+                labelCode: string;
+                /** @enum {string} */
+                status: "pending" | "running" | "success" | "warning" | "error" | "skipped";
+            }[];
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            error?: {
+                code: string;
+                requestId?: string;
+                traceId?: string;
+            };
         };
         AIProviderInternalConfig: {
             version: string;
             provider: {
                 /** Format: uri */
                 baseUrl: string;
-                model: string;
                 /** @description In-memory Agent use only; never returned to browser APIs. */
                 apiKey: string;
                 configured: boolean;
+                models: components["schemas"]["AIModelPricingSnapshot"][];
             };
             runtime: {
                 providerTimeoutMs: number;
                 runTimeoutMs: number;
                 agentConcurrentRuns: number;
             };
+            toolCatalog: components["schemas"]["AIPlatformToolCatalogOperation"][];
+        };
+        AIPlatformToolCatalogOperation: {
+            operationId: string;
+            name: string;
+            summary: string;
+            category: string;
+            tags: string[];
+            aliases: {
+                zh: string[];
+                en: string[];
+            };
+            purpose: components["schemas"]["AIAgentLocalizedText"];
+            avoidWhen: components["schemas"]["AIAgentLocalizedText"];
+            preconditions: components["schemas"]["AIAgentLocalizedList"];
+            successEvidence: components["schemas"]["AIAgentLocalizedText"];
+            requiresApproval: boolean;
+            idempotent: boolean;
+            /** @enum {string} */
+            method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            path: string;
+            requiredScopes: string[];
+            inputSchema: {
+                [key: string]: unknown;
+            };
+            outputSchema: {
+                [key: string]: unknown;
+            };
+            sensitivePaths?: string[];
+            parameters: {
+                inputName: string;
+                wireName: string;
+                /** @enum {string} */
+                in: "path" | "query" | "header";
+                required: boolean;
+            }[];
+            requestBody: boolean;
+            requestRequired: boolean;
+            requestType?: string;
+        };
+        AIAgentLocalizedText: {
+            zh: string;
+            en: string;
+        };
+        AIAgentLocalizedList: {
+            zh: string[];
+            en: string[];
+        };
+        /** @enum {string} */
+        AgentObservabilitySource: "prometheus" | "loki" | "tempo";
+        AgentObservabilityTestInput: {
+            source: components["schemas"]["AgentObservabilitySource"];
+            /** Format: uri */
+            url: string;
+            token?: string;
+            tenantId?: string;
+        };
+        AgentObservabilityTestResult: {
+            source: components["schemas"]["AgentObservabilitySource"];
+            reachable: boolean;
+            dataAvailable: boolean;
+            /** Format: int64 */
+            latencyMs: number;
+            code: string;
+        };
+        AgentObservabilityPoint: {
+            /**
+             * Format: int64
+             * @description Unix seconds.
+             */
+            timestamp: number;
+            value: number;
+        };
+        AgentObservabilitySeries: {
+            labels: {
+                [key: string]: string;
+            };
+            points: components["schemas"]["AgentObservabilityPoint"][];
+        };
+        AgentObservabilityLog: {
+            /** @description Unix nanoseconds encoded as a string. */
+            timestamp: string;
+            line: string;
+            labels: {
+                [key: string]: string;
+            };
+        };
+        AgentObservabilityTrace: {
+            traceId: string;
+            rootServiceName: string;
+            rootTraceName: string;
+            startTimeUnixNano: string;
+            /** Format: int64 */
+            durationMs: number;
+        };
+        AgentObservabilityTraceSpanEvent: {
+            name: string;
+            /** @description Unix nanoseconds encoded as a string. */
+            timeUnixNano: string;
+            attributes: {
+                [key: string]: string;
+            };
+        };
+        AgentObservabilityTraceSpan: {
+            spanId: string;
+            parentSpanId: string;
+            name: string;
+            serviceName: string;
+            kind: string;
+            /** @enum {string} */
+            status: "unset" | "ok" | "error";
+            /** @description Unix nanoseconds encoded as a string. */
+            startTimeUnixNano: string;
+            /** Format: double */
+            startOffsetMs: number;
+            /** Format: double */
+            durationMs: number;
+            attributes: {
+                [key: string]: string;
+            };
+            events: components["schemas"]["AgentObservabilityTraceSpanEvent"][];
+            /** @description Original OTLP JSON object returned by Tempo for this span. */
+            raw: {
+                [key: string]: unknown;
+            };
+        };
+        AgentObservabilityTraceDetail: {
+            traceId: string;
+            /** Format: double */
+            durationMs: number;
+            spanCount: number;
+            errorCount: number;
+            spans: components["schemas"]["AgentObservabilityTraceSpan"][];
+            context?: components["schemas"]["AgentObservabilityTraceContext"];
+        };
+        AgentObservabilityConversationUser: {
+            id: string;
+            name: string;
+            email: string;
+            avatarUrl: string;
+        };
+        AgentObservabilityConversation: {
+            id: string;
+            title: string;
+            user: components["schemas"]["AgentObservabilityConversationUser"];
+            /** Format: int64 */
+            turnCount: number;
+            /** Format: int64 */
+            traceCount: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AgentObservabilityConversationTurn: {
+            id: string;
+            turnIndex: number;
+            status: string;
+            userMessage: string;
+            assistantMessage: string;
+            runId: string;
+            traceId: string;
+            /** Format: double */
+            durationMs: number;
+            /** Format: date-time */
+            createdAt: string;
+            loops: components["schemas"]["AgentObservabilityConversationLoop"][];
+        };
+        AgentObservabilityTurn: {
+            id: string;
+            conversationId: string;
+            conversationTitle: string;
+            user: components["schemas"]["AgentObservabilityConversationUser"];
+            turnIndex: number;
+            status: string;
+            userMessage: string;
+            assistantMessage: string;
+            runId: string;
+            traceId: string;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            toolCallCount: number;
+            /** Format: double */
+            durationMs: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentObservabilityConversationLoop: {
+            loopIndex: number;
+            items: components["schemas"]["AgentObservabilityConversationRunItem"][];
+        };
+        AgentObservabilityConversationRunItem: {
+            id: string;
+            timelineIndex: number;
+            /** @enum {string} */
+            type: "reasoning_summary" | "assistant_message" | "tool_call";
+            status: string;
+            text: string;
+            toolCall?: components["schemas"]["AgentObservabilityConversationToolCall"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentObservabilityConversationToolCall: {
+            id: string;
+            operationId: string;
+            status: string;
+            arguments: {
+                [key: string]: unknown;
+            };
+            result?: unknown;
+            errorCode?: string;
+            /** Format: double */
+            durationMs?: number;
+            traceId?: string;
+        };
+        AgentObservabilityConversationDetail: components["schemas"]["AgentObservabilityConversation"] & {
+            turns: components["schemas"]["AgentObservabilityConversationTurn"][];
+            turnPage: number;
+            turnPageSize: number;
+            totalTurnPages: number;
+        };
+        AgentObservabilityTraceContext: {
+            conversation: components["schemas"]["AgentObservabilityConversation"];
+            turn: components["schemas"]["AgentObservabilityConversationTurn"];
+        };
+        AgentObservabilityConversationPage: {
+            items: components["schemas"]["AgentObservabilityConversation"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        AgentObservabilityTurnPage: {
+            items: components["schemas"]["AgentObservabilityTurn"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        AgentObservabilityToolSummary: {
+            operationId: string;
+            /** Format: int64 */
+            totalCalls: number;
+            /** Format: int64 */
+            succeededCalls: number;
+            /** Format: int64 */
+            failedCalls: number;
+            /**
+             * Format: int64
+             * @description Calls not yet executed to a succeeded or failed terminal state.
+             */
+            otherCalls: number;
+            /** @description Succeeded calls divided by succeeded plus failed calls; canceled */
+            successRate: number;
+            /** Format: date-time */
+            lastCalledAt: string;
+        };
+        AgentObservabilityToolCall: {
+            id: string;
+            operationId: string;
+            status: string;
+            /** @description Redacted and size-limited arguments; encrypted executable arguments are never returned. */
+            arguments: {
+                [key: string]: unknown;
+            };
+            /** @description Redacted and size-limited tool result. */
+            result?: unknown;
+            errorCode?: string;
+            /** Format: double */
+            durationMs: number;
+            traceId?: string;
+            runId: string;
+            turnId: string;
+            turnIndex: number;
+            conversationId: string;
+            conversationTitle: string;
+            user: components["schemas"]["AgentObservabilityConversationUser"];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentObservabilityToolSummaryPage: {
+            items: components["schemas"]["AgentObservabilityToolSummary"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        AgentObservabilityToolCallPage: {
+            items: components["schemas"]["AgentObservabilityToolCall"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        AgentObservabilityOverview: {
+            /** Format: date-time */
+            generatedAt: string;
+            /** @enum {string} */
+            range: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+            summary: {
+                /** @description Input tokens consumed during the selected period. */
+                inputTokens: number;
+                /** @description Output tokens generated during the selected period. */
+                outputTokens: number;
+                /** @description Tool calls recorded during the selected period */
+                toolCalls: number;
+                /** @description Succeeded tool calls divided by succeeded plus failed calls during the selected period. */
+                toolSuccessRate: number;
+                /**
+                 * Format: int64
+                 * @description Conversation turns created during the selected period.
+                 */
+                turnCount: number;
+                /** @description Completed turns divided by terminal turns during the selected period. */
+                turnSuccessRate: number;
+                /** @description P95 Agent Run duration in seconds during the selected period. */
+                runDurationP95: number;
+            };
+            sourceStatus: {
+                [key: string]: "ready" | "unavailable";
+            };
+            observationCode: string;
         };
         ErrorResponse: {
             /** @description Stable machine-readable error code. */
             code: string;
-            /** @description Safe user-facing error message. */
-            error: string;
-            /** @description Development-only diagnostic detail. */
-            detail?: string;
-            /** @description Step-up purpose returned with `mfa_required`. */
-            purpose?: string;
-            /** @description Optional machine-readable error context. Scope failures include `requiredScope`. */
+            /** @description Stable frontend localization key for a generic safe message; clients should localize primarily from code. */
+            message: string;
+            /** @description Credential-redacted development-only diagnostic detail; omitted in production responses. */
+            developerDetail?: string;
+            /** @description Request identifier for support and log correlation. */
+            requestId: string;
+            /** @description Trace identifier when the request has a valid trace context. */
+            traceId?: string;
+            /** @description Whether retrying the same operation without changing arguments may succeed. */
+            retryable?: boolean;
+            /**
+             * @description Stable resource observation status when an upstream source cannot provide a current fact.
+             * @enum {string}
+             */
+            status?: "unavailable";
+            /** @description Stable machine-readable observation reason when status is unavailable. */
+            observationCode?: string;
+            /** @description Stable argument path associated with a structured validation error. */
+            path?: string;
+            /** @description Allowed enum values for a structured validation error. */
+            allowedValues?: string[];
+            /** @description Development-only machine-readable diagnostic context; omitted in production responses. */
             details?: {
                 [key: string]: unknown;
             };
@@ -3817,68 +5019,11 @@ export interface components {
             default: string;
             options?: string[];
         };
-        MFAStatus: {
-            enabled: boolean;
-            pending: boolean;
-            policyEnabled: boolean;
-            /**
-             * @description Primary reauthentication required before starting enrollment. Local accounts use `password`; OIDC accounts require fresh non-impersonated primary authentication, which remember-token recovery cannot refresh.
-             * @enum {string}
-             */
-            enrollmentReauthMode: "password" | "fresh_session";
-            /** Format: date-time */
-            confirmedAt: string | null;
-            recoveryCodesRemaining: number;
-        };
-        MFAEnrollmentInput: {
-            /**
-             * Format: password
-             * @description Required for local accounts and ignored for OIDC accounts.
-             */
-            currentPassword?: string;
-        };
-        DataExportAuthorization: {
-            /** @description Random one-time ticket. The backend stores only its hash in production. */
-            ticket: string;
-            /** Format: date-time */
-            expiresAt: string;
-        };
         RuntimeTerminalAuthorization: {
             /** @description Random short-lived one-time terminal ticket. Only its hash is stored by the backend. */
             ticket: string;
             /** Format: date-time */
             expiresAt: string;
-        };
-        MFAEnrollment: {
-            /** @description Base32 TOTP secret returned only while enrolling. */
-            secret: string;
-            /** Format: uri */
-            otpauthUrl: string;
-            /** @description PNG data URL for the enrollment QR code. */
-            qrCodeDataUrl: string;
-        };
-        MFAConfirmInput: {
-            code: string;
-        };
-        MFARecoveryCodes: {
-            recoveryCodes: string[];
-        };
-        MFAConfirmResult: components["schemas"]["MFARecoveryCodes"] & {
-            /** @constant */
-            enabled: true;
-        };
-        /** @enum {string} */
-        MFAPurpose: "runtime_exec" | "runtime_terminal" | "data_export" | "secret_update" | "registry_credential_update" | "kubeconfig_update" | "auth_provider_update" | "user_admin_update" | "mfa_manage" | "security_settings_update" | "data_retention_cleanup" | "password_update" | "access_token_manage";
-        MFAVerifyInput: {
-            purpose: components["schemas"]["MFAPurpose"];
-            code?: string;
-            /** @description One-time recovery code. Hyphens and case are normalized before verification. */
-            recoveryCode?: string;
-        } & (unknown | unknown);
-        MFAVerifyResult: {
-            /** @constant */
-            verified: true;
-            purpose: components["schemas"]["MFAPurpose"];
         };
         AccessTokenInput: {
             name: string;
@@ -3950,6 +5095,380 @@ export interface components {
             dockerfilePath?: string;
             buildContext?: string;
             servicePort?: number;
+        };
+        /** @description Point-in-time aggregate of Kubernetes replicas for an application. It is returned only when includeRuntime=true and is never persisted as current state. */
+        ApplicationDeploymentSummary: {
+            targetCount: number;
+            desiredReplicas: number;
+            readyReplicas: number;
+            /** @enum {string} */
+            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "unavailable" | "not-deployed";
+            /** @description Point-in-time Kubernetes runtime summaries for each deployment target, ordered by runtime severity and then stage priority. */
+            targets: components["schemas"]["ApplicationDeploymentTargetSummary"][];
+        };
+        ApplicationDeploymentTargetSummary: {
+            id: string;
+            stage: string;
+            desiredReplicas: number;
+            readyReplicas: number;
+            /** @enum {string} */
+            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "disabled" | "unknown";
+        };
+        DeploymentTargetMetrics: {
+            available: boolean;
+            /** @enum {string} */
+            status: "ready" | "unavailable";
+            reason?: string;
+            configuredReplicas: number;
+            desiredReplicas: number;
+            readyReplicas: number;
+            availableReplicas: number;
+            podCount: number;
+            containerCount: number;
+            cpuUsageMilli: number;
+            cpuCapacityMilli: number;
+            cpuUsagePercent: number;
+            memoryUsageBytes: number;
+            memoryCapacityBytes: number;
+            memoryUsagePercent: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ApplicationListItem: {
+            id: string;
+            projectId: string;
+            identifier: string;
+            name: string;
+            icon: string;
+            deleteStatus: string;
+            deleteMessage: string;
+            /** Format: date-time */
+            deleteStartedAt?: string | null;
+            /** Format: date-time */
+            deleteFinishedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            deploymentSummary?: components["schemas"]["ApplicationDeploymentSummary"];
+        };
+        PaginatedApplications: {
+            items: components["schemas"]["ApplicationListItem"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
+        };
+        ApplicationDeletionVolumePreview: {
+            bindingId: string;
+            projectVolumeId: string;
+            displayName: string;
+            logicalName: string;
+            mountPath?: string;
+            devicePath?: string;
+            /** @enum {string} */
+            activationState: "reserved" | "active" | "release_pending";
+        };
+        ApplicationDeletionTargetPreview: {
+            deploymentTargetId: string;
+            deploymentTargetName: string;
+            volumes: components["schemas"]["ApplicationDeletionVolumePreview"][];
+        };
+        ApplicationDeletionPreview: {
+            hasPersistentData: boolean;
+            targets: components["schemas"]["ApplicationDeletionTargetPreview"][];
+        };
+        /** @enum {string} */
+        ProjectVolumeOwnershipMode: "managed" | "referenced";
+        /** @enum {string} */
+        ProjectVolumeSourceKind: "blank" | "managed" | "retained" | "archive_import" | "snapshot_restore" | "existing_claim";
+        /** @enum {string} */
+        ProjectVolumeLifecycleState: "provisioning" | "ready" | "deleting" | "error";
+        /** @enum {string} */
+        ProjectVolumeAvailability: "available" | "reserved" | "in_use" | "unavailable";
+        /** @enum {string} */
+        ProjectVolumeAccessMode: "ReadWriteOnce" | "ReadWriteOncePod" | "ReadOnlyMany" | "ReadWriteMany";
+        /** @enum {string} */
+        ProjectVolumeMode: "Filesystem" | "Block";
+        /** @enum {string} */
+        ProjectVolumeObservationStatus: "available" | "reserved" | "in_use" | "unavailable";
+        ProjectVolumeBindingSummary: {
+            reserved: number;
+            active: number;
+        };
+        ProjectVolumeObservation: {
+            status: components["schemas"]["ProjectVolumeObservationStatus"];
+            exists: boolean;
+            phase: string;
+            capacity: string;
+            storageClassName: string;
+            accessModes: components["schemas"]["ProjectVolumeAccessMode"][];
+            volumeMode: components["schemas"]["ProjectVolumeMode"];
+            boundVolumeName: string;
+            /** Format: date-time */
+            observedAt: string;
+            observationCode: string;
+        };
+        ProjectVolume: {
+            id: string;
+            projectId: string;
+            displayName: string;
+            clusterId: string;
+            namespace: string;
+            claimName: string;
+            ownershipMode: components["schemas"]["ProjectVolumeOwnershipMode"];
+            sourceKind: components["schemas"]["ProjectVolumeSourceKind"];
+            sourceSnapshotName?: string;
+            lifecycleState: components["schemas"]["ProjectVolumeLifecycleState"];
+            /** @enum {string} */
+            pendingOperation?: "provision" | "expand" | "delete" | "import";
+            availability: components["schemas"]["ProjectVolumeAvailability"];
+            capacity: string;
+            /** Format: int64 */
+            capacityBytes: number;
+            storageClassName: string;
+            accessMode: components["schemas"]["ProjectVolumeAccessMode"];
+            volumeMode: components["schemas"]["ProjectVolumeMode"];
+            sourceApplicationId?: string;
+            sourceApplicationName?: string;
+            sourceDeploymentTargetId?: string;
+            bindingSummary: components["schemas"]["ProjectVolumeBindingSummary"];
+            /** Format: int64 */
+            revision: number;
+            lastErrorCode?: string;
+            observation: components["schemas"]["ProjectVolumeObservation"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaginatedProjectVolumes: {
+            items: components["schemas"]["ProjectVolume"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "createdAt" | "updatedAt" | "displayName" | "capacity";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        ProjectVolumeBinding: {
+            id: string;
+            applicationId: string;
+            deploymentTargetId: string;
+            logicalName: string;
+            /** @enum {string} */
+            sourceType: "project_volume" | "empty_dir";
+            mountPath?: string;
+            devicePath?: string;
+            readOnly: boolean;
+            /** @enum {string} */
+            activationState: "reserved" | "active" | "release_pending" | "error";
+            lastErrorCode?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ProjectVolumeDetail: components["schemas"]["ProjectVolume"] & {
+            bindings: components["schemas"]["ProjectVolumeBinding"][];
+            bindingPage: number;
+            bindingPageSize: number;
+            /** Format: int64 */
+            bindingTotal: number;
+            bindingTotalPages: number;
+            recentTransfers: components["schemas"]["VolumeTransfer"][];
+            transferPage: number;
+            transferPageSize: number;
+            /** Format: int64 */
+            transferTotal: number;
+            transferTotalPages: number;
+        };
+        ProjectVolumeBlankSource: {
+            /** @constant */
+            type: "blank";
+        };
+        ProjectVolumeExistingClaimSource: {
+            /** @constant */
+            type: "existingClaim";
+            claimName: string;
+            ownershipMode: components["schemas"]["ProjectVolumeOwnershipMode"];
+        };
+        ProjectVolumeSnapshotSource: {
+            /** @constant */
+            type: "volumeSnapshot";
+            snapshotName: string;
+        };
+        ProjectVolumeBlankCreateInput: {
+            displayName: string;
+            clusterId: string;
+            capacity: string;
+            /** @description Must be selected from listProjectVolumeStorageClasses for the same projectId and clusterId. */
+            storageClassName: string;
+            accessMode: components["schemas"]["ProjectVolumeAccessMode"];
+            volumeMode: components["schemas"]["ProjectVolumeMode"];
+            source: components["schemas"]["ProjectVolumeBlankSource"];
+        };
+        ProjectVolumeExistingClaimCreateInput: {
+            displayName: string;
+            clusterId: string;
+            source: components["schemas"]["ProjectVolumeExistingClaimSource"];
+        };
+        ProjectVolumeSnapshotCreateInput: {
+            displayName: string;
+            clusterId: string;
+            capacity: string;
+            /** @description Must be selected from listProjectVolumeStorageClasses for the same projectId and clusterId. */
+            storageClassName: string;
+            accessMode: components["schemas"]["ProjectVolumeAccessMode"];
+            volumeMode: components["schemas"]["ProjectVolumeMode"];
+            source: components["schemas"]["ProjectVolumeSnapshotSource"];
+        };
+        ProjectVolumeCreateInput: components["schemas"]["ProjectVolumeBlankCreateInput"] | components["schemas"]["ProjectVolumeExistingClaimCreateInput"] | components["schemas"]["ProjectVolumeSnapshotCreateInput"];
+        ProjectVolumeUpdateInput: {
+            displayName?: string;
+            /** @description Requested capacity must be greater than or equal to the current capacity. */
+            capacity?: string;
+        };
+        ProjectVolumeDeletionPreview: {
+            volumeId: string;
+            ownershipMode: components["schemas"]["ProjectVolumeOwnershipMode"];
+            /** @enum {string} */
+            dataAction: "delete" | "detach";
+            hasActiveBindings: boolean;
+            /** @description True when a transfer is active or a cancelled transfer still has pending cleanup. */
+            hasRunningTransfers: boolean;
+            bindings: components["schemas"]["ProjectVolumeBinding"][];
+            /** @description Active transfers and cancelled transfers whose cleanup has not completed. */
+            runningTransfers: components["schemas"]["VolumeTransfer"][];
+            underlyingClaimWillBeDeleted: boolean;
+            observation: components["schemas"]["ProjectVolumeObservation"];
+        };
+        ProjectVolumeStorageClass: {
+            name: string;
+            provisioner: string;
+            isDefault: boolean;
+            allowVolumeExpansion: boolean;
+            /** @enum {string} */
+            volumeBindingMode: "Immediate" | "WaitForFirstConsumer";
+            reclaimPolicy: string;
+            snapshotSupported: boolean;
+        };
+        PaginatedProjectVolumeStorageClasses: {
+            items: components["schemas"]["ProjectVolumeStorageClass"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "name" | "provisioner";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        /** @enum {string} */
+        VolumeTransferDirection: "import" | "export";
+        /** @enum {string} */
+        VolumeTransferFormat: "tar_gz" | "raw_zst";
+        /** @enum {string} */
+        VolumeTransferConsistencyMode: "snapshot" | "live" | "unmounted";
+        /** @enum {string} */
+        VolumeTransferState: "created" | "preparing" | "ready" | "streaming" | "succeeded" | "failed" | "cancelled" | "expired";
+        VolumeTransfer: {
+            id: string;
+            projectId: string;
+            projectVolumeId: string;
+            direction: components["schemas"]["VolumeTransferDirection"];
+            format: components["schemas"]["VolumeTransferFormat"];
+            consistencyMode: components["schemas"]["VolumeTransferConsistencyMode"];
+            state: components["schemas"]["VolumeTransferState"];
+            /** @description Visible only to the creating user or project Owner/Admin. */
+            sourceFilename?: string;
+            /** Format: int64 */
+            expectedBytes: number;
+            /** Format: int64 */
+            transferredBytes: number;
+            /** Format: int64 */
+            logicalBytes: number;
+            /** Format: int64 */
+            processedFiles: number;
+            phase?: string;
+            sha256: string;
+            dataSHA256: string;
+            actorId: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** @description Stable public transfer error code. Raw runtime diagnostics are never returned. */
+            lastErrorCode: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PaginatedVolumeTransfers: {
+            items: components["schemas"]["VolumeTransfer"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "createdAt" | "updatedAt" | "state" | "transferredBytes";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        VolumeImportCreateInput: {
+            displayName: string;
+            clusterId: string;
+            capacity: string;
+            storageClassName: string;
+            accessMode: components["schemas"]["ProjectVolumeAccessMode"];
+            volumeMode: components["schemas"]["ProjectVolumeMode"];
+            format: components["schemas"]["VolumeTransferFormat"];
+            filename: string;
+            /** Format: int64 */
+            contentLength: number;
+            sha256: string;
+        };
+        VolumeImportCreateResponse: {
+            volume: components["schemas"]["ProjectVolume"];
+            transfer: components["schemas"]["VolumeTransfer"];
+        };
+        VolumeExportCreateInput: {
+            format: components["schemas"]["VolumeTransferFormat"];
+            /** @enum {string} */
+            consistency: "auto" | "snapshot" | "live";
+        };
+        VolumeTransferDownloadAuthorization: {
+            ticket: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        VolumeTransferManifest: {
+            /** @constant */
+            schemaVersion: 1;
+            /** @constant */
+            volumeMode: "Block";
+            /** @constant */
+            format: "raw_zst";
+            /** Format: date-time */
+            exportedAt: string;
+            /** Format: int64 */
+            logicalBytes: number;
+            /** @constant */
+            fileCount: 0;
+            dataSHA256: string;
+            /** @enum {string} */
+            consistencyMode: "snapshot" | "live" | "unmounted";
         };
         ArtifactRegistryInput: {
             name: string;
@@ -4084,7 +5603,7 @@ export interface components {
             namespaceStrategy?: "project";
             maxConcurrentBuilds?: number;
             /**
-             * @description Project-space master switch for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. When false, no deployment target can re-enable Web Console. Project roles and Step-up MFA still apply.
+             * @description Project-space master switch for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. When false, no deployment target can re-enable Web Console. Project roles still apply.
              * @default true
              */
             webConsoleEnabled: boolean;
@@ -4100,8 +5619,58 @@ export interface components {
             maxConcurrentBuilds: number;
             /** @description Project-space master switch. A false value disables Web Console for every deployment target in the project space. */
             webConsoleEnabled: boolean;
+            /** @description Role of the current authenticated user in this project space. Omitted for platform administrators. */
+            currentUserRole?: components["schemas"]["ProjectRole"];
             /** Format: date-time */
             createdAt: string;
+        };
+        DeploymentEmptyDirInput: {
+            /**
+             * @default
+             * @enum {string}
+             */
+            medium: "" | "Memory";
+            /** @description Optional positive Kubernetes storage quantity. */
+            sizeLimit?: string;
+        };
+        DeploymentProjectVolumeFilesystemMountInput: {
+            logicalName: string;
+            /** @constant */
+            sourceType: "projectVolume";
+            projectVolumeId: string;
+            mountPath: string;
+            /** @default false */
+            readOnly: boolean;
+        };
+        DeploymentProjectVolumeBlockMountInput: {
+            logicalName: string;
+            /** @constant */
+            sourceType: "projectVolume";
+            projectVolumeId: string;
+            devicePath: string;
+            /** @default false */
+            readOnly: boolean;
+        };
+        DeploymentEmptyDirMountInput: {
+            logicalName: string;
+            /** @constant */
+            sourceType: "emptyDir";
+            mountPath: string;
+            emptyDir?: components["schemas"]["DeploymentEmptyDirInput"];
+        };
+        DeploymentDataVolumeInput: components["schemas"]["DeploymentProjectVolumeFilesystemMountInput"] | components["schemas"]["DeploymentProjectVolumeBlockMountInput"] | components["schemas"]["DeploymentEmptyDirMountInput"];
+        DeploymentDataVolume: {
+            bindingId: string;
+            logicalName: string;
+            /** @enum {string} */
+            sourceType: "projectVolume" | "emptyDir";
+            projectVolumeId?: string;
+            mountPath?: string;
+            devicePath?: string;
+            readOnly: boolean;
+            emptyDir?: components["schemas"]["DeploymentEmptyDirInput"];
+            /** @enum {string} */
+            activationState: "reserved" | "active" | "release_pending";
         };
         /** @description Complete deployment target create/update payload used by the console, CLI, and Agent. Repository sources require repositoryBindingId; image sources require imageRef. Omitted optional fields use platform defaults. */
         DeploymentTargetInput: {
@@ -4110,11 +5679,10 @@ export interface components {
             /** @description Optional project environment reference. */
             environmentId?: string;
             /**
-             * @description Immutable stage identifier, unique among active deployment targets in the application. It may be reused after deletion cleanup.
+             * @description Immutable stage identifier, unique among active deployment targets in the application. Public create requests accept dev, test, staging, or prod and normalize production to prod. Updates to platform-managed components echo their existing sys-* value. A portable bundle may contain a historical non-public value, but preview/import require a public override. It may be reused after deletion cleanup.
              * @default dev
-             * @enum {string}
              */
-            stage: "dev" | "test" | "staging" | "prod";
+            stage: string;
             /** @description Runtime cluster ID available to the project. Empty selects the platform default cluster. */
             clusterId?: string;
             /** @description Optional Kubernetes namespace override. Empty uses the project namespace. */
@@ -4127,19 +5695,15 @@ export interface components {
             /** @default 1 */
             replicas: number;
             /**
-             * @description Kubernetes CPU quantity for each replica.
+             * @description CPU quota for each replica; the selected runtime cluster policy derives Kubernetes requests and limits.
              * @default 1
              */
             cpuRequest: string;
             /**
-             * @description Kubernetes memory quantity for each replica.
+             * @description Memory quota for each replica; the selected runtime cluster policy derives Kubernetes requests and limits.
              * @default 1Gi
              */
             memoryRequest: string;
-            /** @description Optional Kubernetes CPU limit. */
-            cpuLimit?: string;
-            /** @description Optional Kubernetes memory limit. */
-            memoryLimit?: string;
             /** @enum {string} */
             imagePullPolicy?: "Always" | "IfNotPresent" | "Never";
             /** @description JSON string array or line-separated container command. */
@@ -4200,6 +5764,7 @@ export interface components {
             serviceSessionAffinity?: "None" | "ClientIP";
             /** @default false */
             autoScalingEnabled: boolean;
+            /** @description Minimum desired replicas. Zero enables HPA scale-to-zero. */
             autoScalingMinReplicas?: number;
             autoScalingMaxReplicas?: number;
             autoScalingCpuPercent?: number;
@@ -4207,11 +5772,11 @@ export interface components {
             /** @description JSON Kubernetes horizontal pod autoscaler behavior object. */
             autoScalingBehavior?: string;
             /**
-             * @description Legacy single-port fallback used when servicePorts is empty.
+             * @description Legacy single-port projection of servicePorts[0]. New clients should use servicePorts.
              * @default 8080
              */
             servicePort: number;
-            /** @description Unique container service ports. */
+            /** @description Unique container service ports. This list is the authoritative port configuration. */
             servicePorts?: {
                 name?: string;
                 port: number;
@@ -4299,29 +5864,18 @@ export interface components {
                  */
                 mode: "live" | "snapshot";
             }[];
-            /** @description JSON object or newline-separated runtime environment variables. */
-            envVars?: string;
-            /** @description Serialized runtime ConfigMap references. */
-            configRefs?: string;
-            /** @description Serialized runtime Secret references; plaintext secret values are not accepted here. */
-            secretRefs?: string;
+            /** @description Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required. */
+            environmentVariables?: components["schemas"]["RuntimeEnvironmentVariableInput"][];
+            /** @description Runtime ConfigMap references. */
+            configRefs?: {
+                [key: string]: string;
+            };
             /** @description JSON array of runtime configuration file mounts. */
             configFiles?: string;
             /** @description JSON array of runtime secret file inputs. Existing plaintext values are never returned. */
             secretFiles?: string;
-            /** @default false */
-            dataRetentionEnabled: boolean;
-            /** @default 1Gi */
-            dataCapacity: string;
-            /** @default /data */
-            dataMountPath: string;
-            /** @description JSON array of managed, existingClaim, or emptyDir data-volume objects. */
-            dataVolumes?: string;
-            dataStorageClassName?: string;
-            /** @enum {string} */
-            dataAccessMode?: "ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany";
-            /** @enum {string} */
-            dataVolumeMode?: "Filesystem" | "Block";
+            /** @description Complete desired mount set. Omission or an empty array unbinds every existing deployment-volume mount; legacy storage fields and serialized JSON strings are rejected. */
+            dataVolumes?: components["schemas"]["DeploymentDataVolumeInput"][];
             /** @default false */
             requireApproval: boolean;
             /**
@@ -4343,11 +5897,209 @@ export interface components {
             buildTemplateId?: string;
             buildTemplateVersion?: string;
             buildTemplateValues?: string;
+            environmentVariables?: components["schemas"]["RuntimeEnvironmentVariable"][];
+            configRefs?: {
+                [key: string]: string;
+            };
+            dataVolumes: components["schemas"]["DeploymentDataVolume"][];
+            /**
+             * @description Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.
+             * @enum {string}
+             */
+            status?: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "unknown" | "disabled";
+            observationCode?: string;
+            /** Format: date-time */
+            lastCheckedAt?: string;
+            desiredReplicas?: number;
+            updatedReplicas?: number;
+            readyReplicas?: number;
+            availableReplicas?: number;
             /** @description Nullable target restriction. Effective policy is `project.webConsoleEnabled && webConsoleEnabled != false`; a true value is treated as inheritance. */
             webConsoleEnabled: boolean | null;
         } & {
             [key: string]: unknown;
         };
+        DeploymentTargetRuntimeSecretsInput: {
+            items: components["schemas"]["RuntimeSecretMutationItem"][];
+        };
+        DeploymentTargetRuntimeSecretsResponse: {
+            configuredKeys: string[];
+            generatedKeys: string[];
+            clearedKeys: string[];
+            environmentVariables: components["schemas"]["RuntimeEnvironmentVariable"][];
+        };
+        DeploymentTargetRuntimeSecretsSummary: {
+            environmentVariables: components["schemas"]["RuntimeEnvironmentVariable"][];
+        };
+        RuntimeEnvironmentVariableInput: {
+            key: string;
+            /** @enum {string} */
+            valueMode: "public";
+            value: string;
+        };
+        /** @description One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads. */
+        RuntimeEnvironmentVariable: {
+            key: string;
+            /** @enum {string} */
+            valueMode: "public" | "secret";
+            /** @description Present only for public variables. Secret values and storage references are never returned. */
+            value?: string;
+            configured: boolean;
+        };
+        RuntimeSecretMutationItem: {
+            key: string;
+            /** @enum {string} */
+            valueMode: "secret";
+            /** @enum {string} */
+            operation: "set" | "generate" | "clear";
+            /** @description Used only by set. Empty values retain the existing secret. */
+            value?: string;
+            generation?: {
+                /** @default 32 */
+                length: number;
+                /**
+                 * @default base64
+                 * @enum {string}
+                 */
+                encoding: "base64" | "hex" | "alphanumeric" | "numeric";
+            };
+        };
+        DeploymentTargetBundle: {
+            /** @constant */
+            schemaVersion: 1;
+            /** @constant */
+            kind: "luna-devops.deployment-target";
+            /** Format: date-time */
+            exportedAt: string;
+            /** @description Portable desired configuration. Source IDs, resource IDs, secret fields, enabled, and runtime status fields are forbidden and rejected by the importer. */
+            configuration: components["schemas"]["DeploymentTargetInput"];
+            references: components["schemas"]["DeploymentBundleReference"][];
+            secretRequirements: components["schemas"]["DeploymentBundleSecretRequirement"][];
+            /** @description Stable categories intentionally omitted from the portable bundle. */
+            omissions: string[];
+        };
+        DeploymentBundleReferenceDescriptor: {
+            name?: string;
+            type?: string;
+            scope?: string;
+            owner?: string;
+            repository?: string;
+            namespace?: string;
+            mode?: string;
+            phase?: string;
+            runOrder?: number;
+            logicalName?: string;
+            mountPath?: string;
+            devicePath?: string;
+            readOnly?: boolean;
+            accessMode?: string;
+            volumeMode?: string;
+            storageClassName?: string;
+            clusterName?: string;
+            clusterType?: string;
+        };
+        DeploymentBundleReference: {
+            key: string;
+            /** @enum {string} */
+            kind: "repositoryBinding" | "runtimeCluster" | "artifactRegistry" | "buildVariableSet" | "runtimeConfigSet" | "hookConfig" | "projectVolume";
+            required: boolean;
+            usage: string;
+            source: components["schemas"]["DeploymentBundleReferenceDescriptor"];
+        };
+        DeploymentBundleSecretRequirement: {
+            key: string;
+            /** @enum {string} */
+            target: "build" | "runtimeEnv" | "runtimeFile";
+            name?: string;
+            path?: string;
+        };
+        DeploymentTargetBundleOverrides: {
+            name?: string;
+            /**
+             * @description Public destination stage. Use this to repair a bundle containing a historical or invalid stage.
+             * @enum {string}
+             */
+            stage?: "dev" | "test" | "staging" | "prod";
+            namespace?: string | null;
+        };
+        DeploymentTargetBundleImportRequest: {
+            bundle: components["schemas"]["DeploymentTargetBundle"];
+            /** @description Digest returned by preview. Commit rejects a changed bundle. */
+            digest: string;
+            /** @description Maps each portable reference key to a destination resource ID. */
+            mappings?: {
+                [key: string]: string;
+            };
+            overrides?: components["schemas"]["DeploymentTargetBundleOverrides"];
+            /** @description Plaintext values re-entered for each secretRequirements key. Values are encrypted and stored only during the commit transaction. */
+            secretValues?: {
+                [key: string]: string;
+            };
+        };
+        DeploymentTargetBundlePreviewRequest: {
+            bundle: components["schemas"]["DeploymentTargetBundle"];
+            /** @description Maps each portable reference key to a destination resource ID. */
+            mappings?: {
+                [key: string]: string;
+            };
+            overrides?: components["schemas"]["DeploymentTargetBundleOverrides"];
+        };
+        DeploymentBundleReferenceCandidate: {
+            id: string;
+            name: string;
+            description?: string;
+            matched: boolean;
+            compatible: boolean;
+        };
+        DeploymentBundleReferenceCandidatesRequest: {
+            reference: components["schemas"]["DeploymentBundleReference"];
+        };
+        DeploymentBundleReferenceCandidatePage: {
+            items: components["schemas"]["DeploymentBundleReferenceCandidate"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "name" | "createdAt";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
+        };
+        DeploymentBundleReferenceResolution: {
+            key: string;
+            /** @enum {string} */
+            kind: "repositoryBinding" | "runtimeCluster" | "artifactRegistry" | "buildVariableSet" | "runtimeConfigSet" | "hookConfig" | "projectVolume";
+            required: boolean;
+            usage: string;
+            source: components["schemas"]["DeploymentBundleReferenceDescriptor"];
+            /** @enum {string} */
+            status: "resolved" | "missing" | "ambiguous" | "forbidden" | "incompatible";
+            resolvedId?: string;
+            candidates: components["schemas"]["DeploymentBundleReferenceCandidate"][];
+            candidateCount: number;
+            truncated: boolean;
+            code?: string;
+        };
+        DeploymentTargetBundlePreview: {
+            digest: string;
+            /** @enum {string} */
+            status: "ready" | "requires_mapping" | "invalid";
+            summary: {
+                name: string;
+                stage: string;
+                namespace: string;
+                /** @enum {string} */
+                sourceType: "repository" | "image";
+            };
+            references: components["schemas"]["DeploymentBundleReferenceResolution"][];
+            secretRequirements: components["schemas"]["DeploymentBundleSecretRequirement"][];
+            warnings: string[];
+        };
+        /**
+         * @description Published stable codes produced by deployment bundle validation, preview, import, and export. Authorization middleware may additionally return shared authentication and authorization codes.
+         * @enum {string}
+         */
+        DeploymentBundleErrorCode: "build_template.invalid" | "build_template.not_found" | "deployment.build_args_invalid" | "deployment.resource_quantity_invalid" | "deployment.runtime_config_unavailable" | "deployment.runtime_config_files_invalid" | "deployment.runtime_config_path_invalid" | "deployment.runtime_path_invalid" | "deployment.runtime_secret_files_invalid" | "deployment.stage_invalid" | "deployment_target.image_ref_required" | "deployment_target.service_account_invalid" | "deployment_bundle.candidate_query_invalid" | "deployment_bundle.digest_mismatch" | "deployment_bundle.export_failed" | "deployment_bundle.internal_error" | "deployment_bundle.invalid_json" | "deployment_bundle.not_ready" | "deployment_bundle.reference_ambiguous" | "deployment_bundle.reference_forbidden" | "deployment_bundle.reference_incompatible" | "deployment_bundle.reference_missing" | "deployment_bundle.registry_push_credential_required" | "deployment_bundle.repository_binding_missing" | "deployment_bundle.runtime_path_conflict" | "deployment_bundle.secret_encrypt_failed" | "deployment_bundle.secret_required" | "deployment_bundle.secret_requirement_invalid" | "deployment_bundle.stage_conflict" | "deployment_bundle.too_large" | "deployment_bundle.unsupported_kind" | "deployment_bundle.unsupported_version" | "volume.binding_conflict" | "volume.claim_conflict" | "volume.claim_not_found" | "volume.claim_spec_conflict" | "volume.cluster_unavailable" | "volume.idempotency_conflict" | "volume.in_use" | "volume.incompatible_cluster" | "volume.invalid_input" | "volume.name_conflict" | "volume.not_found" | "volume.ownership_conflict" | "volume.quota_exceeded" | "volume.quota_unavailable" | "volume.revision_conflict" | "volume.state_conflict";
         BuildTemplateParameter: {
             key: string;
             /** @enum {string} */
@@ -4402,14 +6154,14 @@ export interface components {
             checksum: string;
         };
         PaginatedProjectList: {
-            items?: components["schemas"]["Project"][];
-            page?: number;
-            pageSize?: number;
-            sortBy?: string;
+            items: components["schemas"]["Project"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
             /** @enum {string} */
-            sortOrder?: "asc" | "desc";
-            total?: number;
-            totalPages?: number;
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
         };
         ProjectPin: {
             id?: string;
@@ -4614,6 +6366,9 @@ export interface components {
             items: components["schemas"]["BusinessObjectList"];
             page: number;
             pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
             total: number;
             totalPages: number;
         } & {
@@ -4690,6 +6445,7 @@ export interface components {
             };
             enabled?: boolean;
         };
+        /** @description Runtime cluster configuration. Resource percentages are 0-100; zero omits that Kubernetes field. When the corresponding limit is non-zero, request percent must not exceed limit percent. Policy changes apply only after a later workload render or redeploy. */
         RuntimeClusterInput: {
             name: string;
             /** @enum {string} */
@@ -4702,6 +6458,26 @@ export interface components {
             kubeconfig?: string;
             isDefault?: boolean;
             maxConcurrentBuilds?: number;
+            /**
+             * @description Percentage of the per-replica CPU quota written as requests.cpu; 0 omits the field.
+             * @default 10
+             */
+            cpuRequestPercent: number;
+            /**
+             * @description Percentage of the per-replica memory quota written as requests.memory; 0 omits the field.
+             * @default 25
+             */
+            memoryRequestPercent: number;
+            /**
+             * @description Percentage of the per-replica CPU quota written as limits.cpu; 0 omits the field.
+             * @default 100
+             */
+            cpuLimitPercent: number;
+            /**
+             * @description Percentage of the per-replica memory quota written as limits.memory; 0 omits the field.
+             * @default 100
+             */
+            memoryLimitPercent: number;
             /** @enum {string} */
             gatewayProvider?: "gateway-api";
             gatewayRootDomain?: string;
@@ -4735,6 +6511,29 @@ export interface components {
             gatewayDefaultRequestHeaders?: string;
             gatewayDefaultResponseHeaders?: string;
             status?: string;
+        };
+        RuntimeCluster: components["schemas"]["RuntimeClusterInput"] & {
+            id: string;
+            kubeconfigSet: boolean;
+            observationCode?: string;
+            /** Format: date-time */
+            lastCheckedAt?: string;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        PaginatedRuntimeClusters: {
+            items: components["schemas"]["RuntimeCluster"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
         };
         SystemComponentInstallInput: {
             clusterId: string;
@@ -4789,9 +6588,8 @@ export interface components {
         };
         ProjectRuntimeConfigSetInput: {
             name: string;
-            envVars?: string;
+            environmentVariables?: components["schemas"]["RuntimeEnvironmentVariableInput"][];
             configFiles?: string;
-            secretRefs?: string;
             secretFiles?: string;
             enabled?: boolean;
         };
@@ -4837,6 +6635,77 @@ export interface components {
         TopologyEdgeInput: components["schemas"]["ServiceBindingInput"] & {
             relationType?: string;
         };
+        AppTemplateDataVolume: ({
+            logicalName: string;
+            /** @constant */
+            sourceType: "projectVolume";
+            mountPath?: string;
+            devicePath?: string;
+            /** @default false */
+            readOnly: boolean;
+        } & (unknown | unknown)) | {
+            logicalName: string;
+            /** @constant */
+            sourceType: "emptyDir";
+            mountPath: string;
+            emptyDir?: {
+                /** @enum {string} */
+                medium?: "" | "Memory";
+                sizeLimit?: string;
+            };
+        };
+        AppTemplateValueDefinition: {
+            key: string;
+            label: string;
+            description: string;
+            default: string;
+            required: boolean;
+            secret: boolean;
+            autoGenerate: boolean;
+        };
+        AppTemplateSummary: {
+            id: string;
+            slug: string;
+            name: string;
+            description: string;
+            category: string;
+            kind: string;
+            systemComponent: string;
+            icon: string;
+            officialWebsite: string;
+            officialRepository: string;
+            popularityWeight: number;
+            image: string;
+            version: string;
+            servicePort: number;
+            defaultReplicas: number;
+            defaultCPU: string;
+            defaultMemory: string;
+            dataVolumes: components["schemas"]["AppTemplateDataVolume"][];
+            valueCount: number;
+            requiredValueCount: number;
+        };
+        AppTemplate: {
+            id: string;
+            slug: string;
+            name: string;
+            description: string;
+            category: string;
+            kind: string;
+            systemComponent: string;
+            icon: string;
+            officialWebsite: string;
+            officialRepository: string;
+            popularityWeight: number;
+            image: string;
+            version: string;
+            servicePort: number;
+            defaultReplicas: number;
+            defaultCPU: string;
+            defaultMemory: string;
+            dataVolumes: components["schemas"]["AppTemplateDataVolume"][];
+            values: components["schemas"]["AppTemplateValueDefinition"][];
+        };
         AppTemplateInstallInput: {
             applicationName: string;
             applicationIdentifier: string;
@@ -4848,7 +6717,8 @@ export interface components {
             replicas?: number;
             cpuRequest?: string;
             memoryRequest?: string;
-            dataCapacity?: string;
+            /** @description Existing ready project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. Required when dataVolumes contains projectVolume; rejected otherwise. */
+            projectVolumeId?: string;
             installNow?: boolean;
             values?: {
                 [key: string]: unknown;
@@ -4872,6 +6742,7 @@ export interface components {
             buildCpuRequest?: string;
             buildMemoryRequest?: string;
             buildTimeoutSeconds?: number;
+            /** @description Optional target registry override. The selected registry, whether supplied here or inherited from the deployment target, must have a push or push-pull credential visible to the current user or project before a build can be triggered or retried. */
             targetRegistryId?: string;
             targetImageRef?: string;
             targetRepository?: string;
@@ -4881,6 +6752,35 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        AgentBuildRunResult: {
+            id: string;
+            projectId: string;
+            applicationId?: string;
+            deploymentTargetId?: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "failed" | "canceled" | "lost" | "timeout";
+            imageRef?: string;
+            imageDigest?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        AgentGatewayRouteResult: {
+            id: string;
+            projectId: string;
+            applicationId?: string;
+            deploymentTargetId?: string;
+            host?: string;
+            /** @enum {string} */
+            status: "pending" | "progressing" | "ready" | "active" | "failed" | "rejected" | "unavailable";
+            observationCode?: string;
+            accessUrl?: string;
+        } & {
+            [key: string]: unknown;
+        };
         ReleaseInput: {
             applicationId: string;
             environmentId?: string;
@@ -4889,15 +6789,68 @@ export interface components {
             imageRef?: string;
             forceImagePull?: boolean;
             type?: string;
-            status?: string;
-            revision?: string;
+            /** Format: int32 */
+            revision?: number;
             message?: string;
         };
+        Release: {
+            id: string;
+            projectId: string;
+            applicationId: string;
+            environmentId: string;
+            deploymentTargetId: string;
+            buildRunId?: string;
+            imageRef: string;
+            forceImagePull: boolean;
+            /** @enum {string} */
+            type: "deploy" | "rollback";
+            /** @enum {string} */
+            status: "pending" | "running" | "succeeded" | "failed";
+            /** Format: int32 */
+            revision: number;
+            rollbackFromId?: string;
+            message?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         ReleaseRuntimeExecInput: {
-            command: string | string[];
+            command: string;
             container?: string;
-            stdin?: string;
-            tty?: boolean;
+        };
+        ReleaseRuntimeCommandSessionInput: {
+            /** @description Optional workload container. The platform selects the default container when omitted. */
+            container?: string;
+        };
+        ReleaseRuntimeCommandSessionExecuteInput: {
+            /** @description Shell command executed in the existing session. Command content is never written to logs or traces. */
+            command: string;
+        };
+        RuntimeCommandSession: {
+            sessionId: string;
+            container?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastActiveAt: string;
+            /** Format: date-time */
+            idleExpiresAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        RuntimeCommandSessionCommandResult: {
+            /** @description Combined bounded stdout and stderr returned to the authorized caller. */
+            stdout: string;
+            exitCode: number;
+            truncated: boolean;
+            /** Format: int64 */
+            durationMs: number;
         };
         GatewayRouteInput: {
             applicationId: string;
@@ -4924,10 +6877,23 @@ export interface components {
             backendWeight?: number;
             hostnameAliases?: string;
         };
+        BillingRateRule: {
+            id: string;
+            meter: string;
+            unit: string;
+            /** @description Non-negative Credits price encoded as a decimal string. */
+            creditsPerUnit: string;
+            enabled: boolean;
+            description: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         BillingRateRulesInput: {
             rules: {
                 meter: string;
-                creditsPerUnit: number;
+                creditsPerUnit: string;
                 enabled: boolean;
             }[];
         };
@@ -5004,6 +6970,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description The request must include the current resource revision precondition. */
+        PreconditionRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description The requested resource was not found. */
         NotFound: {
             headers: {
@@ -5022,6 +6997,7 @@ export interface components {
         ClusterId: string;
         CredentialId: string;
         IdentityId: string;
+        IdempotencyKey: string;
         InboxMessageId: string;
         InboxRequestId: string;
         MemberId: string;
@@ -5030,6 +7006,7 @@ export interface components {
         Owner: string;
         Page: number;
         PageSize: number;
+        Search: string;
         ProjectId: string;
         ProviderId: string;
         RegistryId: string;
@@ -5038,7 +7015,11 @@ export interface components {
         SortOrder: "asc" | "desc";
         TargetId: string;
         TokenId: string;
+        TransferId: string;
+        /** @description Single-use 60-second ticket bound to the actor, project, and transfer. It is consumed when one direct content or manifest stream opens. */
+        DownloadTicket: string;
         UserId: string;
+        VolumeId: string;
     };
     requestBodies: never;
     headers: never;
@@ -5094,7 +7075,6 @@ export interface operations {
                         features: {
                             accessToken: boolean;
                             deviceCode: boolean;
-                            mfaBearer: boolean;
                             oauthAuthorization: boolean;
                             openapiOperations: boolean;
                         };
@@ -5711,418 +7691,11 @@ export interface operations {
             };
         };
     };
-    getMFAStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current enrollment, policy, and recovery-code status. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MFAStatus"];
-                };
-            };
-            /** @description Browser session is missing or invalid (`mfa.session_required` or an authentication error). */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Personal access tokens cannot access MFA session endpoints (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA status could not be loaded. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    enrollMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MFAEnrollmentInput"];
-            };
-        };
-        responses: {
-            /** @description Pending TOTP enrollment created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MFAEnrollment"];
-                };
-            };
-            /** @description Browser session is missing or invalid, or primary reauthentication is required (`mfa.reauth_required`). */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Personal access tokens cannot enroll MFA (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA is already enabled (`mfa.already_enabled`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Enrollment attempts exceeded the user or IP rate limit (`mfa.rate_limited`). */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The TOTP secret could not be stored (`mfa.secret_store_failed`) or enrollment persistence failed. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA rate limiting is unavailable in production (`mfa.rate_limit_unavailable`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    confirmMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MFAConfirmInput"];
-            };
-        };
-        responses: {
-            /** @description MFA enabled and recovery codes generated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MFAConfirmResult"];
-                };
-            };
-            /** @description Invalid request body (`request.invalid_json`). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Browser session is invalid or the TOTP code is invalid (`mfa.invalid_code`). */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Personal access tokens cannot confirm MFA (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Enrollment is missing, changed, or already enabled (`mfa.enrollment_required`, `mfa.enrollment_changed`, or `mfa.already_enabled`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Confirmation attempts exceeded the user or IP rate limit (`mfa.rate_limited`). */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Recovery codes or enrollment state could not be persisted. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA rate limiting is unavailable in production (`mfa.rate_limit_unavailable`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    verifyMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MFAVerifyInput"];
-            };
-        };
-        responses: {
-            /** @description Step-up assertion created. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MFAVerifyResult"];
-                };
-            };
-            /** @description Unsupported purpose or both/neither credentials were supplied (`mfa.invalid_purpose` or `mfa.credential_required`). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Browser session or MFA credential is invalid (`mfa.invalid_code`). */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Personal access tokens cannot create MFA assertions (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA is not enabled for the current user (`mfa.not_enabled`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Verification attempts exceeded the user or IP rate limit (`mfa.rate_limited`). */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The Step-up assertion could not be persisted. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA rate limiting is unavailable in production (`mfa.rate_limit_unavailable`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    regenerateMFARecoveryCodes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recovery codes replaced. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MFARecoveryCodes"];
-                };
-            };
-            /** @description Browser session is missing or invalid. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA management assertion is missing or expired (`mfa_required`), or a personal access token was used (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA is not enabled (`mfa.not_enabled`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Recovery codes could not be generated or persisted. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    disableMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description MFA disabled and assertions revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Browser session is missing or invalid. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA management assertion is missing or expired (`mfa_required`), or a personal access token was used (`mfa.session_required`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The global policy requires another MFA-enabled platform administrator (`mfa.last_admin_required`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description MFA state or encrypted secret data could not be deleted. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     listAuthProviders: {
         parameters: {
-            query?: never;
+            query?: {
+                includeDisabled?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6377,6 +7950,7 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
                 sortBy?: "createdAt" | "email" | "name" | "role" | "passwordSet" | "status";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -6438,62 +8012,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    adminResetUserMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                userId: components["parameters"]["UserId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Target MFA state reset. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Interactive browser session is missing or invalid. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Platform-administrator role or `user_admin_update` Step-up verification is required. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Target user or MFA enrollment was not found (`mfa.reset_target_not_found`). */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Self-reset is forbidden (`mfa.admin_reset_self_forbidden`) or the target is the last MFA-enabled platform administrator (`mfa.last_admin_required`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
             };
         };
     };
@@ -6664,7 +8182,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Platform-administrator role or Step-up MFA assertion is required. */
+            /** @description Platform-administrator role is required. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6725,7 +8243,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The current user is not a platform administrator, a personal access token was used (`mfa.session_required`), or Step-up verification is required (`mfa_required` with purpose `runtime_terminal`). */
+            /** @description The current user is not a platform administrator, or a personal access token was used (`runtime.terminal_session_required`). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6760,6 +8278,7 @@ export interface operations {
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
                 sortBy?: "name" | "type" | "scope" | "status" | "createdAt";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -6769,12 +8288,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Runtime cluster list or paginated runtime cluster list. */
+            /** @description Paginated runtime cluster list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedRuntimeClusters"];
+                };
             };
         };
     };
@@ -6797,7 +8318,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["RuntimeCluster"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -6809,6 +8330,11 @@ export interface operations {
         parameters: {
             query?: {
                 projectId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "name" | "scope";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -6816,12 +8342,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Git provider list. */
+            /** @description Paginated Git provider list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -6966,6 +8494,11 @@ export interface operations {
         parameters: {
             query?: {
                 projectId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "username";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -6973,12 +8506,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Git account list. */
+            /** @description Paginated Git account list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7073,7 +8608,11 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "updatedAt";
+                sortOrder?: "desc";
                 search?: string;
+                /** @description For the anonymous account, search public repositories when the account list has no match. */
+                includePublic?: boolean;
             };
             header?: never;
             path: {
@@ -7083,18 +8622,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Repository list. */
+            /** @description Paginated repository list. For upstreams without an exact total, a full page reports a bounded lower bound that keeps the next page available. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
     listGitBranches: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string;
+                limit?: number;
+            };
             header?: never;
             path: {
                 accountId: components["parameters"]["AccountId"];
@@ -7145,6 +8689,7 @@ export interface operations {
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
                 sortBy?: "name" | "scope" | "createdAt";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -7154,12 +8699,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Artifact registry list. */
+            /** @description Paginated artifact registry list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7252,6 +8799,8 @@ export interface operations {
     listRegistryCredentials: {
         parameters: {
             query?: {
+                /** @description When provided, return only credentials usable for this project space (global, owned by the current user, or bound to this project); credentials bound only to other projects are excluded. */
+                projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 sortBy?: "name" | "username" | "createdAt";
@@ -7265,13 +8814,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registry credential list. */
+            /** @description Paginated registry credential list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     createRegistryCredential: {
@@ -7317,7 +8870,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7375,6 +8930,11 @@ export interface operations {
                 projectId?: string;
                 applicationId?: string;
                 registryId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "repository" | "tag" | "sourceType" | "scanStatus" | "sourceCommit";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -7382,12 +8942,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Container image list. */
+            /** @description Paginated container image list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7456,6 +9018,9 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                /** @description Use `related` by default. `all` is allowed only for platform administrators and must be requested explicitly. */
+                scope?: "related" | "all";
                 sortBy?: "createdAt" | "name" | "identifier";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -7465,15 +9030,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Project list or paginated project list. */
+            /** @description Paginated project list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Project"][] | components["schemas"]["PaginatedProjectList"];
+                    "application/json": components["schemas"]["PaginatedProjectList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createProject: {
@@ -7502,19 +9069,26 @@ export interface operations {
     };
     listProjectPins: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "pinnedAt" | "lastUsedAt" | "name" | "useCount";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Pinned project list. */
+            /** @description Paginated pinned project list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7651,7 +9225,13 @@ export interface operations {
     };
     listProjectMembers: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "email" | "name" | "role";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -7660,12 +9240,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Project member list. */
+            /** @description Paginated project member list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -7778,6 +9360,8 @@ export interface operations {
                 search?: string;
                 sortBy?: "createdAt" | "name" | "identifier";
                 sortOrder?: components["parameters"]["SortOrder"];
+                /** @description Include a point-in-time Kubernetes replica summary for each application. The response is marked no-store because the summary is read from the authoritative runtime. */
+                includeRuntime?: boolean;
             };
             header?: never;
             path: {
@@ -7787,12 +9371,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Application list or paginated application list. */
+            /** @description Paginated application list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedApplications"];
+                };
             };
         };
     };
@@ -7880,13 +9466,667 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted application. */
-            204: {
+            /** @description Application deletion was queued. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+        };
+    };
+    previewApplicationDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live deletion impact preview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationDeletionPreview"];
+                };
+            };
+        };
+    };
+    listProjectVolumes: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: string;
+                availability?: components["schemas"]["ProjectVolumeAvailability"];
+                lifecycleState?: components["schemas"]["ProjectVolumeLifecycleState"];
+                clusterId?: string;
+                sourceKind?: components["schemas"]["ProjectVolumeSourceKind"];
+                ownershipMode?: components["schemas"]["ProjectVolumeOwnershipMode"];
+                volumeMode?: components["schemas"]["ProjectVolumeMode"];
+                sortBy?: "createdAt" | "updatedAt" | "displayName" | "capacity";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated project volume list. This response is not cacheable. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedProjectVolumes"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createProjectVolume: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectVolumeCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Volume provisioning was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolume"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Snapshot or volume specification is unsupported */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Direct transfer is not configured or the runtime cluster is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listProjectVolumeStorageClasses: {
+        parameters: {
+            query: {
+                clusterId: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "name" | "provisioner";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated live storage class capabilities. This response is not cacheable. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedProjectVolumeStorageClasses"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Runtime cluster is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getProjectVolume: {
+        parameters: {
+            query?: {
+                bindingPage?: number;
+                bindingPageSize?: number;
+                transferPage?: number;
+                transferPageSize?: number;
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project volume detail. This response is not cacheable. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolumeDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteProjectVolume: {
+        parameters: {
+            query: {
+                dataAction: "delete" | "detach";
+            };
+            header: {
+                /** @description Current numeric volume revision. */
+                "If-Match": number;
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion or detachment was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolume"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateProjectVolume: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Current numeric volume revision. */
+                "If-Match": number;
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectVolumeUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Updated volume. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolume"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    retryProjectVolumeOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Current numeric volume revision. */
+                "If-Match": number;
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retry was queued after rechecking the original operation permission. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolume"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    previewProjectVolumeDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current deletion impact preview. This response is not cacheable. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectVolumeDeletionPreview"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Runtime cluster is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createVolumeImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeImportCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Import preparation queued. Poll the returned transfer until it is ready before opening the content stream. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeImportCreateResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Runtime cluster is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadVolumeImportContent: {
+        parameters: {
+            query?: never;
+            header: {
+                "Content-Length": number;
+                "X-Content-SHA256": string;
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Direct import completed and verified. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransfer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            409: components["responses"]["Conflict"];
+            /** @description Full-stream checksum */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Runtime cluster or transfer Pod is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createVolumeExport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                volumeId: components["parameters"]["VolumeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeExportCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Export queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransfer"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Direct transfer is not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listVolumeTransfers: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                direction?: components["schemas"]["VolumeTransferDirection"];
+                state?: components["schemas"]["VolumeTransferState"];
+                volumeId?: string;
+                createdBy?: string;
+                sortBy?: "createdAt" | "updatedAt" | "state" | "transferredBytes";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated transfer history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVolumeTransfers"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    getVolumeTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transfer state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransfer"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    retryVolumeTransfer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New transfer created. The response always has a new transfer ID. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransfer"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Transfer preparation expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancelVolumeTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Transfer cancelled or already cancelled idempotently. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransfer"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    authorizeVolumeTransferDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One-time ticket valid for 60 seconds. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransferDownloadAuthorization"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description Prepared export session expired */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadVolumeTransferContent: {
+        parameters: {
+            query: {
+                /** @description Single-use 60-second ticket bound to the actor, project, and transfer. It is consumed when one direct content or manifest stream opens. */
+                ticket: components["parameters"]["DownloadTicket"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chunked direct export stream from the prepared runtime Pod. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/gzip": string;
+                    "application/zstd": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Runtime cluster or transfer Pod is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    downloadVolumeTransferManifest: {
+        parameters: {
+            query: {
+                /** @description Single-use 60-second ticket bound to the actor, project, and transfer. It is consumed when one direct content or manifest stream opens. */
+                ticket: components["parameters"]["DownloadTicket"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                transferId: components["parameters"]["TransferId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Portable Block export manifest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeTransferManifest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
         };
     };
     getApplicationTopology: {
@@ -7914,7 +10154,13 @@ export interface operations {
     };
     listDeploymentTargets: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "name";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -7924,13 +10170,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deployment target list. */
+            /** @description Paginated deployment target list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeploymentTarget"][];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
         };
@@ -8014,99 +10260,7 @@ export interface operations {
             };
         };
     };
-    exportDeploymentTargetData: {
-        parameters: {
-            query: {
-                /** @description One-time export ticket returned by the authorize endpoint. It expires after 60 seconds and is consumed even when its resource binding does not match. */
-                ticket: string;
-            };
-            header?: never;
-            path: {
-                projectId: components["parameters"]["ProjectId"];
-                applicationId: components["parameters"]["ApplicationId"];
-                targetId: components["parameters"]["TargetId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Gzip-compressed tar archive streamed as an attachment. */
-            200: {
-                headers: {
-                    /** @description Attachment filename in the form `<app-identifier>-<target-id>-data.tar.gz`. */
-                    "Content-Disposition"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/gzip": string;
-                };
-            };
-            /** @description Runtime data retention is disabled, the runtime cluster cannot export the target data, or the ticket is missing (`data_export.ticket_required`). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description A personal access token was used (`mfa.session_required`), the OAuth grant lacks `deployment:data_export`, the role is insufficient, MFA is required, or the ticket is invalid/expired/consumed/bound to another request (`data_export.ticket_invalid`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Project, application, deployment target, or runtime dependency was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The project, application, or deployment target is being deleted and cannot be exported. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The temporary export Pod or archive stream could not be started (`data_export.stream_failed`). */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The shared production ticket store is unavailable (`data_export.ticket_unavailable`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    authorizeDeploymentTargetDataExport: {
+    getDeploymentTargetRuntimeSecretsSummary: {
         parameters: {
             query?: never;
             header?: never;
@@ -8119,17 +10273,76 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Data-export ticket issued. The download endpoint still repeats authorization and atomically consumes the ticket. */
+            /** @description Configured key names only; secret references and plaintext values are never returned. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DataExportAuthorization"];
+                    "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsSummary"];
                 };
             };
-            /** @description Runtime data retention is disabled or the runtime cluster cannot export the target data. */
-            400: {
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDeploymentTargetRuntimeSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+                targetId: components["parameters"]["TargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsInput"];
+            };
+        };
+        responses: {
+            /** @description Secret field status only; plaintext values are never returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    exportDeploymentTargetBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+                targetId: components["parameters"]["TargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Portable deployment target JSON bundle. The response uses Cache-Control: no-store and an attachment filename. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetBundle"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Export failed with the stable code deployment_bundle.export_failed; internal diagnostics are never returned. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8137,8 +10350,38 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
-            401: {
+        };
+    };
+    previewDeploymentTargetBundleImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentTargetBundlePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Destination-specific validation and reference resolution result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetBundlePreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Bundle exceeds 1 MiB */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8146,8 +10389,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project role is insufficient, the OAuth grant lacks `deployment:data_export`, a personal access token was used, or `data_export` Step-up verification is required. */
-            403: {
+            /** @description Internal failure with a stable deployment bundle error code and no dependency diagnostics. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8155,8 +10398,44 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project, application, deployment target, or runtime dependency was not found. */
-            404: {
+        };
+    };
+    listDeploymentTargetBundleReferenceCandidates: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                sortBy?: "name" | "createdAt";
+                sortOrder?: "asc" | "desc";
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentBundleReferenceCandidatesRequest"];
+            };
+        };
+        responses: {
+            /** @description One candidate page scoped to the current user, project space, application, resource state, and reference kind. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentBundleReferenceCandidatePage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Request exceeds 1 MiB */
+            413: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8164,8 +10443,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project, application, or deployment target is being deleted. */
-            409: {
+            /** @description Internal failure with a stable deployment bundle error code and no dependency diagnostics. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8173,8 +10452,47 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The shared production ticket store is unavailable (`data_export.ticket_unavailable`). */
-            503: {
+        };
+    };
+    importDeploymentTargetBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentTargetBundleImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Newly imported deployment target configuration. No build or release was started. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTarget"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description Bundle exceeds 1 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal failure with a stable deployment bundle error code and no dependency diagnostics. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8214,7 +10532,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project role is insufficient, Web Console is disabled (`runtime.web_console_disabled`), a personal access token was used (`mfa.session_required`), or Step-up verification is required (`mfa_required` with purpose `runtime_terminal`). */
+            /** @description Project role is insufficient, Web Console is disabled (`runtime.web_console_disabled`), or a personal access token was used (`runtime.terminal_session_required`). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8278,7 +10596,14 @@ export interface operations {
     };
     listRepositoryBindings: {
         parameters: {
-            query?: never;
+            query?: {
+                applicationId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "owner" | "repo";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -8287,12 +10612,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Repository binding list. */
+            /** @description Paginated repository binding list. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                };
             };
         };
     };
@@ -8423,6 +10750,7 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
                 sortBy?: "createdAt" | "expiresAt" | "name" | "scope" | "status";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -8498,7 +10826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["RuntimeCluster"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -8508,7 +10836,13 @@ export interface operations {
     };
     listOAuthApplications: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "updatedAt" | "name";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8635,7 +10969,12 @@ export interface operations {
     };
     listMyOAuthGrants: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "updatedAt";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8886,6 +11225,11 @@ export interface operations {
         parameters: {
             query?: {
                 projectId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "name" | "scope";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -8899,7 +11243,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -9065,12 +11409,16 @@ export interface operations {
     };
     listRuntimeClusterResources: {
         parameters: {
-            query?: {
-                kind?: string;
+            query: {
+                resourceCategory: "namespaces" | "workloads" | "services" | "configs" | "storage";
                 namespace?: string;
                 projectId?: string;
                 applicationId?: string;
                 environmentId?: string;
+                page?: number;
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "kind" | "name" | "namespace" | "status" | "owner" | "summary" | "createdAt" | "updatedAt";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -9080,13 +11428,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful business response. */
+            /** @description First bounded, globally sorted resource page. Kubernetes resource categories span independent cursors, so page values above 1 return `pagination.cursor_required`. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -9097,7 +11445,7 @@ export interface operations {
     deleteRuntimeClusterResource: {
         parameters: {
             query: {
-                kind: string;
+                resourceKind: "Namespace" | "Deployment" | "StatefulSet" | "Pod" | "HorizontalPodAutoscaler" | "Service" | "HTTPRoute" | "Gateway" | "ConfigMap" | "Secret" | "PersistentVolumeClaim";
                 namespace: string;
                 name: string;
             };
@@ -9124,7 +11472,7 @@ export interface operations {
     getRuntimeClusterResourceYAML: {
         parameters: {
             query: {
-                kind: string;
+                resourceKind: "Namespace" | "Deployment" | "StatefulSet" | "Pod" | "HorizontalPodAutoscaler" | "Service" | "HTTPRoute" | "Gateway" | "ConfigMap" | "Secret" | "PersistentVolumeClaim";
                 namespace: string;
                 name: string;
             };
@@ -9153,9 +11501,13 @@ export interface operations {
     listRuntimeClusterResourceEvents: {
         parameters: {
             query: {
-                kind: string;
+                resourceKind: "Namespace" | "Deployment" | "StatefulSet" | "Pod" | "HorizontalPodAutoscaler" | "Service" | "HTTPRoute" | "Gateway" | "ConfigMap" | "Secret" | "PersistentVolumeClaim";
                 namespace: string;
                 name: string;
+                page?: number;
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "lastSeen";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -9165,13 +11517,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful business response. */
+            /** @description First bounded event page sorted by `lastSeen`. Page values above 1 return `pagination.cursor_required` because Kubernetes continuation order cannot preserve this global sort. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -9320,6 +11672,8 @@ export interface operations {
                 search?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "updatedAt" | "name" | "adapter";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -9452,6 +11806,8 @@ export interface operations {
                 adapterKind?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "updatedAt" | "name" | "eventType";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -9558,6 +11914,8 @@ export interface operations {
                 search?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "updatedAt" | "name";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -9665,6 +12023,8 @@ export interface operations {
                 eventType?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "status" | "eventType";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -10121,23 +12481,52 @@ export interface operations {
     };
     listAppTemplates: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Case-insensitive match over template identity, name, description, category, image, and official links. */
+                query?: string;
+                /** @description Exact case-insensitive template category. */
+                category?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful business response. */
+            /** @description Matching app-template summaries. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["AppTemplateSummary"][];
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAppTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sanitized complete app-template definition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppTemplate"];
+                };
+            };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -10171,7 +12560,13 @@ export interface operations {
     };
     listProjectRuntimeConfigSets: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "name";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: string;
@@ -10186,7 +12581,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -10277,9 +12672,45 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    listProjectHookConfigs: {
+    updateProjectRuntimeConfigSetRuntimeSecrets: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsInput"];
+            };
+        };
+        responses: {
+            /** @description Secret field status only; plaintext values are never returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            428: components["responses"]["PreconditionRequired"];
+        };
+    };
+    listProjectHookConfigs: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "name" | "phase";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: string;
@@ -10294,7 +12725,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -10662,6 +13093,10 @@ export interface operations {
                 phase?: string;
                 buildRunId?: string;
                 releaseId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "phase" | "status";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -10677,7 +13112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -10831,8 +13266,11 @@ export interface operations {
                 triggerType?: string;
                 sourceBranch?: string;
                 createdBy?: string;
-                page?: number;
-                pageSize?: number;
+                search?: components["parameters"]["Search"];
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "status" | "sourceCommit" | "sourceBranch" | "triggerType" | "createdBy";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -10877,12 +13315,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["AgentBuildRunResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description The selected target registry has no push-capable credential visible to the current user or project. The BuildRun is not created and the stable error code is `build.registry_push_credential_required`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "build.registry_push_credential_required",
+                     *       "message": "errors.build.registry_push_credential_required",
+                     *       "requestId": "req_example"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     getBuildRun: {
@@ -10903,7 +13357,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["AgentBuildRunResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -10948,7 +13402,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful business response. */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10959,6 +13413,22 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description The target registry used by the original BuildRun has no push-capable credential visible to the current user or project. The retry BuildRun is not created and the stable error code is `build.registry_push_credential_required`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "build.registry_push_credential_required",
+                     *       "message": "errors.build.registry_push_credential_required",
+                     *       "requestId": "req_example"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     cancelBuildRun: {
@@ -10991,8 +13461,11 @@ export interface operations {
         parameters: {
             query?: {
                 buildRunId?: string;
-                page?: number;
-                pageSize?: number;
+                applicationId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "status" | "attempts";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -11095,9 +13568,12 @@ export interface operations {
         parameters: {
             query?: {
                 environmentId?: string;
+                applicationId?: string;
                 deploymentTargetId?: string;
-                page?: number;
-                pageSize?: number;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "status" | "revision";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path: {
@@ -11142,10 +13618,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["Release"];
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                releaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authoritative release workflow state. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -11235,6 +13737,118 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    createReleaseRuntimeCommandSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                releaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRuntimeCommandSessionInput"];
+            };
+        };
+        responses: {
+            /** @description Runtime command session created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeCommandSession"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    executeReleaseRuntimeCommandSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                releaseId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRuntimeCommandSessionExecuteInput"];
+            };
+        };
+        responses: {
+            /** @description Command completed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeCommandSessionCommandResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The session belongs to another API instance. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The session expired. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    closeReleaseRuntimeCommandSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                releaseId: string;
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime command session closed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The session belongs to another API instance. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     streamReleaseRuntimeTerminal: {
         parameters: {
             query?: {
@@ -11290,7 +13904,14 @@ export interface operations {
     };
     listGatewayRoutes: {
         parameters: {
-            query?: never;
+            query?: {
+                applicationId?: string;
+                search?: components["parameters"]["Search"];
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "host" | "enabled";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
             header?: never;
             path: {
                 projectId: string;
@@ -11305,7 +13926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -11334,10 +13955,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["AgentGatewayRouteResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGatewayRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                routeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gateway route with live observation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentGatewayRouteResult"];
+                };
+            };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -11489,6 +14135,8 @@ export interface operations {
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "amountCredits" | "projectName" | "applicationName" | "deploymentTargetName";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -11520,6 +14168,8 @@ export interface operations {
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "amountCredits" | "reason";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -11551,6 +14201,8 @@ export interface operations {
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
+                sortBy?: "createdAt" | "amountCredits" | "meter";
+                sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
             path?: never;
@@ -11581,18 +14233,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful business response. */
+            /** @description Current billing prices sorted by meter. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["BillingRateRule"][];
                 };
             };
-            400: components["responses"]["BadRequest"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     updateBillingRateRules: {
@@ -11608,13 +14258,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Successful business response. */
+            /** @description Updated billing rate rules. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["BillingRateRule"][];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -11764,21 +14414,253 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Capability result */
+            /** @description Assistant access result */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIAssistantAccess"];
                 };
             };
             401: components["responses"]["Unauthorized"];
         };
     };
-    listAIConversations: {
+    listAIModels: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled model identifiers and names */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelOption"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    webSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    query: string;
+                    /** @default 5 */
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Bounded public search results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        truncated: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The configured search provider is unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    fetchWebPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    url: string;
+                    /** @default 20000 */
+                    maxCharacters?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Bounded public page content and links. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        };
+                        truncated: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The target content type is not readable */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The target page is unavailable */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAIModelConfigs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI model configurations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelConfig"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAIModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIModelWriteInput"];
+            };
+        };
+        responses: {
+            /** @description Created AI model */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelConfig"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateAIModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIModelWriteInput"];
+            };
+        };
+        responses: {
+            /** @description Updated AI model */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelConfig"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAIModel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI model deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listAIConversations: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive title search. */
+                search?: string;
+                sortBy?: "updatedAt";
+                sortOrder?: "asc" | "desc";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11791,7 +14673,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIConversationPage"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -11806,17 +14688,26 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AIConversationCreateInput"];
             };
         };
         responses: {
+            /** @description Existing empty conversation reused with the requested model */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIConversation"];
+                };
+            };
             /** @description Conversation created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIConversation"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -11839,7 +14730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIConversation"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -11880,7 +14771,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AIConversationUpdateInput"];
             };
         };
         responses: {
@@ -11890,7 +14781,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIConversation"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -11899,7 +14790,11 @@ export interface operations {
     };
     getAIConversationTimeline: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Opaque exclusive cursor returned by pageInfo.olderCursor; only requests older complete turns. */
+                before?: string;
+                limit?: number;
+            };
             header?: never;
             path: {
                 conversationId: string;
@@ -11908,13 +14803,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Durable conversation timeline snapshot */
+            /** @description Durable conversation timeline page ordered by turnIndex ascending */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AITimelinePage"];
+                };
+            };
+            /** @description Invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -11934,11 +14838,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AICreateTurnInput"];
             };
         };
         responses: {
             /** @description Turn and initial run accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    executeAIInteractionCardToolAction: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIInteractionCardToolActionInput"];
+            };
+        };
+        responses: {
+            /** @description Tool action accepted; sensitive arguments are encrypted in the Agent tool-call store and omitted from timeline projections */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -11963,7 +14898,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Pending UI actions bound to the current user and browser client */
+            /** @description Pending UI actions bound to the current user and browser client. Returns an empty list with agentAvailable=false and retryAfterSeconds while Agent is temporarily unavailable so clients can back off and retry without surfacing a transport error. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11986,7 +14921,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AIUIActionAcknowledgementInput"];
             };
         };
         responses: {
@@ -12176,7 +15111,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AIToolApprovalDecisionInput"];
             };
         };
         responses: {
@@ -12194,117 +15129,100 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    resumeAIRunAfterMFA: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                runId: string;
-                toolCallId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AIObject"];
-            };
-        };
-        responses: {
-            /** @description MFA resume accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIObject"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    exchangeAIRunActorGrant: {
+    listAIToolApprovalExemptions: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AIDelegationExchangeInput"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Short-lived operation-bound delegation */
+            /** @description Current user and operation scoped exemptions. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIDelegationResponse"];
+                    "application/json": components["schemas"]["AIToolApprovalExemptionList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
         };
     };
-    executeRegisteredAITool: {
+    revokeAIToolApprovalExemption: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                operationId: "getDashboard" | "listProjects" | "listPlatformEvents" | "getProject" | "listApplications" | "listBuildRuns" | "listReleases" | "listRuntimeClusters" | "listGatewayRoutes" | "listGatewayCertificates" | "listProjectHookRuns" | "listNotificationDeliveries" | "listRuntimeEvents";
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    arguments: {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-        responses: {
-            /** @description Redacted diagnostic result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIObject"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    verifyRegisteredAITool: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                operationId: "getDashboard" | "listPlatformEvents" | "getProject" | "listApplications" | "listBuildRuns" | "listReleases" | "listRuntimeClusters" | "listGatewayRoutes" | "listGatewayCertificates" | "listProjectHookRuns" | "listNotificationDeliveries" | "listRuntimeEvents";
+                operationId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Current policy verification */
+            /** @description Exemption revoked or already absent. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAIProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                operationType: components["schemas"]["AIProgressOperationType"];
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current authoritative operation progress */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIObject"];
+                    "application/json": components["schemas"]["AIProgressSnapshot"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    streamAIProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                operationType: components["schemas"]["AIProgressOperationType"];
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unbuffered SSE stream of progress snapshots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getInternalAIProviderConfig: {
@@ -12351,6 +15269,279 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             /** @description Agent or Provider is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    testAgentObservabilitySource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentObservabilityTestInput"];
+            };
+        };
+        responses: {
+            /** @description Connection and recent-data diagnostic result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityTestResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getAgentObservabilityOverview: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-cacheable Agent observability snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent observability is disabled or not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAgentObservabilityTrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-cacheable normalized trace detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityTraceDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Trace data is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAgentObservabilityConversations: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                sortBy?: "updatedAt" | "title" | "user" | "turnCount";
+                sortOrder?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated cross-user conversation summaries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityConversationPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent observability is disabled */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getAgentObservabilityConversation: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                conversationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversation observability detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityConversationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAgentObservabilityTurns: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                sortBy?: "createdAt" | "conversation" | "user" | "status" | "duration";
+                sortOrder?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated cross-user Agent turn summaries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityTurnPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent observability is disabled */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAgentObservabilityTools: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+                page?: number;
+                pageSize?: number;
+                search?: string;
+                sortBy?: "lastCalledAt" | "operationId" | "totalCalls" | "successRate" | "failedCalls";
+                sortOrder?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated tool success summaries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityToolSummaryPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent observability is disabled */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listAgentObservabilityToolCalls: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
+                page?: number;
+                pageSize?: number;
+                sortBy?: "createdAt" | "status" | "user" | "conversation";
+                sortOrder?: "asc" | "desc";
+            };
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated redacted tool calls */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentObservabilityToolCallPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Agent observability is disabled */
             503: {
                 headers: {
                     [name: string]: unknown;

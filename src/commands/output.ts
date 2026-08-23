@@ -14,6 +14,9 @@ import {
   OutputChannels,
 } from '../output/index.js'
 import { CLI_VERSION } from '../version.js'
+import { CliCommandError } from './errors.js'
+
+const MAX_STRUCTURED_OUTPUT_BYTES = 16 * 1024 * 1024
 
 export interface CommandOutputOptions {
   readonly streams?: OutputStreams
@@ -41,6 +44,15 @@ export class CommandOutput implements OutputPort {
     globals: CommandExecutionGlobals,
   ): void {
     const channels = new OutputChannels(this.#streams, { quiet: globals.quiet })
+    if (
+      globals.output === 'table'
+      && metadata.source === 'local'
+      && metadata.category === 'completion'
+      && result.trustedText !== undefined
+    ) {
+      channels.writeTrustedText(result.trustedText)
+      return
+    }
     const envelope = createSuccessEnvelope(
       result.schemaVersion ?? metadata.schemaVersion ?? 'unversioned',
       metadata.operationId ?? metadata.canonicalPath,
@@ -48,12 +60,24 @@ export class CommandOutput implements OutputPort {
       result.data,
       {
         requestId: stringMeta(result.meta, 'requestId') ?? globals.requestId,
+        correlationId: stringMeta(result.meta, 'correlationId'),
         server: globals.server,
         projectId: stringMeta(result.meta, 'projectId') ?? globals.project,
         cliVersion: this.#version,
         openapiDigest: metadata.schemaDigest,
       },
     )
+    const outputBytes = Buffer.byteLength(JSON.stringify(envelope), 'utf8')
+    if (outputBytes > MAX_STRUCTURED_OUTPUT_BYTES) {
+      throw new CliCommandError(
+        'output_too_large',
+        'The structured command result exceeded the output byte limit.',
+        {
+          status: 413,
+          details: { limitBytes: MAX_STRUCTURED_OUTPUT_BYTES, outputBytes },
+        },
+      )
+    }
     channels.writeResult(
       globals.output === 'table' || globals.output === 'name'
         ? result.data

@@ -26,8 +26,8 @@
 - 收到 `mfa_required` 时记录 `purpose` 与 request ID，停止并让用户在自己的终端完成 CLI 提供的用户在场验证；随后重新读取状态，最多重放一次原命令。
 - Agent 不接收、转述或记录 OTP、恢复码、密码和 Token。
 - 登录与 Step-up MFA 是不同事务，已有登录凭据不代表满足当前敏感操作。
-- CLI 终端和数据导出要求 OAuth 登录与对应 purpose 的有效 Step-up assertion。
-  个人访问令牌不能满足或绕过该协议授权。
+- CLI 终端要求 OAuth 登录与对应 purpose 的有效 Step-up assertion。个人访问
+  令牌不能满足或绕过该协议授权。
 - 收到 `oauth_scope_required` 时，停止当前操作并把错误返回的 `remediation`
   命令交给用户在自己的终端执行。Agent 不自行重新登录、不静默扩大 Scope，也不
   改用平台管理员或个人访问令牌重试。

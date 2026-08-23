@@ -41,6 +41,34 @@ describe('commander command execution', () => {
     })
   })
 
+  it('rejects human-only commands before parsing required business input', async () => {
+    const registry = new CommandRegistry()
+    registry.register({
+      category: 'agent-observability',
+      tool: 'source-test',
+      source: 'openapi',
+      operationId: 'testAgentObservabilitySource',
+      agentAllowed: false,
+      parameters: [{ name: 'body', location: 'body', required: true }],
+    }, async () => ({ data: {} }))
+    const captures = capturePorts()
+    const program = createCliProgram({ registry, ports: captures.ports })
+
+    const result = await runCli(program, [
+      'node',
+      'luna',
+      'agent-observability',
+      'source-test',
+      'agent=true',
+      'output=json',
+      'interactive=false',
+    ], captures.ports.output)
+
+    expect(result.exitCode).toBe(4)
+    expect(captures.errors).toHaveLength(1)
+    expect((captures.errors[0] as { code?: string }).code).toBe('agent_command_forbidden')
+  })
+
   it('requires a command with one structured error in agent mode', async () => {
     const registry = new CommandRegistry()
     const streams = memoryOutputStreams()

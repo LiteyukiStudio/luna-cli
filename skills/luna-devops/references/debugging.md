@@ -23,7 +23,7 @@
 ## 跨领域路由
 
 - 构建失败：追加读取 [构建](build.md)。
-- 发布、数据导出或终端失败：追加读取 [应用与部署](deployment.md) 和 [运行时](runtime.md)。
+- 发布或终端失败：追加读取 [应用与部署](deployment.md) 和 [运行时](runtime.md)。
 - 路由、DNS 或证书失败：追加读取 [网关](gateway.md)。
 - 账单或通知异常：追加读取 [账单](billing.md) 或 [通知](notifications.md)。
 - 依赖关系异常：追加读取 [拓扑](topology.md)。

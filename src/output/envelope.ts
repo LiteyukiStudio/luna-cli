@@ -6,6 +6,7 @@ export const CLI_STREAM_VERSION = "cli.luna.devops/events/v1";
 
 export interface EnvelopeMeta {
   readonly requestId?: string;
+  readonly correlationId?: string;
   readonly server?: string;
   readonly projectId?: string;
   readonly actorId?: string;
@@ -20,7 +21,17 @@ export interface SuccessEnvelope<T = unknown> {
   readonly operationId: string;
   readonly command: string;
   readonly data: T;
+  readonly pagination?: PaginationEnvelope;
   readonly meta: EnvelopeMeta;
+}
+
+export interface PaginationEnvelope {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly total: number;
+  readonly totalPages: number;
+  readonly sortBy?: string;
+  readonly sortOrder?: string;
 }
 
 export interface ResourceReference {
@@ -67,13 +78,34 @@ export function createSuccessEnvelope<T>(
   data: T,
   meta: EnvelopeMeta = {},
 ): SuccessEnvelope<T> {
+  const safeData = redactValue(data) as T;
+  const pagination = paginationFromData(safeData);
   return {
     apiVersion: CLI_API_VERSION,
     schemaVersion,
     operationId,
     command,
-    data: redactValue(data) as T,
+    data: safeData,
+    ...(pagination ? { pagination } : {}),
     meta: redactValue(meta) as EnvelopeMeta,
+  };
+}
+
+function paginationFromData(value: unknown): PaginationEnvelope | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  if (![record.page, record.pageSize, record.total, record.totalPages].every(Number.isFinite)) {
+    return undefined;
+  }
+  return {
+    page: Number(record.page),
+    pageSize: Number(record.pageSize),
+    total: Number(record.total),
+    totalPages: Number(record.totalPages),
+    ...(typeof record.sortBy === "string" ? { sortBy: record.sortBy } : {}),
+    ...(typeof record.sortOrder === "string" ? { sortOrder: record.sortOrder } : {}),
   };
 }
 

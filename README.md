@@ -36,8 +36,8 @@ Webhook、内部接收器和底层协议操作不会注册为 canonical raw comm
 在交互终端中必须逐次明确确认；非交互或 Agent 模式必须显式传入 `--yes`，
 否则以稳定的 `confirmation_required` 错误拒绝。CLI 的确认只表示调用意图，
 后端权限、Scope 与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
-人类诊断逃生口，不参与业务能力伪装。终端和数据导出要求 CLI OAuth 登录与
-对应 purpose 的有效 Step-up；个人访问令牌不能满足或绕过这一协议授权。
+人类诊断逃生口，不参与业务能力伪装。终端要求 CLI OAuth 登录与对应 purpose
+的有效 Step-up；个人访问令牌不能满足或绕过这一协议授权。
 `luna login` 默认只请求当前角色适用的常用 Scope；敏感 Scope 需要用户明确
 重新授权。已知命令会在发请求前检查 OAuth Grant，缺少 Scope 时返回
 `oauth_scope_required` 和可直接执行的 `luna login scope=...` 提示。
@@ -92,6 +92,57 @@ CLI 不提供 context 切换机制，一个本地配置始终只表示一个活�
 LUNA_LANG=zh-CN luna --help
 luna --lang zh-CN project get-projects --help
 ```
+
+## Agent 可观测诊断
+
+平台管理员可以通过稳定的 `agent-observability` 分类读取跨用户 Agent 运营数据。先动态发现当前 CLI 和服务端共同支持的命令，再读取目标命令的完整 Schema：
+
+```bash
+luna help catalog category=agent-observability limit=20 output=json interactive=false agent=true
+luna help command path=agent-observability.overview output=json interactive=false agent=true
+```
+
+建议按 `overview` → `turns` / `tools` → `tool-calls` / `trace` 逐步缩小范围。列表必须显式传入有界分页，时间范围仅支持 `1h`、`6h`、`24h`、`7d`、`30d` 和 `1y`。这些读操作要求平台管理员身份和 `agent-observability:read` Scope；数据源测试是人工管理员命令，严格 Agent 模式不会执行。
+
+JSON 输出保留统一 Envelope、分页元数据、request ID 和 correlation ID。CLI 会在输出前移除原始 Trace blob、System Prompt 和受控 GenAI 内容；原始对话暂不是稳定 CLI 能力。
+
+## Tab 补全
+
+Luna CLI 从同一份命令注册表生成静态 Shell Completion，不会在每次按 Tab 时启动 CLI 或请求 Luna API。补全覆盖分类、命令与别名、`key=value` 参数、枚举值和全局选项；敏感参数只会提示空的 key，不读取凭据。
+
+Zsh（macOS 默认 Shell）：
+
+```bash
+mkdir -p ~/.zfunc
+luna completion zsh output=table > ~/.zfunc/_luna
+# 确保 ~/.zshrc 在 compinit 之前包含：fpath=(~/.zfunc $fpath)
+exec zsh
+```
+
+Bash：
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+luna completion bash output=table > ~/.local/share/bash-completion/completions/luna
+```
+
+Fish：
+
+```fish
+mkdir -p ~/.config/fish/completions
+luna completion fish output=table > ~/.config/fish/completions/luna.fish
+```
+
+PowerShell：
+
+```powershell
+New-Item -ItemType Directory -Force (Split-Path $PROFILE) | Out-Null
+$completionFile = Join-Path (Split-Path $PROFILE) 'luna-completion.ps1'
+luna completion powershell output=table | Set-Content -Encoding utf8 $completionFile
+# 仅需在 $PROFILE 中添加一次：. $completionFile
+```
+
+升级 Luna CLI 后重新生成一次脚本，即可同步最新命令契约。`output=json` 仍保留给自动化消费结构化的 `{ shell, script }` 数据。
 
 npm 的 `latest` 与 `beta` 是独立更新通道。测试预发布版本时必须显式安装
 `@beta`，普通的全局更新不会从稳定版自动切换到预发布版。
@@ -167,8 +218,8 @@ SSE, downloads, and terminals are exposed only through their dedicated protocol
 commands. High- and critical-risk operations require an explicit interactive
 confirmation, or `--yes` in non-interactive and agent mode. CLI confirmation
 records caller intent only: server permissions, scopes, and step-up MFA remain
-authoritative. Terminal and data-export protocols require a CLI OAuth login and
-a valid step-up assertion for the matching purpose; personal access tokens cannot
+authoritative. Terminal protocols require a CLI OAuth login and a valid step-up
+assertion for the matching purpose; personal access tokens cannot
 satisfy or bypass that authorization. `luna login` requests only common scopes
 appropriate for the current role; sensitive scopes require explicit
 reauthorization. Known commands check the active OAuth grant before sending a

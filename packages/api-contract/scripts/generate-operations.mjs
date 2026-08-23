@@ -50,6 +50,8 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
         requestBodyDetails?.snapshot,
         requestBodyDetails?.schema,
       ),
+      outputSchema: responseSchemaSnapshot(responses, status => status >= 200 && status < 300),
+      errorSchema: responseSchemaSnapshot(responses, status => status >= 400),
       xLunaCli: operation["x-luna-cli"],
     }));
   }
@@ -109,12 +111,29 @@ function requestBodyDetailsSnapshot(requestBody) {
 function responseSnapshot(status, response) {
   const resolved = resolveReference(response) ?? {};
   const content = resolved.content ?? {};
+  const schemas = Object.fromEntries(
+    Object.entries(content)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .flatMap(([contentType, media]) => {
+        const schema = summarizeSchema(media?.schema);
+        return schema ? [[contentType, schema]] : [];
+      }),
+  );
   return compact({
     status,
     contentTypes: Object.keys(content),
     schemaRefs: schemaReferences(content),
+    schema: combinedContentSchema(schemas),
     description: resolved.description,
   });
+}
+
+function responseSchemaSnapshot(responses, includeStatus) {
+  const schemas = responses
+    .filter(response => includeStatus(Number(response.status)))
+    .map(response => response.schema)
+    .filter(Boolean);
+  return combinedContentSchema(Object.fromEntries(schemas.map((schema, index) => [String(index), schema])));
 }
 
 function schemaReferences(content) {

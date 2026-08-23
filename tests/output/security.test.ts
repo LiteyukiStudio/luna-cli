@@ -23,6 +23,29 @@ describe("output safety", () => {
     expect(redactSensitiveText("Authorization: Bearer abc.def")).not.toContain("abc.def");
   });
 
+  it("removes raw trace payloads and captured GenAI content", () => {
+    const safe = redactValue({
+      raw: { attributes: [{ key: "gen_ai.system_instructions", value: "system secret" }] },
+      attributes: {
+        "gen_ai.system_instructions": "system secret",
+        "gen_ai.tool.call.arguments": "sensitive arguments",
+        "luna.turn.id": "turn_1",
+      },
+      arguments: { projectId: "prj_1" },
+      result: { status: "succeeded" },
+    })
+    expect(safe).toEqual({
+      raw: "[REDACTED]",
+      attributes: {
+        "gen_ai.system_instructions": "[REDACTED]",
+        "gen_ai.tool.call.arguments": "[REDACTED]",
+        "luna.turn.id": "turn_1",
+      },
+      arguments: { projectId: "prj_1" },
+      result: { status: "succeeded" },
+    })
+  });
+
   it("preserves capability flags and scope names while redacting token values", () => {
     expect(redactValue({
       features: {

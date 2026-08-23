@@ -127,6 +127,22 @@ export const NON_COMMAND_ROUTE_CLASSIFICATIONS = Object.freeze({
     classification: "internal-observability",
     reason: "Relays browser OTLP traces to the server-configured collector and is not a user business command.",
   }),
+  "GET /api/v1/ai/observability/conversations": Object.freeze({
+    classification: "internal-observability",
+    reason: "Legacy Agent conversation observability query retained for the administrator web panel, not a public business command.",
+  }),
+  "GET /api/v1/ai/observability/conversations/{conversationId}": Object.freeze({
+    classification: "internal-observability",
+    reason: "Legacy Agent conversation detail query retained for the administrator web panel, not a public business command.",
+  }),
+  "POST /api/v1/ai-tools/web-search": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Agent service-token tool consumed through the platform tool catalog, not a raw external CLI command.",
+  }),
+  "POST /api/v1/ai-tools/fetch-web-page": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Agent service-token tool consumed through the platform tool catalog, not a raw external CLI command.",
+  }),
   "POST /api/v1/runtime/clusters/{clusterId}/pods/terminal/authorize": Object.freeze({
     classification: "protocol-adapter",
     reason: "Issues the short-lived authorization consumed by the cluster terminal adapter.",
@@ -139,13 +155,45 @@ export const NON_COMMAND_ROUTE_CLASSIFICATIONS = Object.freeze({
     classification: "protocol-adapter",
     reason: "Streaming transport consumed by the deployment metrics command adapter.",
   }),
-  "POST /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export/authorize": Object.freeze({
+  "POST /api/v1/projects/{projectId}/volume-imports": Object.freeze({
     classification: "protocol-adapter",
-    reason: "Issues the short-lived authorization consumed by the data export adapter.",
+    reason: "Starts the multipart volume import workflow consumed by a dedicated transfer adapter.",
   }),
-  "GET /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export": Object.freeze({
+  "PUT /api/v1/projects/{projectId}/volume-imports/{transferId}/content": Object.freeze({
     classification: "protocol-adapter",
-    reason: "Download transport consumed by the deployment data export command adapter.",
+    reason: "Streams volume import bytes through a dedicated transfer adapter.",
+  }),
+  "POST /api/v1/projects/{projectId}/volume-transfers/{transferId}/download-authorizations": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Issues the one-time ticket consumed by a volume export transfer adapter.",
+  }),
+  "GET /api/v1/projects/{projectId}/volume-transfers/{transferId}/content": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Streams an authorized volume export through a dedicated transfer adapter.",
+  }),
+  "GET /api/v1/projects/{projectId}/volume-transfers/{transferId}/manifest": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Downloads an authorized block-volume manifest through a dedicated transfer adapter.",
+  }),
+  "GET /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/runtime-secrets": Object.freeze({
+    classification: "browser-workflow",
+    reason: "Displays configured runtime secret keys only in the human Web console.",
+  }),
+  "GET /api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/export": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Downloads a deployment bundle through the Web console file adapter.",
+  }),
+  "POST /api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports/preview": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Previews a local deployment bundle through the Web console file adapter.",
+  }),
+  "POST /api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports/reference-candidates": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Resolves deployment bundle references through the Web console file adapter.",
+  }),
+  "POST /api/v1/projects/{projectId}/applications/{applicationId}/deployment-target-imports": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Imports a local deployment bundle through the Web console file adapter.",
   }),
   "GET /api/v1/projects/{projectId}/build-jobs/{jobId}/logs/stream": Object.freeze({
     classification: "protocol-adapter",

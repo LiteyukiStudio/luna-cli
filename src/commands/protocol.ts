@@ -11,8 +11,6 @@ import { CliCommandError } from './errors.js'
 import { executeWebSocketTerminal } from './protocol-terminal.js'
 import { executeSseStream } from './stream.js'
 
-const DATA_EXPORT_PATH
-  = '/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/data-export'
 const BUILD_LOG_STREAM_PATH = '/api/v1/projects/{projectId}/build-jobs/{jobId}/logs/stream'
 const DEPLOYMENT_METRICS_STREAM_PATH
   = '/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/metrics/stream'
@@ -73,35 +71,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         'luna deployment metrics-follow applicationId=app_example targetId=dplt_example maxEvents=10',
       ],
     }),
-    protocolDefinition({
-      category: 'deployment',
-      tool: 'data-export',
-      source: 'protocol',
-      consumedOperations: [
-        'fallback_deployments_post_api_v1_projects_by_project_id_applications_by_application_id_deployment_targets_by_target_id_data_export_authorize',
-        'fallback_deployments_get_api_v1_projects_by_project_id_applications_by_application_id_deployment_targets_by_target_id_data_export',
-      ],
-      method: 'GET',
-      path: DATA_EXPORT_PATH,
-      summary: 'Download a deployment data export',
-      transport: 'download',
-      projectContext: 'required',
-      risk: 'high',
-      mfaPurpose: 'data_export',
-      parameters: [
-        pathParameter('projectId'),
-        pathParameter('applicationId'),
-        pathParameter('targetId'),
-        queryParameter('ticket', { type: 'string', minLength: 1 }),
-        localParameter('destination', { type: 'string', minLength: 1 }),
-        localParameter('overwrite', { type: 'boolean' }),
-        localParameter('maxBytes', { type: 'integer', minimum: 1 }),
-      ],
-      scopes: ['deployment:data_export'],
-      examples: [
-        'luna deployment data-export applicationId=app_example targetId=dplt_example destination=backup.tar.gz',
-      ],
-    }),
     webSocketDefinition({
       category: 'cluster',
       tool: 'pod-terminal',
@@ -143,11 +112,10 @@ export function prepareProtocolRegistration(
   metadata: CommandMetadata,
   handler: CommandHandler,
 ): { metadata: CommandMetadata, handler: CommandHandler } {
-  const inferred = inferKnownTransport(metadata)
-  if (!isProtocolTransport(inferred.transport))
-    return { metadata: inferred, handler }
+  if (!isProtocolTransport(metadata.transport))
+    return { metadata, handler }
   return {
-    metadata: inferred,
+    metadata,
     handler: protocolHandler,
   }
 }
@@ -188,38 +156,10 @@ function webSocketDefinition(
   })
 }
 
-function inferKnownTransport(metadata: CommandMetadata): CommandMetadata {
-  if (metadata.path === DATA_EXPORT_PATH && metadata.method?.toUpperCase() === 'GET') {
-    return {
-      ...metadata,
-      transport: 'download',
-      parameters: withMissingParameters(metadata.parameters, [
-        localParameter('destination', { type: 'string', minLength: 1 }),
-        localParameter('overwrite', { type: 'boolean' }),
-        localParameter('maxBytes', { type: 'integer', minimum: 1 }),
-      ]),
-    }
-  }
-  return metadata
-}
-
 function isProtocolTransport(
   value: CommandMetadata['transport'],
 ): value is 'sse' | 'websocket' | 'download' | 'upload' {
   return value === 'sse' || value === 'websocket' || value === 'download' || value === 'upload'
-}
-
-function withMissingParameters(
-  parameters: readonly CommandParameter[] | undefined,
-  additions: readonly CommandParameter[],
-): readonly CommandParameter[] {
-  const result = [...(parameters ?? [])]
-  const names = new Set(result.map(parameter => parameter.name))
-  for (const parameter of additions) {
-    if (!names.has(parameter.name))
-      result.push(parameter)
-  }
-  return result
 }
 
 function pathParameter(name: string): CommandParameter {

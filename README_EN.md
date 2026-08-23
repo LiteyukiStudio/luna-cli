@@ -40,6 +40,72 @@ The paired `luna-devops-<version>.skill` is published in the same GitHub Release
 and must use the exact CLI version. The CLI remains fully usable without the
 Skill.
 
+## Agent observability diagnostics
+
+Platform administrators can inspect cross-user Agent operations through the
+stable `agent-observability` category. Discover the commands supported by both
+the installed CLI and the server before loading a command's complete schema:
+
+```bash
+luna help catalog category=agent-observability limit=20 output=json interactive=false agent=true
+luna help command path=agent-observability.overview output=json interactive=false agent=true
+```
+
+Start with `overview`, narrow anomalies through `turns` or `tools`, and inspect
+specific evidence through `tool-calls` or `trace`. Lists require explicit bounded
+pagination. Supported periods are `1h`, `6h`, `24h`, `7d`, `30d`, and `1y`.
+These reads require a platform administrator and the
+`agent-observability:read` scope. Source testing remains a human administrator
+command and is unavailable in strict Agent mode.
+
+JSON results use the common envelope with pagination, request IDs, and
+correlation IDs. Before output, the CLI removes raw trace blobs, system prompts,
+and controlled GenAI content. Raw conversations are not currently a stable CLI
+capability.
+
+## Tab completion
+
+Luna CLI generates static shell completion from the same command registry used
+for execution. Pressing Tab does not start Luna CLI or call the Luna API. The
+script completes categories, canonical commands and aliases, `key=value`
+parameters, enum values, and global options. Sensitive parameters are exposed
+only as empty keys and never read credentials.
+
+Zsh (the macOS default shell):
+
+```bash
+mkdir -p ~/.zfunc
+luna completion zsh output=table > ~/.zfunc/_luna
+# Ensure ~/.zshrc contains fpath=(~/.zfunc $fpath) before compinit.
+exec zsh
+```
+
+Bash:
+
+```bash
+mkdir -p ~/.local/share/bash-completion/completions
+luna completion bash output=table > ~/.local/share/bash-completion/completions/luna
+```
+
+Fish:
+
+```fish
+mkdir -p ~/.config/fish/completions
+luna completion fish output=table > ~/.config/fish/completions/luna.fish
+```
+
+PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force (Split-Path $PROFILE) | Out-Null
+$completionFile = Join-Path (Split-Path $PROFILE) 'luna-completion.ps1'
+luna completion powershell output=table | Set-Content -Encoding utf8 $completionFile
+# Add this to $PROFILE once: . $completionFile
+```
+
+Regenerate the script after upgrading Luna CLI. Automation can keep using
+`output=json` to receive structured `{ shell, script }` data.
+
 ## Development
 
 ```bash

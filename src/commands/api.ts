@@ -133,6 +133,7 @@ export class LunaApiAdapter implements ApiPort {
       data: result.data,
       meta: {
         requestId: result.requestId,
+        correlationId: result.correlationId,
         status: result.status,
         ...(projectId ? { projectId } : {}),
       },
@@ -164,6 +165,7 @@ export class LunaApiAdapter implements ApiPort {
       data: result.data,
       meta: {
         requestId: result.requestId,
+        correlationId: result.correlationId,
         status: result.status,
       },
     }
@@ -273,7 +275,7 @@ export class LunaApiAdapter implements ApiPort {
     planned: PlannedApiRequest,
     globals: CommandExecutionGlobals,
     requiredScopes: readonly string[] = [],
-  ): Promise<{ data: unknown, requestId: string, status: number }> {
+  ): Promise<{ data: unknown, requestId: string, correlationId?: string, status: number }> {
     const client = await this.#client(globals, requiredScopes)
     const headers = new Headers(planned.headers)
     if (globals.idempotencyKey)
@@ -289,7 +291,12 @@ export class LunaApiAdapter implements ApiPort {
     })
     if (!result.ok)
       throw await this.#scopeAwareFailure(apiFailure(result.error), globals)
-    return result
+    return {
+      data: result.data,
+      requestId: result.requestId,
+      correlationId: result.headers?.get('x-correlation-id') ?? undefined,
+      status: result.status,
+    }
   }
 
   async #scopeAwareFailure(

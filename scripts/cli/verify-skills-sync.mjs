@@ -13,6 +13,7 @@ const categoryReferences = new Map([
   ["access-token", "security.md"],
   ["ai-assistant", "ai-assistant.md"],
   ["ai-assistant-internal", "ai-assistant.md"],
+  ["agent-observability", "agent-observability.md"],
   ["app-templates", "deployment.md"],
   ["application", "deployment.md"],
   ["auth", "security.md"],
@@ -33,6 +34,7 @@ const categoryReferences = new Map([
   ["o-auth-applications", "security.md"],
   ["project", "workspace.md"],
   ["registry", "registry.md"],
+  ["settings", "system.md"],
   ["release", "deployment.md"],
   ["releases", "deployment.md"],
   ["retention", "system.md"],
@@ -40,6 +42,8 @@ const categoryReferences = new Map([
   ["system", "system.md"],
   ["topology", "topology.md"],
   ["user", "security.md"],
+  ["volume", "runtime.md"],
+  ["volume-transfer", "runtime.md"],
 ]);
 const staleClaimPatterns = [
   {

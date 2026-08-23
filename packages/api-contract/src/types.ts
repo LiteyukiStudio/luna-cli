@@ -66,6 +66,7 @@ export interface OpenApiResponseSnapshot {
   readonly description?: string;
   readonly contentTypes: readonly string[];
   readonly schemaRefs: readonly string[];
+  readonly schema?: SchemaReferenceSummary;
 }
 
 export type OpenApiSecurityRequirement = Readonly<
@@ -75,6 +76,9 @@ export type OpenApiSecurityRequirement = Readonly<
 export type CommandClassification =
   | "business-command"
   | "protocol-adapter"
+  | "browser-callback"
+  | "browser-workflow"
+  | "webhook-receiver"
   | "client-entry"
   | "server-entry"
   | "internal-observability"
@@ -121,6 +125,7 @@ export interface LunaCliExtensionSnapshot {
     | ProjectContextMode
     | LunaCliProjectContextExtension;
   readonly streaming?: boolean;
+  readonly idempotent?: boolean;
   readonly hidden?: boolean;
   readonly agentAllowed?: boolean;
   readonly examples?: readonly string[];
@@ -139,6 +144,8 @@ export interface OpenApiOperationSnapshot {
   readonly parameters: readonly OpenApiParameterSnapshot[];
   readonly requestBody?: OpenApiRequestBodySnapshot;
   readonly inputSchema?: SchemaReferenceSummary;
+  readonly outputSchema?: SchemaReferenceSummary;
+  readonly errorSchema?: SchemaReferenceSummary;
   readonly responses: readonly OpenApiResponseSnapshot[];
   readonly xLunaCli?: LunaCliExtensionSnapshot;
 }

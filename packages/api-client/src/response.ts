@@ -131,9 +131,18 @@ export async function parseFailure(
       : typeof envelope.error_description === "string"
         ? envelope.error_description
         : `The server returned HTTP ${response.status}`
-  const details = isRecord(envelope.details)
-    ? redactSensitive(envelope.details)
-    : {}
+  const details = {
+    ...(isRecord(envelope.details)
+      ? redactSensitive(envelope.details) as Record<string, unknown>
+      : {}),
+    ...(typeof envelope.observationCode === "string"
+      ? { observationCode: envelope.observationCode }
+      : {}),
+    ...(typeof envelope.status === "string" ? { observationStatus: envelope.status } : {}),
+    ...(response.headers.get("x-correlation-id")
+      ? { correlationId: response.headers.get("x-correlation-id") }
+      : {}),
+  }
   const error: LunaError = {
     code,
     details: isRecord(details) ? details : {},

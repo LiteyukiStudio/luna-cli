@@ -1,6 +1,7 @@
 import type {
   CommandExecutionGlobals,
   CommandInvocation,
+  NormalizedCommandMetadata,
   RuntimePorts,
 } from '../../src/commands/types.js'
 import { Buffer } from 'node:buffer'
@@ -8,8 +9,34 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { executeDownload } from '../../src/commands/download.js'
 import { CommandRegistry } from '../../src/commands/registry.js'
 import { emptyConfigDocument } from '../../src/config/schema.js'
+
+const DOWNLOAD_METADATA: NormalizedCommandMetadata = {
+  category: 'fixture',
+  tool: 'download',
+  canonicalPath: 'fixture.download',
+  categoryAliases: [],
+  aliases: [],
+  source: 'protocol',
+  consumedOperations: ['AuthorizeFixtureDownload'],
+  method: 'GET',
+  path: '/api/v1/projects/{projectId}/exports/{exportId}',
+  risk: 'high',
+  transport: 'download',
+  projectContext: 'required',
+  agentAllowed: false,
+  scopes: [],
+  parameters: [
+    { name: 'projectId', location: 'path', required: true },
+    { name: 'exportId', location: 'path', required: true },
+    { name: 'ticket', location: 'query' },
+    { name: 'destination' },
+    { name: 'overwrite' },
+    { name: 'maxBytes' },
+  ],
+}
 
 describe('download protocol adapter', () => {
   const temporaryDirectories: string[] = []
@@ -21,8 +48,11 @@ describe('download protocol adapter', () => {
       rm(path, { recursive: true, force: true })))
   })
 
-  it('authorizes a deployment export and downloads it with the issued ticket', async () => {
-    const command = new CommandRegistry().require('deployment.data-export')
+  it('does not expose the retired deployment data-export command', () => {
+    expect(new CommandRegistry().get('deployment.data-export')).toBeUndefined()
+  })
+
+  it('authorizes a file export and downloads it with the issued ticket', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'luna-download-'))
     temporaryDirectories.push(directory)
     const destination = join(directory, 'backup.tar.gz')
@@ -42,20 +72,19 @@ describe('download protocol adapter', () => {
       })
     })
 
-    const result = await command.handler(invocation(command.metadata, {
+    const result = await executeDownload(invocation(DOWNLOAD_METADATA, {
       projectId: 'project-a',
-      applicationId: 'application-a',
-      targetId: 'target-a',
+      exportId: 'export-a',
       destination,
     }), ports)
 
     expect(requests).toEqual([
       {
-        url: 'https://luna.example.test/api/v1/projects/project-a/applications/application-a/deployment-targets/target-a/data-export/authorize',
+        url: 'https://luna.example.test/api/v1/projects/project-a/exports/export-a/authorize',
         method: 'POST',
       },
       {
-        url: 'https://luna.example.test/api/v1/projects/project-a/applications/application-a/deployment-targets/target-a/data-export?ticket=download-ticket',
+        url: 'https://luna.example.test/api/v1/projects/project-a/exports/export-a?ticket=download-ticket',
         method: 'GET',
       },
     ])
@@ -76,7 +105,6 @@ describe('download protocol adapter', () => {
   })
 
   it('keeps an explicit ticket as a debugging override', async () => {
-    const command = new CommandRegistry().require('deployment.data-export')
     const directory = await mkdtemp(join(tmpdir(), 'luna-download-'))
     temporaryDirectories.push(directory)
     const destination = join(directory, 'backup.tar.gz')
@@ -85,10 +113,9 @@ describe('download protocol adapter', () => {
       return new Response(Buffer.from('ok'))
     })
 
-    await command.handler(invocation(command.metadata, {
+    await executeDownload(invocation(DOWNLOAD_METADATA, {
       projectId: 'project-a',
-      applicationId: 'application-a',
-      targetId: 'target-a',
+      exportId: 'export-a',
       ticket: 'debug-ticket',
       destination,
     }), createPorts(fetch as typeof globalThis.fetch))
@@ -98,7 +125,6 @@ describe('download protocol adapter', () => {
 
   it('continues a large transfer after the 30 second connection timeout', async () => {
     vi.useFakeTimers()
-    const command = new CommandRegistry().require('deployment.data-export')
     const directory = await mkdtemp(join(tmpdir(), 'luna-download-'))
     temporaryDirectories.push(directory)
     const destination = join(directory, 'slow-export.tar.gz')
@@ -116,10 +142,9 @@ describe('download protocol adapter', () => {
       })
     })
 
-    const resultPromise = command.handler(invocation(command.metadata, {
+    const resultPromise = executeDownload(invocation(DOWNLOAD_METADATA, {
       projectId: 'project-a',
-      applicationId: 'application-a',
-      targetId: 'target-a',
+      exportId: 'export-a',
       ticket: 'download-ticket',
       destination,
     }, { timeoutMs: 30_000 }), createPorts(fetch as typeof globalThis.fetch))
@@ -143,7 +168,6 @@ describe('download protocol adapter', () => {
   })
 
   it('propagates MFA errors from export authorization', async () => {
-    const command = new CommandRegistry().require('deployment.data-export')
     const ports = createPorts(async () => Response.json({
       error: {
         code: 'mfa_required',
@@ -152,10 +176,9 @@ describe('download protocol adapter', () => {
       },
     }, { status: 403 }))
 
-    await expect(command.handler(invocation(command.metadata, {
+    await expect(executeDownload(invocation(DOWNLOAD_METADATA, {
       projectId: 'project-a',
-      applicationId: 'application-a',
-      targetId: 'target-a',
+      exportId: 'export-a',
       destination: 'unused.tar.gz',
     }), ports)).rejects.toMatchObject({
       code: 'mfa_required',

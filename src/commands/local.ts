@@ -28,6 +28,10 @@ import { catalogResult, commandHelpResult } from './help.js'
 const stringSchema = { type: 'string' } as const
 const booleanSchema = { type: 'boolean' } as const
 const integerSchema = { type: 'integer' } as const
+const loginModeSchema = {
+  type: 'string',
+  enum: ['device-code', 'access-token'],
+} as const
 
 function translate(
   ports: RuntimePorts,
@@ -54,7 +58,7 @@ function registerAuth(registry: CommandRegistry): void {
     schemaVersion: 'auth.login/v1',
     risk: 'medium',
     parameters: [
-      parameter('mode'),
+      parameter('mode', { schema: loginModeSchema }),
       parameter('token', {
         sensitive: true,
         valueSources: ['file', 'stdin'],
@@ -452,13 +456,14 @@ function registerCompletion(registry: CommandRegistry): void {
     registry.register(localMetadata('completion', shell, {
       summary: `Generate ${shell} completion for Luna CLI.`,
       schemaVersion: `completion.${shell}/v1`,
-    }), async () => ({
-      schemaVersion: `completion.${shell}/v1`,
-      data: {
-        shell,
-        script: generateCompletion(shell as CompletionShell, registry),
-      },
-    }))
+    }), async () => {
+      const script = generateCompletion(shell as CompletionShell, registry)
+      return {
+        schemaVersion: `completion.${shell}/v1`,
+        data: { shell, script },
+        trustedText: script,
+      }
+    })
   }
 }
 

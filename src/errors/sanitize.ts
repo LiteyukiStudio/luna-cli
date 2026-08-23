@@ -13,7 +13,7 @@ const ANSI_SEQUENCE_PATTERN = new RegExp(
 )
 const BIDI_CONTROL_PATTERN = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu
 const SENSITIVE_KEY_PATTERN
-  = /(?:authorization|cookie|credential|kubeconfig|otp|pass(?:word|phrase|wd)?|private[-_]?key|recovery[-_]?code|refresh[-_]?token|secret|session[-_]?id)$/iu
+  = /(?:authorization|cookie|credential|kubeconfig|otp|pass(?:word|phrase|wd)?|private[-_]?key|raw|recovery[-_]?code|refresh[-_]?token|secret|session[-_]?id|system[-_]?prompt|gen_ai\.(?:system_instructions|input\.messages|output\.messages|tool\.definitions|tool\.call\.(?:arguments|result))|luna\.gen_ai\.response\.error_body)$/iu
 const VALUE_SENSITIVE_KEY_PATTERN = /(?:access[-_]?token|id[-_]?token|token)$/iu
 const URL_PATTERN = /\bhttps?:\/\/[^\s"'<>]+/giu
 const AUTHORIZATION_PATTERN = /\b(Bearer|Basic)\s+[\w.~+/=-]+/giu

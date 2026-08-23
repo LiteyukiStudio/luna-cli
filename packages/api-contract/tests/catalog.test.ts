@@ -238,6 +238,34 @@ describe("OpenAPI operation catalog", () => {
     });
   });
 
+  it("publishes stable Agent observability commands without exposing them to the platform Agent", () => {
+    const commands = new Map([
+      ["agent-observability.overview", "getAgentObservabilityOverview"],
+      ["agent-observability.turns", "listAgentObservabilityTurns"],
+      ["agent-observability.tools", "listAgentObservabilityTools"],
+      ["agent-observability.tool-calls", "listAgentObservabilityToolCalls"],
+      ["agent-observability.trace", "getAgentObservabilityTrace"],
+    ]);
+    for (const [command, operationId] of commands) {
+      expect(findOperationByCommand(command)).toMatchObject({
+        operationId,
+        command: {
+          agentAllowed: true,
+          classification: "business-command",
+          requiredScopes: ["agent-observability:read"],
+          risk: "low",
+          source: "explicit",
+        },
+      });
+    }
+    expect(findOperationByCommand("agent-observability.source-test")?.command)
+      .toMatchObject({ agentAllowed: false, risk: "medium" });
+    expect(findOperationById("listAgentObservabilityConversations")?.command)
+      .toMatchObject({ hidden: true, agentAllowed: false });
+    expect(findOperationById("getAgentObservabilityConversation")?.command)
+      .toMatchObject({ hidden: true, agentAllowed: false });
+  });
+
   it("filters and pages the catalog without changing source ordering", () => {
     const projectOperations = filterOperationCatalog({
       category: "project",

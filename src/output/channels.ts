@@ -59,6 +59,10 @@ export class OutputChannels {
     this.#streams.stdout.write(stringifyJsonLine(value));
   }
 
+  writeTrustedText(value: string): void {
+    this.#writeLine(this.#streams.stdout, value);
+  }
+
   writeInfo(message: string): void {
     if (!this.#quiet) this.#writeLine(this.#streams.stderr, sanitizeTerminalText(message));
   }

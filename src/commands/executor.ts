@@ -286,6 +286,8 @@ async function executeRegistered(
     streaming: registered.metadata.streaming ?? false,
   })
 
+  enforceAgentCommandPolicy(registered, invokedPath, globals)
+
   const inputMetadata = metadataWithResolvedProjectRequirement(registered, globals)
   const parsedParams = await ports.input.parse(parsed.businessTokens, inputMetadata)
   const params = resolveProjectParameters(parsedParams, registered, globals)
@@ -376,27 +378,6 @@ function enforceExecutionScope(
   explicitParams: Readonly<Record<string, unknown>>,
   params: Readonly<Record<string, unknown>>,
 ): void {
-  if (globals.agent && requestedPath !== registered.metadata.canonicalPath) {
-    throw new CliCommandError(
-      'agent_alias_forbidden',
-      `Agent mode requires the canonical command "${registered.metadata.canonicalPath}".`,
-      {
-        status: 400,
-        exitCode: 2,
-        details: {
-          command: registered.metadata.canonicalPath,
-          invokedAs: requestedPath,
-        },
-      },
-    )
-  }
-  if (globals.agent && !registered.metadata.agentAllowed) {
-    throw new CliCommandError(
-      'agent_command_forbidden',
-      `Command "${requestedPath}" is not available in agent mode.`,
-      { status: 403, details: { command: requestedPath } },
-    )
-  }
   if (
     registered.metadata.projectContext === 'required'
     && !hasProjectSelection(globals, params)
@@ -434,6 +415,34 @@ function enforceExecutionScope(
       'agent_interactive_forbidden',
       'Agent mode cannot enable interactive input.',
       { status: 400, exitCode: 2 },
+    )
+  }
+}
+
+function enforceAgentCommandPolicy(
+  registered: RegisteredCommand,
+  requestedPath: string,
+  globals: CommandExecutionGlobals,
+): void {
+  if (globals.agent && requestedPath !== registered.metadata.canonicalPath) {
+    throw new CliCommandError(
+      'agent_alias_forbidden',
+      `Agent mode requires the canonical command "${registered.metadata.canonicalPath}".`,
+      {
+        status: 400,
+        exitCode: 2,
+        details: {
+          command: registered.metadata.canonicalPath,
+          invokedAs: requestedPath,
+        },
+      },
+    )
+  }
+  if (globals.agent && !registered.metadata.agentAllowed) {
+    throw new CliCommandError(
+      'agent_command_forbidden',
+      `Command "${requestedPath}" is not available in agent mode.`,
+      { status: 403, details: { command: requestedPath } },
     )
   }
 }

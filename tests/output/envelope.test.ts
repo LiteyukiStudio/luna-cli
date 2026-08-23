@@ -27,6 +27,33 @@ describe("versioned output envelopes", () => {
     expect(envelope.data).toEqual({ items: [{ id: "prj_1", token: "[REDACTED]" }] });
   });
 
+  it("preserves bounded pagination and correlation metadata", () => {
+    const envelope = createSuccessEnvelope(
+      "agent-observability.turns/v1",
+      "listAgentObservabilityTurns",
+      "agent-observability.turns",
+      {
+        items: [],
+        page: 1,
+        pageSize: 20,
+        total: 42,
+        totalPages: 3,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      },
+      { requestId: "req_1", correlationId: "corr_1" },
+    )
+    expect(envelope.pagination).toEqual({
+      page: 1,
+      pageSize: 20,
+      total: 42,
+      totalPages: 3,
+      sortBy: "createdAt",
+      sortOrder: "desc",
+    })
+    expect(envelope.meta).toMatchObject({ requestId: "req_1", correlationId: "corr_1" })
+  });
+
   it("creates version, correlated data and summary stream events", () => {
     const version = createStreamVersionEvent({
       cliVersion: "0.1.0",
