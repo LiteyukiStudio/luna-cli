@@ -44,6 +44,13 @@ Webhook、内部接收器和底层协议操作不会注册为 canonical raw comm
 命令元数据尚未声明 Scope 时，CLI 会使用服务端拒绝响应中的 `requiredScope`
 生成同样的重新授权提示。
 Scope 只表达调用能力，不能替代项目空间角色和后端权限检查。
+本地存储的 OAuth 凭据会在 Access Token 到期前 30 秒或已经过期时，
+由 `auth status` 和远程命令自动刷新；多个 CLI 进程会合并同一轮刷新，
+避免重复旋转 Refresh Token。`luna auth refresh` 仅用于强制手动刷新或
+认证诊断，日常使用无需执行。`LUNA_TOKEN` 和个人访问令牌不参与 OAuth
+刷新。若 Grant 已失效，或刷新请求已发出但结果无法安全确认，CLI 会返回
+`oauth_refresh_reauthentication_required` 并禁止再次使用旧 Refresh Token；
+此时需要重新执行 `luna login`。原始分类只作为安全的 `details.causeCode` 诊断信息。
 覆盖数量与比例不在本文维护，以 `pnpm check:platform-cli-coverage` 的实时输出为准。
 
 ## 安装
@@ -226,6 +233,15 @@ reauthorization. Known commands check the active OAuth grant before sending a
 request and return `oauth_scope_required` with a runnable login command when a
 scope is missing. Scopes never replace project roles or backend authorization.
 Generic `api request` remains a human-only diagnostic escape hatch.
+Stored OAuth credentials are refreshed automatically by `auth status` and remote
+commands when the access token is within 30 seconds of expiry or already expired.
+Concurrent CLI processes coalesce the refresh so the refresh token is rotated only
+once. `luna auth refresh` remains available for forced refresh and diagnostics;
+routine use does not require it. `LUNA_TOKEN` and personal access tokens do not
+participate in OAuth refresh. If the grant is invalid or a refresh outcome cannot
+be confirmed safely, the CLI returns `oauth_refresh_reauthentication_required`,
+blocks reuse of the old refresh token, and requires `luna login`. The safe
+underlying classification is available only as `details.causeCode`.
 
 ### Installation
 

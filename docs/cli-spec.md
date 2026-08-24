@@ -894,7 +894,8 @@ luna logout
   自定义实例。
 - `server=<url>` 可显式登录其他实例；登录成功后覆盖原活动实例、凭据和默认项目。
 - 切换账号同样重新执行登录，不提供 `context use` 或 `auth switch`。
-- `auth status` 默认隐藏 Token，只显示实例、凭据类型、到期时间、用户和 Scope。
+- `auth status` 默认隐藏 Token，只显示实例、凭据类型、到期时间、用户和 Scope；
+  存储的 OAuth Access Token 在到期前 30 秒或已过期时，先自动刷新再返回状态。
 - 服务端 URL 规范化为 origin，不允许携带用户名、密码、fragment 或非根路径，除非未来明确支持子路径部署。
 - 读取旧版 version 1 多 context 配置时不选择或迁移任一凭据，直接初始化为空的
   version 2 官方实例配置并要求重新登录，避免选错账号或跨源迁移 Token。
@@ -1068,6 +1069,7 @@ LUNA_TOKEN="$TOKEN" luna project list output=json interactive=false
 - `LUNA_TOKEN` 只覆盖当前进程，默认不写入 `auth.json`。
 - 如需保存环境变量中的 Token，必须显式设置 `store=true` 并在 TTY 中确认。
 - 登录时调用当前用户和 Scope 查询验证 Token，不接受无法验证的凭据。
+- `LUNA_TOKEN` 和个人访问令牌没有 CLI OAuth Refresh Token，不参与自动或手动 OAuth 刷新。
 
 ### 9.4 状态与登出
 
@@ -1078,7 +1080,35 @@ luna auth logout
 luna auth logout localOnly=true
 ```
 
-`auth status` 只展示当前活动登录，不维护或枚举历史实例、账号和凭据。OAuth 登出时先调用 revoke，服务端不可达时询问是否仅删除本地凭据。个人访问令牌默认只从本地移除；吊销远端令牌必须使用明确的 `access-token revoke`。
+`auth status` 只展示当前活动登录，不维护或枚举历史实例、账号和凭据。
+对本地配置中的 OAuth 凭据，`auth status` 和远程命令在读取状态或发送请求前检查
+Access Token；当到期时间不晚于当前时间加 30 秒时，先使用 Refresh Token 刷新并原子保存。
+
+刷新必须跨进程合并：同一活动登录在任一时刻只能有一个进程旋转 Refresh Token。
+等待者获得独立刷新锁后重新读取凭据；如果其他进程已经完成刷新，则直接复用新凭据。
+刷新响应写入前必须比较服务端、Access Token 和 Refresh Token 代际，只更新 credential，
+不得覆盖刷新期间发生的新登录、登出、项目空间选择、语言或输出设置。
+
+发出刷新请求前，CLI 必须先原子保存不含 Secret 的 `in_progress` 状态。刷新成功并落盘后
+清除该状态；明确的 OAuth `server_error` / `temporarily_unavailable` 或确定未建立连接的失败
+也可以清除并允许后续重试。超时、连接中断、通用代理 5xx、成功响应无效或新凭据落盘失败
+都属于结果不确定：CLI 将状态转换为 `reauthentication_required`，不得再次使用旧 Refresh Token。
+如果进程在刷新期间退出，下一次命令也必须把遗留的 `in_progress` 视为结果不确定。
+
+`luna auth refresh` 忽略 30 秒阈值，使用同一协调机制强制刷新一次；它仅用于恢复或诊断，
+日常命令和 Agent 可用性门禁无需调用。`LUNA_TOKEN` 和个人访问令牌不参与刷新。
+收到 `oauth_invalid_grant` 等终态错误或遇到上述结果不确定状态时，CLI 保留本地安全状态用于诊断，
+统一返回 `oauth_refresh_reauthentication_required` 并要求用户重新执行 `luna login`。
+原始安全分类仅放在 `details.causeCode`；手动 `auth refresh` 不得绕过此阻断。
+
+普通 JSON `GET` / `HEAD` 收到 401 后可以强制刷新并重放一次。写请求只刷新凭据，
+不透明重放，而是返回 `oauth_request_replay_required`，要求先权威回读再手动执行；
+一次性下载票据、上传和 WebSocket 会话也不得透明重放。
+每条命令固定启动时的服务与认证 lineage；并发登录、退出或切换实例时返回
+`auth_context_changed`，不得把原请求、协议连接或项目空间选择带到新身份继续执行。
+
+OAuth 登出时先调用 revoke，服务端不可达时询问是否仅删除本地凭据。个人访问令牌默认只从本地移除；
+吊销远端令牌必须使用明确的 `access-token revoke`。
 
 ### 9.5 Git Provider OAuth 授权
 
@@ -1359,8 +1389,8 @@ HTTP API 可以采用 RFC 9457 `application/problem+json` 表达 `type`、`title
 - Device Code 必须短时有效、一次使用，并限制轮询频率。
 - 浏览器回调只监听 loopback，不监听 `0.0.0.0`。
 - Access Token、Refresh Token 和个人令牌不得出现在 argv、日志、错误和遥测。
-- Token 刷新使用单飞锁，多个并发命令不能同时旋转 Refresh Token。
-- 对 401 最多自动刷新并重试一次；对写请求重试必须有幂等保证。
+- Token 刷新使用跨进程合并锁和凭据代际比较，多个并发命令不能同时旋转 Refresh Token。
+- 对普通 JSON `GET` / `HEAD` 的 401 最多自动刷新并重试一次；写请求和一次性协议不自动重放。
 - `insecureSkipTlsVerify=true` 必须显式设置并持续显示警告，不保存为隐式默认。
 - CLI 不允许自行扩大 Scope。增权必须重新走 OAuth 授权。
 - 服务端仍是权限和 Scope 的最终判断者。
@@ -1847,7 +1877,9 @@ criticalJourneyPassed
 1. 用户不指定服务端执行 `luna login` 时连接官方实例；登录自定义实例或其他账号时，新活动登录原子覆盖旧凭据并清除默认项目。
 2. 用户在无本地浏览器的服务器使用 `luna auth login deviceCode=true` 登录。
 3. CI 通过 `LUNA_TOKEN` 调用命令，凭据不落盘。
-4. OAuth Access Token 到期后自动刷新，原命令只重试一次。
+4. 存储的 OAuth Access Token 在到期前 30 秒或已过期时，`auth status` 和远程命令都自动刷新；
+   多个进程只旋转一次 Refresh Token，`auth refresh` 可强制刷新，`LUNA_TOKEN` / PAT 不参与，
+   `oauth_refresh_reauthentication_required` 终态失败要求重新登录，结果不确定时不复用旧 Refresh Token。
 5. 敏感命令触发 OTP，验证后继续执行；非 TTY 返回结构化 MFA 错误。
 6. `luna help catalog query=project limit=20 agent=true` 能让 AI 获取少量候选命令，再由 `help command` 获取完整参数和输出约束。
 7. `luna project list agent=true` 在中英文环境下输出相同字段结构。

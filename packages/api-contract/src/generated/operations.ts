@@ -5,8 +5,8 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:a354979ae15efa792a4360fb4d7a08ebbb320c5bb4e976e35fe89f7697e56268",
-  "operationCount": 298
+  "sourceDigest": "sha256:d124bb0eba9369317f2a83b4cc58d7dae076a0c79a8a874455c397719f9986ba",
+  "operationCount": 299
 } as const satisfies OpenApiSnapshotMetadata;
 
 export const OPENAPI_OPERATION_SNAPSHOTS = [
@@ -8242,6 +8242,425 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           }
         }
       ]
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/runtime/clusters/pressure",
+    "tags": [
+      "Runtime"
+    ],
+    "deprecated": false,
+    "security": [],
+    "parameters": [
+      {
+        "name": "clusterId",
+        "in": "query",
+        "required": true,
+        "description": "One to 100 visible runtime cluster identifiers. Repeat the query parameter for multiple clusters.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^clu_"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      },
+      {
+        "name": "projectId",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "responses": [
+      {
+        "status": "200",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/RuntimeClusterPressureList"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/RuntimeClusterPressureList",
+          "type": "object",
+          "required": [
+            "items"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "ref": "#/components/schemas/RuntimeClusterPressure",
+                "type": "object",
+                "required": [
+                  "clusterId",
+                  "observedAt",
+                  "pressureLevel",
+                  "status"
+                ],
+                "properties": {
+                  "clusterId": {
+                    "type": "string",
+                    "pattern": "^clu_"
+                  },
+                  "details": {
+                    "description": "Exact current resource values returned only to platform administrators.",
+                    "allOf": [
+                      {
+                        "ref": "#/components/schemas/RuntimeClusterPressureDetails",
+                        "truncated": true
+                      }
+                    ]
+                  },
+                  "observationCode": {
+                    "type": "string"
+                  },
+                  "observedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "pressureLevel": {
+                    "ref": "#/components/schemas/RuntimeClusterPressureLevel",
+                    "type": "string",
+                    "enum": [
+                      "idle",
+                      "light",
+                      "moderate",
+                      "heavy",
+                      "full",
+                      "unavailable"
+                    ]
+                  },
+                  "pressureScore": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Weighted pressure score returned only to platform administrators.",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "unavailable"
+                    ]
+                  }
+                }
+              },
+              "maxItems": 100
+            }
+          }
+        },
+        "description": "Current pressure observations in requested cluster order; invisible identifiers are omitted."
+      },
+      {
+        "status": "400",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/ErrorResponse",
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "requestId"
+          ],
+          "properties": {
+            "allowedValues": {
+              "type": "array",
+              "description": "Allowed enum values for a structured validation error.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "type": "string",
+              "description": "Stable machine-readable error code."
+            },
+            "details": {
+              "type": "object",
+              "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+              "additionalProperties": true
+            },
+            "developerDetail": {
+              "type": "string",
+              "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+            },
+            "message": {
+              "type": "string",
+              "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+            },
+            "observationCode": {
+              "type": "string",
+              "description": "Stable machine-readable observation reason when status is unavailable."
+            },
+            "path": {
+              "type": "string",
+              "description": "Stable argument path associated with a structured validation error."
+            },
+            "requestId": {
+              "type": "string",
+              "description": "Request identifier for support and log correlation."
+            },
+            "retryable": {
+              "type": "boolean",
+              "description": "Whether retrying the same operation without changing arguments may succeed."
+            },
+            "status": {
+              "type": "string",
+              "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "traceId": {
+              "type": "string",
+              "description": "Trace identifier when the request has a valid trace context.",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        },
+        "description": "The request is invalid or cannot be processed."
+      },
+      {
+        "status": "403",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/ErrorResponse",
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "requestId"
+          ],
+          "properties": {
+            "allowedValues": {
+              "type": "array",
+              "description": "Allowed enum values for a structured validation error.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "type": "string",
+              "description": "Stable machine-readable error code."
+            },
+            "details": {
+              "type": "object",
+              "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+              "additionalProperties": true
+            },
+            "developerDetail": {
+              "type": "string",
+              "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+            },
+            "message": {
+              "type": "string",
+              "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+            },
+            "observationCode": {
+              "type": "string",
+              "description": "Stable machine-readable observation reason when status is unavailable."
+            },
+            "path": {
+              "type": "string",
+              "description": "Stable argument path associated with a structured validation error."
+            },
+            "requestId": {
+              "type": "string",
+              "description": "Request identifier for support and log correlation."
+            },
+            "retryable": {
+              "type": "boolean",
+              "description": "Whether retrying the same operation without changing arguments may succeed."
+            },
+            "status": {
+              "type": "string",
+              "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "traceId": {
+              "type": "string",
+              "description": "Trace identifier when the request has a valid trace context.",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        },
+        "description": "The authenticated principal is not allowed to perform this operation."
+      }
+    ],
+    "summary": "Observe current runtime cluster pressure",
+    "description": "Returns a current Kubernetes observation for the requested visible clusters. Platform administrators receive exact allocation and usage details; other users receive only the derived pressure level.",
+    "operationId": "observeRuntimeClusterPressure",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "clusterId": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^clu_"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "projectId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "clusterId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/RuntimeClusterPressureList",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "ref": "#/components/schemas/RuntimeClusterPressure",
+            "type": "object",
+            "required": [
+              "clusterId",
+              "observedAt",
+              "pressureLevel",
+              "status"
+            ],
+            "properties": {
+              "clusterId": {
+                "type": "string",
+                "pattern": "^clu_"
+              },
+              "details": {
+                "description": "Exact current resource values returned only to platform administrators.",
+                "allOf": [
+                  {
+                    "ref": "#/components/schemas/RuntimeClusterPressureDetails",
+                    "truncated": true
+                  }
+                ]
+              },
+              "observationCode": {
+                "type": "string"
+              },
+              "observedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "pressureLevel": {
+                "ref": "#/components/schemas/RuntimeClusterPressureLevel",
+                "type": "string",
+                "enum": [
+                  "idle",
+                  "light",
+                  "moderate",
+                  "heavy",
+                  "full",
+                  "unavailable"
+                ]
+              },
+              "pressureScore": {
+                "type": "number",
+                "format": "double",
+                "description": "Weighted pressure score returned only to platform administrators.",
+                "minimum": 0
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "unavailable"
+                ]
+              }
+            }
+          },
+          "maxItems": 100
+        }
+      }
     },
     "errorSchema": {
       "ref": "#/components/schemas/ErrorResponse",
@@ -75232,7 +75651,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "description": "The requested resource was not found."
       }
     ],
-    "summary": "Install App Template",
+    "summary": "Install an app template into a project",
+    "description": "Creates an application and deployment target from the selected template. When installNow is true, the response also contains the first Release; read that Release back to verify its terminal state.",
     "operationId": "installAppTemplate",
     "requestBody": {
       "required": true,
@@ -75299,7 +75719,14 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "minimum": 0
             },
             "stage": {
-              "type": "string"
+              "type": "string",
+              "description": "Canonical deployment stage. Use dev, test, staging, or prod; arbitrary values such as default or qa are rejected before installation.",
+              "enum": [
+                "dev",
+                "test",
+                "staging",
+                "prod"
+              ]
             },
             "values": {
               "type": "object",
@@ -75383,6 +75810,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "pattern": "^[0-9a-f]{32}$"
         }
       }
+    },
+    "xLunaCli": {
+      "command": "app-template.install",
+      "classification": "business-command",
+      "risk": "medium",
+      "requiredScopes": [
+        "project:write"
+      ],
+      "agentAllowed": true
     }
   },
   {
@@ -93661,7 +94097,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "type": "object",
             "required": [
               "cachedInputCreditsPerMillion",
-              "cachedOutputCreditsPerMillion",
               "createdAt",
               "enabled",
               "id",
@@ -93674,10 +94109,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             ],
             "properties": {
               "cachedInputCreditsPerMillion": {
-                "type": "string",
-                "pattern": "^\\d+(\\.\\d{1,8})?$"
-              },
-              "cachedOutputCreditsPerMillion": {
                 "type": "string",
                 "pattern": "^\\d+(\\.\\d{1,8})?$"
               },
@@ -93881,7 +94312,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "type": "object",
         "required": [
           "cachedInputCreditsPerMillion",
-          "cachedOutputCreditsPerMillion",
           "createdAt",
           "enabled",
           "id",
@@ -93894,10 +94324,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         ],
         "properties": {
           "cachedInputCreditsPerMillion": {
-            "type": "string",
-            "pattern": "^\\d+(\\.\\d{1,8})?$"
-          },
-          "cachedOutputCreditsPerMillion": {
             "type": "string",
             "pattern": "^\\d+(\\.\\d{1,8})?$"
           },
@@ -94034,7 +94460,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "object",
           "required": [
             "cachedInputCreditsPerMillion",
-            "cachedOutputCreditsPerMillion",
             "createdAt",
             "enabled",
             "id",
@@ -94047,10 +94472,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           ],
           "properties": {
             "cachedInputCreditsPerMillion": {
-              "type": "string",
-              "pattern": "^\\d+(\\.\\d{1,8})?$"
-            },
-            "cachedOutputCreditsPerMillion": {
               "type": "string",
               "pattern": "^\\d+(\\.\\d{1,8})?$"
             },
@@ -94410,7 +94831,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "object",
           "required": [
             "cachedInputCreditsPerMillion",
-            "cachedOutputCreditsPerMillion",
             "inputCreditsPerMillion",
             "maxContextTokens",
             "maxOutputTokens",
@@ -94419,10 +94839,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           ],
           "properties": {
             "cachedInputCreditsPerMillion": {
-              "type": "string",
-              "pattern": "^\\d+(\\.\\d{1,8})?$"
-            },
-            "cachedOutputCreditsPerMillion": {
               "type": "string",
               "pattern": "^\\d+(\\.\\d{1,8})?$"
             },
@@ -94467,7 +94883,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "required": [
         "cachedInputCreditsPerMillion",
-        "cachedOutputCreditsPerMillion",
         "createdAt",
         "enabled",
         "id",
@@ -94480,10 +94895,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       ],
       "properties": {
         "cachedInputCreditsPerMillion": {
-          "type": "string",
-          "pattern": "^\\d+(\\.\\d{1,8})?$"
-        },
-        "cachedOutputCreditsPerMillion": {
           "type": "string",
           "pattern": "^\\d+(\\.\\d{1,8})?$"
         },
@@ -94628,7 +95039,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "object",
           "required": [
             "cachedInputCreditsPerMillion",
-            "cachedOutputCreditsPerMillion",
             "createdAt",
             "enabled",
             "id",
@@ -94641,10 +95051,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           ],
           "properties": {
             "cachedInputCreditsPerMillion": {
-              "type": "string",
-              "pattern": "^\\d+(\\.\\d{1,8})?$"
-            },
-            "cachedOutputCreditsPerMillion": {
               "type": "string",
               "pattern": "^\\d+(\\.\\d{1,8})?$"
             },
@@ -95080,7 +95486,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "object",
           "required": [
             "cachedInputCreditsPerMillion",
-            "cachedOutputCreditsPerMillion",
             "inputCreditsPerMillion",
             "maxContextTokens",
             "maxOutputTokens",
@@ -95089,10 +95494,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           ],
           "properties": {
             "cachedInputCreditsPerMillion": {
-              "type": "string",
-              "pattern": "^\\d+(\\.\\d{1,8})?$"
-            },
-            "cachedOutputCreditsPerMillion": {
               "type": "string",
               "pattern": "^\\d+(\\.\\d{1,8})?$"
             },
@@ -95138,7 +95539,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "required": [
         "cachedInputCreditsPerMillion",
-        "cachedOutputCreditsPerMillion",
         "createdAt",
         "enabled",
         "id",
@@ -95151,10 +95551,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       ],
       "properties": {
         "cachedInputCreditsPerMillion": {
-          "type": "string",
-          "pattern": "^\\d+(\\.\\d{1,8})?$"
-        },
-        "cachedOutputCreditsPerMillion": {
           "type": "string",
           "pattern": "^\\d+(\\.\\d{1,8})?$"
         },
@@ -97620,6 +98016,49 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "turns"
           ],
           "properties": {
+            "contextUsage": {
+              "ref": "#/components/schemas/AIContextUsage",
+              "type": "object",
+              "description": "Latest confirmed conversation context, tagged with its model identity. It remains stable while a new Run is active and may decrease after context compaction; clients display it only while the conversation model matches.",
+              "required": [
+                "maxContextTokensSnapshot",
+                "modelId",
+                "recordedAt",
+                "runId",
+                "status",
+                "usedTokens"
+              ],
+              "properties": {
+                "maxContextTokensSnapshot": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 1
+                },
+                "modelId": {
+                  "type": "string"
+                },
+                "recordedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "runId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "reported"
+                  ]
+                },
+                "usedTokens": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "Official total_tokens after the latest reported assistant model call; this is not a sum of historical requests.",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            },
             "conversation": {
               "ref": "#/components/schemas/AIConversationTimelineSummary",
               "type": "object",
@@ -97764,11 +98203,19 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                         "type": "array",
                         "truncated": true
                       },
-                      "latestInputTokens": {
+                      "latestPromptTokens": {
                         "type": "integer",
                         "format": "int64",
-                        "description": "Provider-reported input tokens for the latest completed assistant model call in this Run.",
+                        "description": "Official prompt_tokens from the latest reported assistant model usage in this Run.",
                         "minimum": 0
+                      },
+                      "latestUsageMaxContextTokensSnapshot": {
+                        "type": "integer",
+                        "format": "int64",
+                        "minimum": 1
+                      },
+                      "latestUsageModelId": {
+                        "type": "string"
                       },
                       "runIndex": {
                         "type": "integer",
@@ -98061,6 +98508,49 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "turns"
       ],
       "properties": {
+        "contextUsage": {
+          "ref": "#/components/schemas/AIContextUsage",
+          "type": "object",
+          "description": "Latest confirmed conversation context, tagged with its model identity. It remains stable while a new Run is active and may decrease after context compaction; clients display it only while the conversation model matches.",
+          "required": [
+            "maxContextTokensSnapshot",
+            "modelId",
+            "recordedAt",
+            "runId",
+            "status",
+            "usedTokens"
+          ],
+          "properties": {
+            "maxContextTokensSnapshot": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            },
+            "modelId": {
+              "type": "string"
+            },
+            "recordedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "reported"
+              ]
+            },
+            "usedTokens": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Official total_tokens after the latest reported assistant model call; this is not a sum of historical requests.",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
         "conversation": {
           "ref": "#/components/schemas/AIConversationTimelineSummary",
           "type": "object",
@@ -98205,11 +98695,19 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                     "type": "array",
                     "truncated": true
                   },
-                  "latestInputTokens": {
+                  "latestPromptTokens": {
                     "type": "integer",
                     "format": "int64",
-                    "description": "Provider-reported input tokens for the latest completed assistant model call in this Run.",
+                    "description": "Official prompt_tokens from the latest reported assistant model usage in this Run.",
                     "minimum": 0
+                  },
+                  "latestUsageMaxContextTokensSnapshot": {
+                    "type": "integer",
+                    "format": "int64",
+                    "minimum": 1
+                  },
+                  "latestUsageModelId": {
+                    "type": "string"
                   },
                   "runIndex": {
                     "type": "integer",
@@ -100703,7 +101201,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         },
-        "description": "Unbuffered recoverable SSE stream of persisted content"
+        "description": "Unbuffered recoverable SSE stream. Business frames are AIEvent values replayed from a bounded active-Run stream by after or Last-Event-ID; completed output and workflow terminal facts are persisted in the authoritative Timeline. A stream.heartbeat frame is transient JSON with version"
       },
       {
         "status": "401",
@@ -100850,9 +101348,155 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           }
         },
         "description": "The requested resource was not found."
+      },
+      {
+        "status": "429",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/ErrorResponse",
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "requestId"
+          ],
+          "properties": {
+            "allowedValues": {
+              "type": "array",
+              "description": "Allowed enum values for a structured validation error.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "type": "string",
+              "description": "Stable machine-readable error code."
+            },
+            "details": {
+              "type": "object",
+              "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+              "additionalProperties": true
+            },
+            "developerDetail": {
+              "type": "string",
+              "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+            },
+            "message": {
+              "type": "string",
+              "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+            },
+            "observationCode": {
+              "type": "string",
+              "description": "Stable machine-readable observation reason when status is unavailable."
+            },
+            "path": {
+              "type": "string",
+              "description": "Stable argument path associated with a structured validation error."
+            },
+            "requestId": {
+              "type": "string",
+              "description": "Request identifier for support and log correlation."
+            },
+            "retryable": {
+              "type": "boolean",
+              "description": "Whether retrying the same operation without changing arguments may succeed."
+            },
+            "status": {
+              "type": "string",
+              "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "traceId": {
+              "type": "string",
+              "description": "Trace identifier when the request has a valid trace context.",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        },
+        "description": "Per-Run or per-Agent-instance SSE subscriber limit reached"
+      },
+      {
+        "status": "503",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/ErrorResponse",
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "requestId"
+          ],
+          "properties": {
+            "allowedValues": {
+              "type": "array",
+              "description": "Allowed enum values for a structured validation error.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "type": "string",
+              "description": "Stable machine-readable error code."
+            },
+            "details": {
+              "type": "object",
+              "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+              "additionalProperties": true
+            },
+            "developerDetail": {
+              "type": "string",
+              "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+            },
+            "message": {
+              "type": "string",
+              "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+            },
+            "observationCode": {
+              "type": "string",
+              "description": "Stable machine-readable observation reason when status is unavailable."
+            },
+            "path": {
+              "type": "string",
+              "description": "Stable argument path associated with a structured validation error."
+            },
+            "requestId": {
+              "type": "string",
+              "description": "Request identifier for support and log correlation."
+            },
+            "retryable": {
+              "type": "boolean",
+              "description": "Whether retrying the same operation without changing arguments may succeed."
+            },
+            "status": {
+              "type": "string",
+              "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "traceId": {
+              "type": "string",
+              "description": "Trace identifier when the request has a valid trace context.",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        },
+        "description": "Agent Redis active-stream transport is unavailable"
       }
     ],
-    "summary": "Replay and stream durable run events",
+    "summary": "Replay and stream active run events",
     "operationId": "streamAIRunEvents",
     "inputSchema": {
       "type": "object",
@@ -100978,7 +101622,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "description": "Versioned AI Agent response projected through the Luna API BFF.",
           "additionalProperties": true
         },
-        "description": "Cancellation accepted"
+        "description": "Cancellation accepted or still processing; a running Run is acknowledged only after its owner flushes the terminal batch."
       },
       {
         "status": "401",
@@ -101125,6 +101769,79 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           }
         },
         "description": "The requested resource was not found."
+      },
+      {
+        "status": "503",
+        "contentTypes": [
+          "application/json"
+        ],
+        "schemaRefs": [
+          "#/components/schemas/ErrorResponse"
+        ],
+        "schema": {
+          "ref": "#/components/schemas/ErrorResponse",
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "requestId"
+          ],
+          "properties": {
+            "allowedValues": {
+              "type": "array",
+              "description": "Allowed enum values for a structured validation error.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "code": {
+              "type": "string",
+              "description": "Stable machine-readable error code."
+            },
+            "details": {
+              "type": "object",
+              "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+              "additionalProperties": true
+            },
+            "developerDetail": {
+              "type": "string",
+              "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+            },
+            "message": {
+              "type": "string",
+              "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+            },
+            "observationCode": {
+              "type": "string",
+              "description": "Stable machine-readable observation reason when status is unavailable."
+            },
+            "path": {
+              "type": "string",
+              "description": "Stable argument path associated with a structured validation error."
+            },
+            "requestId": {
+              "type": "string",
+              "description": "Request identifier for support and log correlation."
+            },
+            "retryable": {
+              "type": "boolean",
+              "description": "Whether retrying the same operation without changing arguments may succeed."
+            },
+            "status": {
+              "type": "string",
+              "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "traceId": {
+              "type": "string",
+              "description": "Trace identifier when the request has a valid trace context.",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        },
+        "description": "Agent Redis cancellation transport is unavailable"
       }
     ],
     "operationId": "cancelAIRun",
@@ -103403,6 +104120,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "required": [
                 "apiKey",
                 "baseUrl",
+                "channelAffinityEnabled",
                 "configured",
                 "models"
               ],
@@ -103416,6 +104134,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                   "type": "string",
                   "format": "uri"
                 },
+                "channelAffinityEnabled": {
+                  "type": "boolean",
+                  "description": "When enabled"
+                },
                 "configured": {
                   "type": "boolean"
                 },
@@ -103426,7 +104148,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                     "type": "object",
                     "required": [
                       "cachedInputCreditsPerMillion",
-                      "cachedOutputCreditsPerMillion",
                       "id",
                       "inputCreditsPerMillion",
                       "maxContextTokens",
@@ -103436,10 +104157,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                     ],
                     "properties": {
                       "cachedInputCreditsPerMillion": {
-                        "type": "string",
-                        "pattern": "^\\d+(\\.\\d{1,8})?$"
-                      },
-                      "cachedOutputCreditsPerMillion": {
                         "type": "string",
                         "pattern": "^\\d+(\\.\\d{1,8})?$"
                       },
@@ -103742,6 +104459,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "required": [
             "apiKey",
             "baseUrl",
+            "channelAffinityEnabled",
             "configured",
             "models"
           ],
@@ -103755,6 +104473,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string",
               "format": "uri"
             },
+            "channelAffinityEnabled": {
+              "type": "boolean",
+              "description": "When enabled"
+            },
             "configured": {
               "type": "boolean"
             },
@@ -103765,7 +104487,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "object",
                 "required": [
                   "cachedInputCreditsPerMillion",
-                  "cachedOutputCreditsPerMillion",
                   "id",
                   "inputCreditsPerMillion",
                   "maxContextTokens",
@@ -103775,10 +104496,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 ],
                 "properties": {
                   "cachedInputCreditsPerMillion": {
-                    "type": "string",
-                    "pattern": "^\\d+(\\.\\d{1,8})?$"
-                  },
-                  "cachedOutputCreditsPerMillion": {
                     "type": "string",
                     "pattern": "^\\d+(\\.\\d{1,8})?$"
                   },

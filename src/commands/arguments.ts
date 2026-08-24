@@ -167,6 +167,7 @@ export function resolveGlobalOptions(
   options: {
     env: Readonly<Record<string, string | undefined>>
     configured?: Readonly<{
+      server?: string
       output?: string
       project?: { id?: string } | null
       language?: string
@@ -200,7 +201,12 @@ export function resolveGlobalOptions(
   }
 
   return {
-    server: first(canonical.server, flags.server, env.LUNA_SERVER),
+    server: first(
+      canonical.server,
+      flags.server,
+      env.LUNA_SERVER,
+      options.configured?.server,
+    ),
     project: first(
       canonical.project,
       flags.project,

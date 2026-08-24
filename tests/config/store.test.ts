@@ -1,4 +1,11 @@
-import { lstat, mkdtemp, readFile, symlink } from 'node:fs/promises'
+import {
+  lstat,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -84,6 +91,73 @@ describe('fileConfigStore', () => {
     )
 
     expect((await store.read()).language).toMatch(/^language-\d$/u)
+  })
+
+  it('does not let an old refresh owner remove a replacement lock', async () => {
+    const directory = await temporaryDirectory()
+    const configPath = path.join(directory, '.luna', 'auth.json')
+    const refreshLockPath = `${configPath}.oauth-refresh.lock`
+    const store = new FileConfigStore({ configPath })
+
+    await store.withCredentialRefresh(async () => {
+      await rm(refreshLockPath)
+      await writeFile(refreshLockPath, JSON.stringify({
+        owner: 'replacement-owner',
+        pid: process.pid,
+      }), { mode: 0o600 })
+    })
+
+    expect(JSON.parse(await readFile(refreshLockPath, 'utf8'))).toMatchObject({
+      owner: 'replacement-owner',
+    })
+  })
+
+  it('reclaims a lock from a dead process without waiting for the stale timeout', async () => {
+    const directory = await temporaryDirectory()
+    const configPath = path.join(directory, '.luna', 'auth.json')
+    const refreshLockPath = `${configPath}.oauth-refresh.lock`
+    const store = new FileConfigStore({
+      configPath,
+      lockRetryMs: 1,
+      refreshLockTimeoutMs: 100,
+      refreshStaleLockMs: 60_000,
+    })
+    await store.write(emptyConfigDocument())
+    await writeFile(refreshLockPath, JSON.stringify({
+      owner: 'dead-owner',
+      pid: 2_147_483_647,
+    }), { mode: 0o600 })
+
+    await expect(store.withCredentialRefresh(async () => 'acquired')).resolves.toBe('acquired')
+  })
+
+  it('serializes contenders while recovering one abandoned refresh lock', async () => {
+    const directory = await temporaryDirectory()
+    const configPath = path.join(directory, '.luna', 'auth.json')
+    const refreshLockPath = `${configPath}.oauth-refresh.lock`
+    const seed = new FileConfigStore({ configPath })
+    await seed.write(emptyConfigDocument())
+    await writeFile(refreshLockPath, JSON.stringify({
+      owner: 'dead-owner',
+      pid: 2_147_483_647,
+    }), { mode: 0o600 })
+    const stores = Array.from({ length: 12 }, () => new FileConfigStore({
+      configPath,
+      lockRetryMs: 1,
+      refreshLockTimeoutMs: 2_000,
+    }))
+    let active = 0
+    let maximumActive = 0
+
+    await Promise.all(stores.map(store => store.withCredentialRefresh(async () => {
+      active += 1
+      maximumActive = Math.max(maximumActive, active)
+      await new Promise(resolve => setTimeout(resolve, 5))
+      active -= 1
+    })))
+
+    expect(maximumActive).toBe(1)
+    await expect(readFile(`${refreshLockPath}.recovery`, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('refuses to follow a symbolic-link config file', async () => {

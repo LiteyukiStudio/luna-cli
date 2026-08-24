@@ -7,6 +7,7 @@ import {
   revokeOAuthCredential,
   storeValidatedOAuthCredential,
 } from '../../src/auth/index.js'
+import { redactValue } from '../../src/errors/index.js'
 import { MemoryConfigStore } from '../config/memory-store.js'
 
 describe('oAuth authentication', () => {
@@ -63,6 +64,53 @@ describe('oAuth authentication', () => {
     })
     expect(JSON.stringify(status)).not.toContain('expired-access-secret')
     expect(JSON.stringify(status)).not.toContain('expired-refresh-secret')
+  })
+
+  it('reports a blocked refresh safely without redacting the public auth type', async () => {
+    const store = new MemoryConfigStore()
+    await storeValidatedOAuthCredential(store, {
+      server: 'https://devops.example.com',
+      accessToken: 'blocked-access-secret',
+      refreshToken: 'blocked-refresh-secret',
+      expiresAt: '2029-01-01T00:00:00.000Z',
+    })
+    await store.write({
+      ...await store.read(),
+      credential: {
+        ...store.value.credential!,
+        type: 'oauth',
+        accessToken: 'blocked-access-secret',
+        refreshToken: 'blocked-refresh-secret',
+        refreshState: {
+          code: 'oauth_refresh_outcome_unknown',
+          state: 'reauthentication_required',
+          updatedAt: '2030-01-01T00:00:00.000Z',
+        },
+      },
+    })
+
+    const status = await getAuthStatus(store, {
+      env: {},
+      now: new Date('2030-01-01T00:00:00.000Z'),
+    })
+    const safeStatus = redactValue(status)
+
+    expect(status).toMatchObject({
+      authenticated: false,
+      authType: 'oauth',
+      expired: true,
+      reauthenticationRequired: true,
+      refreshable: false,
+      source: 'stored',
+    })
+    expect(safeStatus).toMatchObject({
+      authType: 'oauth',
+      reauthenticationRequired: true,
+      refreshable: false,
+      scopes: [],
+    })
+    expect(JSON.stringify(safeStatus)).not.toContain('blocked-access-secret')
+    expect(JSON.stringify(safeStatus)).not.toContain('blocked-refresh-secret')
   })
 
   it('authorizes with Device Code, opens the browser, and polls until approved', async () => {
@@ -181,6 +229,62 @@ describe('oAuth authentication', () => {
     })
   })
 
+  it('bounds OAuth refresh network time with a stable timeout error', async () => {
+    await expect(refreshOAuthCredential({
+      server: 'https://devops.example.com',
+      refreshToken: 'refresh-secret',
+      timeoutMs: 5,
+      fetch: async (_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+          once: true,
+        })
+      }),
+    })).rejects.toMatchObject({
+      code: 'oauth_refresh_timeout',
+      status: 504,
+      retryable: true,
+      details: { timeoutMs: 5 },
+    })
+  })
+
+  it('does not expose an untrusted OAuth error code or description', async () => {
+    await expect(refreshOAuthCredential({
+      server: 'https://devops.example.com',
+      refreshToken: 'refresh-secret',
+      fetch: async () => jsonResponse({
+        error: 'refresh-secret',
+        error_description: 'refresh-secret',
+      }, 400),
+    })).rejects.toMatchObject({
+      code: 'oauth_request_failed',
+      message: 'The OAuth request failed.',
+      details: {},
+    })
+  })
+
+  it('refuses OAuth redirects without forwarding the refresh token', async () => {
+    const requests: RequestInit[] = []
+
+    await expect(refreshOAuthCredential({
+      server: 'https://devops.example.com',
+      refreshToken: 'refresh-secret',
+      fetch: async (_input, init) => {
+        requests.push(init ?? {})
+        return new Response(null, {
+          status: 307,
+          headers: { location: 'https://attacker.example.test/collect' },
+        })
+      },
+    })).rejects.toMatchObject({
+      code: 'oauth_redirect_refused',
+      status: 502,
+      retryable: false,
+      details: { requestOrigin: 'https://devops.example.com' },
+    })
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.redirect).toBe('manual')
+  })
+
   it('revokes a token with the RFC 7009 token type hint', async () => {
     const requests: Array<{ url: string, form: URLSearchParams }> = []
 
@@ -202,6 +306,24 @@ describe('oAuth authentication', () => {
       token: 'refresh-secret',
       client_id: 'luna-cli',
       token_type_hint: 'refresh_token',
+    })
+  })
+
+  it('bounds OAuth revocation network time with a stable timeout error', async () => {
+    await expect(revokeOAuthCredential({
+      server: 'https://devops.example.com',
+      token: 'refresh-secret',
+      timeoutMs: 5,
+      fetch: async (_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+          once: true,
+        })
+      }),
+    })).rejects.toMatchObject({
+      code: 'oauth_revoke_timeout',
+      status: 504,
+      retryable: true,
+      details: { timeoutMs: 5 },
     })
   })
 })

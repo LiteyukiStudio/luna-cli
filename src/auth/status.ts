@@ -1,13 +1,13 @@
 import type { ConfigPort } from '../commands/types.js'
 import type { LunaCredential } from '../config/schema.js'
 import type { AuthStatusEntry } from './types.js'
+import { resolveRuntimeContext } from '../config/resolve.js'
 import { parseConfigDocument } from '../config/schema.js'
-import { normalizeServerOrigin } from '../config/server.js'
-import { accessTokenFromEnvironment } from './access-token.js'
 
 export interface AuthStatusOptions {
   readonly now?: Date
   readonly env?: Readonly<Record<string, string | undefined>>
+  readonly server?: string
 }
 
 export async function getAuthStatus(
@@ -15,20 +15,44 @@ export async function getAuthStatus(
   options: AuthStatusOptions = {},
 ): Promise<AuthStatusEntry> {
   const config = parseConfigDocument(await store.read())
-  const environmentCredential = accessTokenFromEnvironment(options.env)
-  const credential = environmentCredential ?? config.credential ?? undefined
-  const source = environmentCredential ? 'environment' : 'stored'
+  const runtime = resolveRuntimeContext(config, {
+    env: options.env,
+    server: options.server,
+  })
+  const credential = runtime.credential
+  const source = runtime.sources.credential === 'environment'
+    ? 'environment' as const
+    : runtime.sources.credential === 'config'
+      ? 'stored' as const
+      : 'none' as const
+  const expired = credential ? isExpired(credential, options.now) : false
+  const refreshState = credential?.type === 'oauth'
+    ? credential.refreshState?.state
+    : undefined
+  const reauthenticationRequired = refreshState === 'reauthentication_required'
   return {
-    server: normalizeServerOrigin(config.server),
-    authenticated: credential !== undefined && !isExpired(credential, options.now),
+    server: runtime.server,
+    authenticated: credential !== undefined && !expired && !reauthenticationRequired,
+    authType: credential?.type,
+    expiresAt: credential?.expiresAt,
+    expired,
+    reauthenticationRequired,
+    refreshInProgress: refreshState === 'in_progress',
+    refreshable: source === 'stored'
+      && credential?.type === 'oauth'
+      && Boolean(credential.refreshToken)
+      && !reauthenticationRequired,
+    source,
+    scopes: credential ? [...credential.scopes] : [],
+    user: credential?.user,
     credential: credential
       ? {
           type: credential.type,
           scopes: [...credential.scopes],
           user: credential.user,
           expiresAt: credential.expiresAt,
-          expired: isExpired(credential, options.now),
-          source,
+          expired,
+          source: source === 'environment' ? 'environment' : 'stored',
         }
       : undefined,
   }

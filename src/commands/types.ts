@@ -1,3 +1,5 @@
+import type { AuthenticationContext } from '../auth/context.js'
+
 export type CommandSource = 'local' | 'openapi' | 'protocol'
 export type CommandRisk = 'low' | 'medium' | 'high' | 'critical'
 export type CommandTransport
@@ -106,6 +108,8 @@ export interface CommandInvocation {
   readonly globals: CommandExecutionGlobals
   readonly explicitGlobalKeys: ReadonlySet<string>
   readonly canonicalGlobalValues: Readonly<Record<string, string>>
+  readonly authentication?: AuthenticationContext
+  readonly storedAuthentication?: AuthenticationContext
 }
 
 export interface CommandResult {
@@ -142,6 +146,7 @@ export interface LunaCredentialRecord {
 export interface ConfigPort {
   read: () => Promise<LunaConfigDocument>
   write: (config: LunaConfigDocument) => Promise<void>
+  readonly withCredentialRefresh?: <T>(operation: () => Promise<T>) => Promise<T>
   path?: string
 }
 
@@ -171,6 +176,7 @@ export interface ApiExecutionRequest {
   readonly params: Readonly<Record<string, unknown>>
   readonly globals: CommandExecutionGlobals
   readonly metadata: NormalizedCommandMetadata
+  readonly authentication?: AuthenticationContext
 }
 
 export interface ApiDiagnosticRequest {
@@ -178,6 +184,7 @@ export interface ApiDiagnosticRequest {
   readonly path: string
   readonly params: Readonly<Record<string, unknown>>
   readonly globals: CommandExecutionGlobals
+  readonly authentication?: AuthenticationContext
 }
 
 export interface LunaApiMeta {
@@ -199,6 +206,7 @@ export interface ApiPort {
   resolveProject?: (
     value: string,
     globals: CommandExecutionGlobals,
+    authentication?: AuthenticationContext,
   ) => Promise<ProjectContextSnapshot>
   getMeta?: (
     server: string | undefined,

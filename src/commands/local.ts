@@ -1,6 +1,7 @@
 import type { CompletionShell } from './completion.js'
 import type { CommandRegistry } from './registry.js'
 import type {
+  CommandInvocation,
   CommandMetadata,
   CommandParameter,
   CommandResult,
@@ -9,13 +10,17 @@ import type {
 } from './types.js'
 import process from 'node:process'
 import {
+  assertAuthenticationTransition,
+  authenticationContext,
   getAuthStatus,
   logoutLocal,
+  refreshStoredOAuthCredential,
   storeValidatedAccessToken,
   storeValidatedOAuthCredential,
 } from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/resolve.js'
 import { DEFAULT_LUNA_SERVER } from '../config/schema.js'
+import { updateConfig, withCredentialRefreshLock } from '../config/store.js'
 import { CLI_VERSION } from '../version.js'
 import {
   isVersionAtLeast,
@@ -202,15 +207,49 @@ function registerAuth(registry: CommandRegistry): void {
   })
 
   registry.register(localMetadata('auth', 'status', {
-    summary: 'Show authentication status without exposing credentials.',
+    summary: 'Refresh OAuth when needed and show authentication status safely.',
     schemaVersion: 'auth.status/v1',
+    transport: 'http',
     examples: ['luna auth status'],
-  }), async (invocation, ports) => ({
-    schemaVersion: 'auth.status/v1',
-    data: await getAuthStatus(ports.config, {
+  }), async (invocation, ports) => {
+    await refreshActiveOAuth(invocation, ports)
+    return {
+      schemaVersion: 'auth.status/v1',
+      data: await getAuthStatus(ports.config, {
+        env: ports.env,
+        server: invocation.globals.server,
+      }),
+    }
+  })
+
+  registry.register(localMetadata('auth', 'refresh', {
+    summary: 'Force one OAuth credential refresh for recovery or diagnostics.',
+    schemaVersion: 'auth.refresh/v1',
+    risk: 'medium',
+    transport: 'http',
+    examples: ['luna auth refresh'],
+  }), async (invocation, ports) => {
+    const refresh = await refreshActiveOAuth(invocation, ports, true)
+    const status = await getAuthStatus(ports.config, {
       env: ports.env,
-    }),
-  }))
+      server: invocation.globals.server,
+    })
+    return {
+      schemaVersion: 'auth.refresh/v1',
+      data: {
+        server: status.server,
+        authenticated: status.authenticated,
+        authType: status.authType,
+        expiresAt: status.expiresAt,
+        expired: status.expired,
+        refreshable: status.refreshable,
+        source: status.source,
+        refreshed: refresh.refreshed,
+        coalesced: refresh.coalesced,
+        outcome: refresh.outcome,
+      },
+    }
+  })
 
   registry.register(localMetadata('auth', 'logout', {
     summary: 'Revoke OAuth tokens when possible and remove the local credential.',
@@ -221,6 +260,8 @@ function registerAuth(registry: CommandRegistry): void {
     schemaVersion: 'auth.logout/v1',
     data: await logoutLocal(ports.config, {
       revoke: request => ports.api.revokeOAuthCredential!(request),
+      timeoutMs: invocation.globals.timeoutMs,
+      expectedStoredAuthentication: invocation.storedAuthentication,
     }),
   }))
 }
@@ -252,17 +293,30 @@ function registerDoctor(registry: CommandRegistry): void {
       env: ports.env,
     })
     const server = runtime.server
+    let authRefreshError: CliCommandError | undefined
+    try {
+      await refreshActiveOAuth(invocation, ports)
+    }
+    catch (error) {
+      authRefreshError = toCliCommandError(error)
+    }
     const auth = await getAuthStatus(ports.config, {
       env: ports.env,
+      server: invocation.globals.server,
     })
     const authEntry = auth
 
     checks.push(doctorCheck('server-config', 'ok', 'server_configured', { server }))
-    checks.push(authEntry?.authenticated
-      ? doctorCheck('authentication', 'ok', 'authenticated', {
-          credentialType: authEntry.credential?.type,
+    checks.push(authRefreshError
+      ? doctorCheck('authentication', 'error', authRefreshError.code, {
+          status: authRefreshError.status,
+          message: authRefreshError.message,
         })
-      : doctorCheck('authentication', 'warning', 'not_authenticated'))
+      : authEntry.authenticated
+        ? doctorCheck('authentication', 'ok', 'authenticated', {
+            authType: authEntry.authType,
+          })
+        : doctorCheck('authentication', 'warning', 'not_authenticated'))
 
     let meta: LunaApiMeta | null = null
     if (server && ports.api.getMeta) {
@@ -360,8 +414,8 @@ function registerDoctor(registry: CommandRegistry): void {
         },
         login: {
           server: server ?? null,
-          authenticated: authEntry?.authenticated ?? false,
-          authType: authEntry?.credential?.type ?? null,
+          authenticated: authEntry.authenticated,
+          authType: authEntry.authType ?? null,
           project: runtime.project ?? null,
         },
         server: meta,
@@ -507,9 +561,12 @@ function registerProjectSelection(registry: CommandRegistry): void {
         { status: 501 },
       )
     }
-    const project = await ports.api.resolveProject(value, invocation.globals)
-    const config = await ports.config.read()
-    await ports.config.write({ ...config, project: { ...project } })
+    const project = await ports.api.resolveProject(
+      value,
+      invocation.globals,
+      invocation.authentication,
+    )
+    await updateProjectForInvocation(invocation, ports, () => ({ ...project }))
     return { schemaVersion: 'project.use/v1', data: project }
   })
 
@@ -517,11 +574,118 @@ function registerProjectSelection(registry: CommandRegistry): void {
     summary: 'Clear the active default project.',
     schemaVersion: 'project.unset/v1',
     examples: ['luna project unset'],
-  }), async (_invocation, ports) => {
-    const config = await ports.config.read()
-    await ports.config.write({ ...config, project: null })
+  }), async (invocation, ports) => {
+    await updateProjectForInvocation(invocation, ports, () => null)
     return { schemaVersion: 'project.unset/v1', data: { project: null } }
   })
+}
+
+async function updateProjectForInvocation(
+  invocation: CommandInvocation,
+  ports: RuntimePorts,
+  project: () => { id: string, name?: string, identifier?: string } | null,
+): Promise<void> {
+  await withCredentialRefreshLock(ports.config, async () => {
+    const current = await ports.config.read()
+    const activeAuthentication = authenticationContext(resolveRuntimeContext(current, {
+      server: invocation.globals.server,
+      project: invocation.globals.project,
+      output: invocation.globals.output,
+      language: invocation.globals.lang,
+      env: ports.env,
+    }))
+    if (invocation.authentication) {
+      assertAuthenticationTransition(
+        invocation.authentication,
+        activeAuthentication,
+        undefined,
+        {
+          stage: 'project_update',
+          refreshOutcome: 'coalesced',
+        },
+      )
+    }
+    if (invocation.storedAuthentication) {
+      const storedAuthentication = authenticationContext(resolveRuntimeContext(current, {
+        server: current.server,
+        env: {},
+      }))
+      assertAuthenticationTransition(
+        invocation.storedAuthentication,
+        storedAuthentication,
+        undefined,
+        {
+          stage: 'project_update',
+          refreshOutcome: 'coalesced',
+        },
+      )
+    }
+    await updateConfig(ports.config, (config) => {
+      config.project = project()
+    })
+  })
+}
+
+async function refreshActiveOAuth(
+  invocation: CommandInvocation,
+  ports: RuntimePorts,
+  force = false,
+) {
+  const observedRuntime = resolveRuntimeContext(await ports.config.read(), {
+    server: invocation.globals.server,
+    project: invocation.globals.project,
+    output: invocation.globals.output,
+    language: invocation.globals.lang,
+    env: ports.env,
+  })
+  const observedAuthentication = authenticationContext(observedRuntime)
+  if (invocation.authentication) {
+    assertAuthenticationTransition(
+      invocation.authentication,
+      observedAuthentication,
+      undefined,
+      {
+        stage: 'auth_command_start',
+        refreshOutcome: 'coalesced',
+      },
+    )
+  }
+
+  let issuedCredential: Awaited<ReturnType<NonNullable<RuntimePorts['api']['refreshOAuthCredential']>>> | undefined
+  const refresh = await refreshStoredOAuthCredential(ports.config, {
+    env: ports.env,
+    server: invocation.globals.server,
+    ...(observedRuntime.sources.credential === 'config'
+      && observedRuntime.credential?.type === 'oauth'
+      ? { expectedAccessToken: observedRuntime.credential.accessToken }
+      : {}),
+    force,
+    required: force,
+    timeoutMs: invocation.globals.timeoutMs,
+    refresh: ports.api.refreshOAuthCredential
+      ? async (request) => {
+        issuedCredential = await ports.api.refreshOAuthCredential!(request)
+        return issuedCredential
+      }
+      : undefined,
+  })
+  const currentRuntime = resolveRuntimeContext(await ports.config.read(), {
+    server: invocation.globals.server,
+    project: invocation.globals.project,
+    output: invocation.globals.output,
+    language: invocation.globals.lang,
+    env: ports.env,
+  })
+  assertAuthenticationTransition(
+    observedAuthentication,
+    authenticationContext(currentRuntime),
+    issuedCredential,
+    {
+      stage: 'auth_refresh',
+      refreshOutcome: refresh.outcome,
+    },
+  )
+  return refresh
 }
 
 function registerApiDiagnostic(registry: CommandRegistry): void {
@@ -558,7 +722,13 @@ function registerApiDiagnostic(registry: CommandRegistry): void {
       throw invalidArguments('path must be a relative Luna API path beginning with /api/.', 'path')
     }
     const { method: _method, path: _path, allowDiagnostic: _allow, ...params } = invocation.params
-    const result = await ports.api.request({ method, path, params, globals: invocation.globals })
+    const result = await ports.api.request({
+      method,
+      path,
+      params,
+      globals: invocation.globals,
+      authentication: invocation.authentication,
+    })
     return asResult(result, 'api.request/v1')
   })
 }

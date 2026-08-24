@@ -1,4 +1,11 @@
-import type { HttpMethod, QueryInput, QueryPrimitive, QueryValue } from '@luna-devops/api-client'
+import type {
+  HttpMethod,
+  LunaResult,
+  QueryInput,
+  QueryPrimitive,
+  QueryValue,
+} from '@luna-devops/api-client'
+import type { AuthenticationContext } from '../auth/context.js'
 import type {
   OAuthClient,
   OAuthLoginRequest,
@@ -7,6 +14,7 @@ import type {
   OAuthRevokeRequest,
   OAuthTokenCredential,
 } from '../auth/oauth.js'
+import type { ResolvedRuntimeContext } from '../config/resolve.js'
 import type {
   ServerCompatibilityRequirements,
 } from './compatibility.js'
@@ -26,11 +34,15 @@ import {
   LunaClient,
 } from '@luna-devops/api-client'
 import {
+  assertAuthenticationTransition,
   assertOAuthScopes,
+  authenticationContext,
+  authenticationContextChanged,
   beginOAuthLogin,
   refreshOAuthCredential,
+  refreshStoredOAuthCredential,
   revokeOAuthCredential,
-  storeValidatedOAuthCredential,
+  sameAuthenticationContext,
   withOAuthScopeRemediation,
 } from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/index.js'
@@ -50,7 +62,13 @@ const HTTP_METHODS = new Set<HttpMethod>([
 ])
 const QUERY_METHODS = new Set<HttpMethod>(['DELETE', 'GET', 'HEAD', 'OPTIONS'])
 const PROJECT_PARAMETER_NAMES = new Set(['project', 'projectId', 'projectID'])
-const OAUTH_REFRESH_SKEW_MS = 30_000
+const OAUTH_ACCESS_FAILURE_CODES = new Set([
+  'auth.oauth.application_invalid',
+  'auth.oauth.grant_invalid',
+  'auth.token.invalid',
+  'authentication_required',
+  'unauthenticated',
+])
 
 const defaultOAuthClient: OAuthClient = {
   beginOAuthLogin,
@@ -73,6 +91,12 @@ export interface PlannedApiRequest {
   readonly query?: QueryInput
   readonly headers?: Readonly<Record<string, string>>
   readonly body?: unknown
+}
+
+interface ApiClientContext {
+  readonly client: LunaClient
+  readonly authentication: AuthenticationContext
+  readonly oauthAccessToken?: string
 }
 
 export class LunaApiAdapter implements ApiPort {
@@ -126,7 +150,12 @@ export class LunaApiAdapter implements ApiPort {
       }
     }
     await this.#ensureServerCompatibility(request.globals)
-    const result = await this.#send(planned, request.globals, request.metadata.scopes)
+    const result = await this.#send(
+      planned,
+      request.globals,
+      request.metadata.scopes,
+      request.authentication,
+    )
     const projectId = requestProjectId(request)
     return {
       schemaVersion: request.metadata.schemaVersion,
@@ -159,7 +188,12 @@ export class LunaApiAdapter implements ApiPort {
         data: { dryRun: 'client', request: planned },
       }
     }
-    const result = await this.#send(planned, request.globals)
+    const result = await this.#send(
+      planned,
+      request.globals,
+      [],
+      request.authentication,
+    )
     return {
       schemaVersion: 'api.request/v1',
       data: result.data,
@@ -227,9 +261,9 @@ export class LunaApiAdapter implements ApiPort {
   async resolveProject(
     value: string,
     globals: CommandExecutionGlobals,
+    expectedAuthentication?: AuthenticationContext,
   ): Promise<ProjectContextSnapshot> {
-    const client = await this.#client(globals)
-    const result = await client.request<unknown>({
+    const result = await this.#requestWithOAuthRecovery({
       method: 'GET',
       path: '/api/v1/projects',
       query: {
@@ -237,9 +271,7 @@ export class LunaApiAdapter implements ApiPort {
         pageSize: 100,
         query: value,
       },
-      requestId: globals.requestId,
-      timeoutMs: globals.timeoutMs,
-    })
+    }, globals, [], expectedAuthentication)
     if (!result.ok)
       throw apiFailure(result.error)
 
@@ -275,20 +307,14 @@ export class LunaApiAdapter implements ApiPort {
     planned: PlannedApiRequest,
     globals: CommandExecutionGlobals,
     requiredScopes: readonly string[] = [],
+    expectedAuthentication?: AuthenticationContext,
   ): Promise<{ data: unknown, requestId: string, correlationId?: string, status: number }> {
-    const client = await this.#client(globals, requiredScopes)
-    const headers = new Headers(planned.headers)
-    if (globals.idempotencyKey)
-      headers.set('idempotency-key', globals.idempotencyKey)
-    const result = await client.request({
-      method: planned.method,
-      path: planned.path,
-      query: planned.query,
-      body: planned.body,
-      headers,
-      requestId: globals.requestId,
-      timeoutMs: globals.timeoutMs,
-    })
+    const result = await this.#requestWithOAuthRecovery(
+      planned,
+      globals,
+      requiredScopes,
+      expectedAuthentication,
+    )
     if (!result.ok)
       throw await this.#scopeAwareFailure(apiFailure(result.error), globals)
     return {
@@ -297,6 +323,106 @@ export class LunaApiAdapter implements ApiPort {
       correlationId: result.headers?.get('x-correlation-id') ?? undefined,
       status: result.status,
     }
+  }
+
+  async #requestWithOAuthRecovery(
+    planned: PlannedApiRequest,
+    globals: CommandExecutionGlobals,
+    requiredScopes: readonly string[] = [],
+    expectedAuthentication?: AuthenticationContext,
+  ): Promise<LunaResult<unknown>> {
+    const headers = new Headers(planned.headers)
+    if (globals.idempotencyKey)
+      headers.set('idempotency-key', globals.idempotencyKey)
+    const send = async (
+      context: ApiClientContext,
+      requestId: string | undefined,
+      stage: 'initial_send' | 'oauth_retry',
+    ) => {
+      await this.#assertAuthenticationContextCurrent(
+        context.authentication,
+        globals,
+        stage,
+        requestId,
+      )
+      return context.client.request<unknown>({
+        method: planned.method,
+        path: planned.path,
+        query: planned.query,
+        body: planned.body,
+        headers,
+        requestId,
+        timeoutMs: globals.timeoutMs,
+      })
+    }
+
+    const initial = await this.#client(
+      globals,
+      requiredScopes,
+      expectedAuthentication,
+    )
+    const result = await send(initial, globals.requestId, 'initial_send')
+    if (
+      result.ok
+      || result.status !== 401
+      || !OAUTH_ACCESS_FAILURE_CODES.has(result.error.code)
+      || !initial.oauthAccessToken
+    ) {
+      return result
+    }
+
+    let issuedCredential: OAuthTokenCredential | undefined
+    const refresh = await refreshStoredOAuthCredential(this.#config, {
+      env: this.#env,
+      server: globals.server,
+      force: true,
+      expectedAccessToken: initial.oauthAccessToken,
+      timeoutMs: globals.timeoutMs,
+      now: this.#now,
+      refresh: async (request) => {
+        issuedCredential = await this.#oauthClient.refreshOAuthCredential(request)
+        return issuedCredential
+      },
+    })
+    const retryRuntime = await this.#runtime(globals)
+    const retryAuthentication = authenticationContext(retryRuntime)
+    assertAuthenticationTransition(
+      initial.authentication,
+      retryAuthentication,
+      issuedCredential,
+      {
+        stage: 'oauth_refresh',
+        requestId: result.requestId,
+        refreshOutcome: refresh.outcome,
+      },
+    )
+    assertOAuthScopes(
+      retryRuntime.credential,
+      retryRuntime.sources.credential,
+      requiredScopes,
+    )
+    if (planned.method !== 'GET' && planned.method !== 'HEAD') {
+      throw new CliCommandError(
+        'oauth_request_replay_required',
+        'OAuth credentials were refreshed, but this request was not replayed automatically.',
+        {
+          status: 409,
+          details: {
+            method: planned.method,
+            requestId: result.requestId,
+            refreshOutcome: refresh.outcome,
+            remediation: 'Read the resource state, then run the command again if the change is still required.',
+          },
+        },
+      )
+    }
+
+    const retry = this.#clientForRuntime(retryRuntime, globals)
+    return send(
+      retry,
+      globals.requestId ?? result.requestId,
+      'oauth_retry',
+    )
   }
 
   async #scopeAwareFailure(
@@ -356,7 +482,8 @@ export class LunaApiAdapter implements ApiPort {
   async #client(
     globals: CommandExecutionGlobals,
     requiredScopes: readonly string[] = [],
-  ): Promise<LunaClient> {
+    expectedAuthentication?: AuthenticationContext,
+  ): Promise<ApiClientContext> {
     if (globals.insecureSkipTlsVerify) {
       throw new CliCommandError(
         'insecure_tls_unsupported',
@@ -369,74 +496,108 @@ export class LunaApiAdapter implements ApiPort {
         },
       )
     }
-    let config = await this.#config.read()
-    let runtime = resolveRuntimeContext(config, {
-      server: globals.server,
-      project: globals.project,
-      output: globals.output,
-      language: globals.lang,
-      env: this.#env,
-    })
-    assertOAuthScopes(
-      runtime.credential,
-      runtime.sources.credential,
-      requiredScopes,
-    )
-    if (
-      runtime.sources.credential === 'config'
-      && runtime.credential?.type === 'oauth'
-      && oauthCredentialNeedsRefresh(runtime.credential.expiresAt, this.#now())
-    ) {
-      if (!runtime.credential.refreshToken) {
-        throw new CliCommandError(
-          'oauth_refresh_token_required',
-          'The stored OAuth credential expired and does not contain a refresh token.',
-          { status: 401 },
-        )
-      }
-      const refreshed = await this.#oauthClient.refreshOAuthCredential({
-        server: runtime.server,
-        refreshToken: runtime.credential.refreshToken,
-        scopes: runtime.credential.scopes,
-      })
-      await storeValidatedOAuthCredential(this.#config, {
-        server: runtime.server,
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        tokenType: refreshed.tokenType ?? runtime.credential.tokenType,
-        scopes: refreshed.scopes.length > 0
-          ? refreshed.scopes
-          : runtime.credential.scopes,
-        user: runtime.credential.user,
-        expiresAt: refreshed.expiresAt,
-        project: runtime.project ?? null,
-      })
-      config = await this.#config.read()
-      runtime = resolveRuntimeContext(config, {
-        server: globals.server,
-        project: globals.project,
-        output: globals.output,
-        language: globals.lang,
-        env: this.#env,
-      })
+    let runtime = await this.#runtime(globals)
+    const observedAuthentication = authenticationContext(runtime)
+    if (expectedAuthentication) {
+      assertAuthenticationTransition(
+        expectedAuthentication,
+        observedAuthentication,
+        undefined,
+        {
+          stage: 'command_start',
+          refreshOutcome: 'coalesced',
+        },
+      )
     }
     assertOAuthScopes(
       runtime.credential,
       runtime.sources.credential,
       requiredScopes,
     )
+    let issuedCredential: OAuthTokenCredential | undefined
+    const refresh = await refreshStoredOAuthCredential(this.#config, {
+      env: this.#env,
+      server: globals.server,
+      ...(runtime.sources.credential === 'config'
+        && runtime.credential?.type === 'oauth'
+        ? { expectedAccessToken: runtime.credential.accessToken }
+        : {}),
+      now: this.#now,
+      timeoutMs: globals.timeoutMs,
+      refresh: async (request) => {
+        issuedCredential = await this.#oauthClient.refreshOAuthCredential(request)
+        return issuedCredential
+      },
+    })
+    runtime = await this.#runtime(globals)
+    assertAuthenticationTransition(
+      observedAuthentication,
+      authenticationContext(runtime),
+      issuedCredential,
+      {
+        stage: 'oauth_preflight',
+        refreshOutcome: refresh.outcome,
+      },
+    )
+    assertOAuthScopes(
+      runtime.credential,
+      runtime.sources.credential,
+      requiredScopes,
+    )
+    return this.#clientForRuntime(runtime, globals)
+  }
+
+  #clientForRuntime(
+    runtime: ResolvedRuntimeContext,
+    globals: CommandExecutionGlobals,
+  ): ApiClientContext {
     const credential = runtime.credential
     const token = credential?.type === 'oauth'
       ? credential.accessToken
       : credential?.type === 'access_token'
         ? credential.token
         : undefined
-    return this.#clientFactory({
-      baseUrl: runtime.server,
-      timeoutMs: globals.timeoutMs,
-      tokenProvider: token
-        ? { getAccessToken: () => token }
-        : undefined,
+    return {
+      client: this.#clientFactory({
+        baseUrl: runtime.server,
+        timeoutMs: globals.timeoutMs,
+        tokenProvider: token
+          ? { getAccessToken: () => token }
+          : undefined,
+      }),
+      authentication: authenticationContext(runtime),
+      ...(runtime.sources.credential === 'config'
+        && credential?.type === 'oauth'
+        ? { oauthAccessToken: credential.accessToken }
+        : {}),
+    }
+  }
+
+  async #assertAuthenticationContextCurrent(
+    expected: AuthenticationContext,
+    globals: CommandExecutionGlobals,
+    stage: 'initial_send' | 'oauth_retry',
+    requestId?: string,
+  ): Promise<void> {
+    const current = authenticationContext(await this.#runtime(globals))
+    if (!sameAuthenticationContext(expected, current)) {
+      throw authenticationContextChanged({
+        stage,
+        ...(requestId ? { requestId } : {}),
+      })
+    }
+  }
+
+  async #runtime(
+    globals: CommandExecutionGlobals,
+  ): Promise<ResolvedRuntimeContext> {
+    const config = await this.#config.read()
+    return resolveRuntimeContext(config, {
+      server: globals.server,
+      project: globals.project,
+      output: globals.output,
+      language: globals.lang,
+      env: this.#env,
     })
   }
 
@@ -451,16 +612,6 @@ export class LunaApiAdapter implements ApiPort {
     })
     return runtime.server
   }
-}
-
-function oauthCredentialNeedsRefresh(
-  expiresAt: string | undefined,
-  now: number,
-): boolean {
-  if (!expiresAt)
-    return false
-  const expiresAtMs = Date.parse(expiresAt)
-  return Number.isFinite(expiresAtMs) && expiresAtMs <= now + OAUTH_REFRESH_SKEW_MS
 }
 
 function requiredMetaString(

@@ -30,6 +30,15 @@ export interface StoreOAuthCredentialInput {
 export interface AuthStatusEntry {
   readonly server: string
   readonly authenticated: boolean
+  readonly authType?: LunaCredential['type']
+  readonly expiresAt?: string
+  readonly expired: boolean
+  readonly reauthenticationRequired: boolean
+  readonly refreshInProgress: boolean
+  readonly refreshable: boolean
+  readonly source: 'stored' | 'environment' | 'none'
+  readonly scopes: readonly string[]
+  readonly user?: AuthUserSnapshot
   readonly credential?: {
     readonly type: LunaCredential['type']
     readonly scopes: readonly string[]

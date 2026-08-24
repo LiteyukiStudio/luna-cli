@@ -6,7 +6,6 @@ import type { StoredLunaConfig } from '../../src/config/schema.js'
 import {
   emptyConfigDocument,
   parseConfigDocument,
-
 } from '../../src/config/schema.js'
 
 export class MemoryConfigStore implements ConfigPort {

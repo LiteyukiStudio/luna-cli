@@ -20,6 +20,22 @@
 4. 采用最小 Scope，按 Help Schema 执行一次变更，再重新读取验证。
 5. 用户可以在自己的终端执行 `luna login` 进入默认 Device Code 登录，也可显式选择 Help 提供的备用方式。
 
+## OAuth 刷新
+
+- 本地存储的 OAuth Access Token 在到期前 30 秒或已过期时，由
+  `auth status` 和远程命令自动刷新。CLI 会跨进程合并同一轮刷新，
+  不会让并发命令重复旋转 Refresh Token。
+- `luna auth refresh output=json interactive=false agent=true` 只用于强制手动刷新或认证诊断；
+  日常操作和 Agent 可用性门禁不需要先执行它。
+- `LUNA_TOKEN` 与个人访问令牌没有 CLI OAuth Refresh Token，不参与自动或
+  手动 OAuth 刷新。
+- 收到 `oauth_refresh_reauthentication_required` 时停止重试。它表示 Refresh Token / Grant
+  已失效，或刷新请求已发出但结果无法安全确认；CLI 会持久阻止旧 Refresh Token 再次使用。
+  `details.causeCode` 只用于诊断。不要用 `auth refresh` 绕过阻断，保留本地状态并让用户在自己的
+  终端重新执行 `luna login`。
+- 收到 `auth_context_changed` 时停止当前命令并重新读取 `auth status`，不得把原请求、协议连接
+  或项目空间写入带到并发切换后的新实例或新账号继续执行。
+
 ## MFA 与协议入口
 
 - OIDC/OAuth callback、Device Authorization 页面和 Webhook 接收端点不是 Agent 直接调用的业务工具。

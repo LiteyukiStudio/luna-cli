@@ -9,6 +9,8 @@ import type {
 } from './types.js'
 import process from 'node:process'
 import { Command, CommanderError, Option } from 'commander'
+import { authenticationContext } from '../auth/context.js'
+import { resolveRuntimeContext } from '../config/resolve.js'
 import { CLI_VERSION } from '../version.js'
 import { resolveGlobalOptions, splitGlobalTokens } from './arguments.js'
 import { CliCommandError, toCliCommandError } from './errors.js'
@@ -278,6 +280,9 @@ async function executeRegistered(
   const globals = resolveGlobalOptions(parsed.canonicalGlobals, flagOptions, {
     env: ports.env ?? process.env,
     configured: {
+      server: registered.metadata.canonicalPath === 'auth.login'
+        ? undefined
+        : config.server,
       output: config.output,
       project: config.project,
       language: config.language,
@@ -306,6 +311,17 @@ async function executeRegistered(
     globals,
     explicitGlobalKeys: parsed.explicitGlobalKeys,
     canonicalGlobalValues: parsed.canonicalGlobals,
+    authentication: authenticationContext(resolveRuntimeContext(config, {
+      server: globals.server,
+      project: globals.project,
+      output: globals.output,
+      language: globals.lang,
+      env: ports.env ?? process.env,
+    })),
+    storedAuthentication: authenticationContext(resolveRuntimeContext(config, {
+      server: config.server,
+      env: {},
+    })),
   }
   const result = normalizeResult(
     await registered.handler(invocation, ports),

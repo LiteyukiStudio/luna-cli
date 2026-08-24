@@ -1,4 +1,7 @@
-import type { ConfigPort, LunaConfigDocument } from '../commands/types.js'
+import type {
+  ConfigPort,
+  LunaConfigDocument,
+} from '../commands/types.js'
 import type { ConfigPathOptions } from './paths.js'
 import type { StoredLunaConfig } from './schema.js'
 import { randomUUID } from 'node:crypto'
@@ -19,13 +22,16 @@ import { resolveConfigPath } from './paths.js'
 import {
   emptyConfigDocument,
   parseConfigDocument,
-
 } from './schema.js'
+
+const RECOVERY_GATE_STALE_MS = 1_000
 
 export interface FileConfigStoreOptions extends ConfigPathOptions {
   readonly lockTimeoutMs?: number
   readonly lockRetryMs?: number
   readonly staleLockMs?: number
+  readonly refreshLockTimeoutMs?: number
+  readonly refreshStaleLockMs?: number
   readonly platform?: NodeJS.Platform
   readonly now?: () => number
   readonly randomId?: () => string
@@ -37,11 +43,17 @@ export interface MutableConfigStore extends ConfigPort {
   ) => Promise<StoredLunaConfig>
 }
 
-export class FileConfigStore implements MutableConfigStore {
+export interface CredentialRefreshLockStore extends ConfigPort {
+  withCredentialRefresh: <T>(operation: () => Promise<T>) => Promise<T>
+}
+
+export class FileConfigStore implements CredentialRefreshLockStore, MutableConfigStore {
   readonly path: string
   readonly #lockTimeoutMs: number
   readonly #lockRetryMs: number
   readonly #staleLockMs: number
+  readonly #refreshLockTimeoutMs: number
+  readonly #refreshStaleLockMs: number
   readonly #platform: NodeJS.Platform
   readonly #now: () => number
   readonly #randomId: () => string
@@ -51,6 +63,8 @@ export class FileConfigStore implements MutableConfigStore {
     this.#lockTimeoutMs = options.lockTimeoutMs ?? 5_000
     this.#lockRetryMs = options.lockRetryMs ?? 25
     this.#staleLockMs = options.staleLockMs ?? 30_000
+    this.#refreshLockTimeoutMs = options.refreshLockTimeoutMs ?? 35_000
+    this.#refreshStaleLockMs = options.refreshStaleLockMs ?? 60_000
     this.#platform = options.platform ?? process.platform
     this.#now = options.now ?? Date.now
     this.#randomId = options.randomId ?? randomUUID
@@ -90,7 +104,7 @@ export class FileConfigStore implements MutableConfigStore {
   async write(config: LunaConfigDocument): Promise<void> {
     await this.#withLock(async () => {
       await this.#writeUnlocked(parseConfigDocument(config))
-    })
+    }, this.#configLockOptions())
   }
 
   async update(
@@ -103,6 +117,16 @@ export class FileConfigStore implements MutableConfigStore {
       const next = parseConfigDocument(replacement ?? working)
       await this.#writeUnlocked(next)
       return next
+    }, this.#configLockOptions())
+  }
+
+  async withCredentialRefresh<T>(operation: () => Promise<T>): Promise<T> {
+    return this.#withLock(operation, {
+      lockPath: `${this.path}.oauth-refresh.lock`,
+      timeoutMs: this.#refreshLockTimeoutMs,
+      staleLockMs: this.#refreshStaleLockMs,
+      timeoutCode: 'oauth_refresh_lock_timeout',
+      timeoutMessage: 'Timed out waiting for another OAuth credential refresh to finish.',
     })
   }
 
@@ -180,36 +204,45 @@ export class FileConfigStore implements MutableConfigStore {
     }
   }
 
-  async #withLock<T>(operation: () => Promise<T>): Promise<T> {
+  async #withLock<T>(operation: () => Promise<T>, options: LockOptions): Promise<T> {
     await this.#prepareDirectory(true)
-    const lockPath = `${this.path}.lock`
-    const deadline = this.#now() + this.#lockTimeoutMs
+    const owner = this.#randomId()
+    const deadline = this.#now() + options.timeoutMs
     let handle
 
     while (!handle) {
-      await this.#assertLockPathSafe(lockPath)
+      await this.#assertLockPathSafe(options.lockPath)
       try {
         const flags = fsConstants.O_CREAT
           | fsConstants.O_EXCL
           | fsConstants.O_WRONLY
           | (fsConstants.O_NOFOLLOW ?? 0)
-        handle = await open(lockPath, flags, 0o600)
+        handle = await open(options.lockPath, flags, 0o600)
         await handle.writeFile(
-          JSON.stringify({ pid: process.pid, createdAt: new Date(this.#now()).toISOString() }),
+          JSON.stringify({
+            owner,
+            pid: process.pid,
+            createdAt: new Date(this.#now()).toISOString(),
+          }),
           'utf8',
         )
         await handle.sync()
       }
       catch (error) {
-        if (!isNodeError(error, 'EEXIST')) {
-          throw configIoError('lock', this.path, error)
+        if (handle) {
+          await handle.close().catch(() => undefined)
+          handle = undefined
+          await this.#releaseOwnedLock(options.lockPath, owner)
         }
-        if (await this.#removeStaleLock(lockPath))
+        if (!isNodeError(error, 'EEXIST')) {
+          throw configIoError('lock', options.lockPath, error)
+        }
+        if (await this.#removeStaleLock(options.lockPath, options.staleLockMs))
           continue
         if (this.#now() >= deadline) {
           throw new CliCommandError(
-            'config_lock_timeout',
-            `Timed out waiting for the configuration lock "${lockPath}".`,
+            options.timeoutCode,
+            options.timeoutMessage,
             { status: 409, retryable: true },
           )
         }
@@ -222,7 +255,17 @@ export class FileConfigStore implements MutableConfigStore {
     }
     finally {
       await handle.close().catch(() => undefined)
-      await rm(lockPath, { force: true }).catch(() => undefined)
+      await this.#releaseOwnedLock(options.lockPath, owner)
+    }
+  }
+
+  #configLockOptions(): LockOptions {
+    return {
+      lockPath: `${this.path}.lock`,
+      timeoutMs: this.#lockTimeoutMs,
+      staleLockMs: this.#staleLockMs,
+      timeoutCode: 'config_lock_timeout',
+      timeoutMessage: `Timed out waiting for the configuration lock "${this.path}.lock".`,
     }
   }
 
@@ -292,16 +335,22 @@ export class FileConfigStore implements MutableConfigStore {
     }
   }
 
-  async #removeStaleLock(lockPath: string): Promise<boolean> {
+  async #removeStaleLock(lockPath: string, staleLockMs: number): Promise<boolean> {
     try {
-      const stats = await lstat(lockPath)
-      if (stats.isSymbolicLink() || !stats.isFile())
-        throw unsafePathError(lockPath)
-      await this.#tightenPermissions(lockPath, stats.mode, stats.uid, 0o600)
-      if (this.#now() - stats.mtimeMs <= this.#staleLockMs)
-        return false
-      await rm(lockPath)
-      return true
+      const recovered = await this.#withStaleRecoveryGate(lockPath, async () => {
+        const snapshot = await readLockSnapshot(lockPath)
+        if (!snapshot)
+          return true
+        if (snapshot.pid !== undefined) {
+          if (processIsAlive(snapshot.pid))
+            return false
+        }
+        else if (this.#now() - snapshot.mtimeMs <= staleLockMs) {
+          return false
+        }
+        return removeLockSnapshot(lockPath, snapshot)
+      })
+      return recovered ?? false
     }
     catch (error) {
       if (isNodeError(error, 'ENOENT'))
@@ -309,6 +358,80 @@ export class FileConfigStore implements MutableConfigStore {
       if (error instanceof CliCommandError)
         throw error
       throw configIoError('inspect', lockPath, error)
+    }
+  }
+
+  async #withStaleRecoveryGate<T>(
+    lockPath: string,
+    operation: () => Promise<T>,
+  ): Promise<T | undefined> {
+    const gatePath = `${lockPath}.recovery`
+    const owner = this.#randomId()
+    let handle
+
+    for (let attempt = 0; attempt < 2 && !handle; attempt += 1) {
+      await this.#assertLockPathSafe(gatePath)
+      try {
+        const flags = fsConstants.O_CREAT
+          | fsConstants.O_EXCL
+          | fsConstants.O_WRONLY
+          | (fsConstants.O_NOFOLLOW ?? 0)
+        handle = await open(gatePath, flags, 0o600)
+        await handle.writeFile(JSON.stringify({
+          owner,
+          pid: process.pid,
+          createdAt: new Date(this.#now()).toISOString(),
+        }), 'utf8')
+        await handle.sync()
+      }
+      catch (error) {
+        if (handle) {
+          await handle.close().catch(() => undefined)
+          handle = undefined
+          await this.#releaseOwnedLock(gatePath, owner)
+        }
+        if (!isNodeError(error, 'EEXIST'))
+          throw configIoError('lock', gatePath, error)
+        if (!await this.#removeAbandonedRecoveryGate(gatePath))
+          return undefined
+      }
+    }
+    if (!handle)
+      return undefined
+
+    try {
+      return await operation()
+    }
+    finally {
+      await handle.close().catch(() => undefined)
+      await this.#releaseOwnedLock(gatePath, owner)
+    }
+  }
+
+  async #removeAbandonedRecoveryGate(gatePath: string): Promise<boolean> {
+    const snapshot = await readLockSnapshot(gatePath)
+    if (!snapshot)
+      return true
+    if (snapshot.pid !== undefined) {
+      if (processIsAlive(snapshot.pid))
+        return false
+    }
+    else if (this.#now() - snapshot.mtimeMs <= RECOVERY_GATE_STALE_MS) {
+      return false
+    }
+    return removeLockSnapshot(gatePath, snapshot)
+  }
+
+  async #releaseOwnedLock(lockPath: string, owner: string): Promise<void> {
+    try {
+      const record = await readLockRecord(lockPath)
+      if (record?.owner !== owner)
+        return
+      await rm(lockPath)
+    }
+    catch (error) {
+      if (!isNodeError(error, 'ENOENT'))
+        throw configIoError('unlock', lockPath, error)
     }
   }
 
@@ -356,6 +479,137 @@ export async function updateConfig(
   const next = parseConfigDocument(replacement ?? working)
   await store.write(next)
   return next
+}
+
+const inProcessRefreshLocks = new WeakMap<ConfigPort, Promise<void>>()
+
+export async function withCredentialRefreshLock<T>(
+  store: ConfigPort,
+  operation: () => Promise<T>,
+): Promise<T> {
+  if (typeof store.withCredentialRefresh === 'function')
+    return store.withCredentialRefresh(operation)
+
+  const previous = inProcessRefreshLocks.get(store) ?? Promise.resolve()
+  let release!: () => void
+  const current = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const turn = previous.catch(() => undefined)
+  inProcessRefreshLocks.set(store, turn.then(() => current))
+  await turn
+  try {
+    return await operation()
+  }
+  finally {
+    release()
+  }
+}
+
+interface LockOptions {
+  readonly lockPath: string
+  readonly timeoutMs: number
+  readonly staleLockMs: number
+  readonly timeoutCode: string
+  readonly timeoutMessage: string
+}
+
+interface LockRecord {
+  readonly owner?: string
+  readonly pid?: number
+}
+
+interface LockSnapshot extends LockRecord {
+  readonly device: number
+  readonly inode: number
+  readonly mtimeMs: number
+  readonly size: number
+}
+
+async function readLockSnapshot(lockPath: string): Promise<LockSnapshot | undefined> {
+  try {
+    const stats = await lstat(lockPath)
+    if (stats.isSymbolicLink() || !stats.isFile())
+      throw unsafePathError(lockPath)
+    const record = await readLockRecord(lockPath)
+    return {
+      device: stats.dev,
+      inode: stats.ino,
+      mtimeMs: stats.mtimeMs,
+      size: stats.size,
+      owner: record?.owner,
+      pid: record?.pid,
+    }
+  }
+  catch (error) {
+    if (isNodeError(error, 'ENOENT'))
+      return undefined
+    throw error
+  }
+}
+
+async function removeLockSnapshot(
+  lockPath: string,
+  expected: LockSnapshot,
+): Promise<boolean> {
+  const current = await readLockSnapshot(lockPath)
+  if (!current)
+    return true
+  if (!sameLockSnapshot(current, expected))
+    return false
+  try {
+    await rm(lockPath)
+    return true
+  }
+  catch (error) {
+    if (isNodeError(error, 'ENOENT'))
+      return true
+    throw error
+  }
+}
+
+function sameLockSnapshot(left: LockSnapshot, right: LockSnapshot): boolean {
+  return left.device === right.device
+    && left.inode === right.inode
+    && left.mtimeMs === right.mtimeMs
+    && left.size === right.size
+    && left.owner === right.owner
+    && left.pid === right.pid
+}
+
+async function readLockRecord(lockPath: string): Promise<LockRecord | undefined> {
+  try {
+    const value: unknown = JSON.parse(await readFileWithoutFollowingLinks(lockPath))
+    if (!isRecord(value))
+      return undefined
+    return {
+      owner: typeof value.owner === 'string' ? value.owner : undefined,
+      pid: typeof value.pid === 'number' && Number.isInteger(value.pid) && value.pid > 0
+        ? value.pid
+        : undefined,
+    }
+  }
+  catch (error) {
+    if (isNodeError(error, 'ENOENT'))
+      return undefined
+    if (error instanceof SyntaxError)
+      return undefined
+    throw error
+  }
+}
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  }
+  catch (error) {
+    return !isNodeError(error, 'ESRCH')
+  }
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function configIoError(

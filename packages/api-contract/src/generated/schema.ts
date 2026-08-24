@@ -677,6 +677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtime/clusters/pressure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Observe current runtime cluster pressure
+         * @description Returns a current Kubernetes observation for the requested visible clusters. Platform administrators receive exact allocation and usage details; other users receive only the derived pressure level.
+         */
+        get: operations["observeRuntimeClusterPressure"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/git/providers": {
         parameters: {
             query?: never;
@@ -2866,7 +2886,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Install App Template */
+        /**
+         * Install an app template into a project
+         * @description Creates an application and deployment target from the selected template. When installNow is true, the response also contains the first Release; read that Release back to verify its terminal state.
+         */
         post: operations["installAppTemplate"];
         delete?: never;
         options?: never;
@@ -3797,7 +3820,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Replay and stream durable run events */
+        /** Replay and stream active run events */
         get: operations["streamAIRunEvents"];
         put?: never;
         post?: never;
@@ -4142,7 +4165,6 @@ export interface components {
             inputCreditsPerMillion: string;
             outputCreditsPerMillion: string;
             cachedInputCreditsPerMillion: string;
-            cachedOutputCreditsPerMillion: string;
             enabled: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -4158,7 +4180,6 @@ export interface components {
             inputCreditsPerMillion: string;
             outputCreditsPerMillion: string;
             cachedInputCreditsPerMillion: string;
-            cachedOutputCreditsPerMillion: string;
             enabled?: boolean;
         };
         AIModelPricingSnapshot: {
@@ -4171,7 +4192,6 @@ export interface components {
             inputCreditsPerMillion: string;
             outputCreditsPerMillion: string;
             cachedInputCreditsPerMillion: string;
-            cachedOutputCreditsPerMillion: string;
         };
         AICreateTurnInput: {
             modelId: string;
@@ -4315,11 +4335,119 @@ export interface components {
                 errorCode?: string;
                 /**
                  * Format: int64
-                 * @description Provider-reported input tokens for the latest completed assistant model call in this Run.
+                 * @description Official prompt_tokens from the latest reported assistant model usage in this Run.
                  */
-                latestInputTokens?: number;
+                latestPromptTokens?: number;
+                latestUsageModelId?: string;
+                /** Format: int64 */
+                latestUsageMaxContextTokensSnapshot?: number;
                 items: components["schemas"]["AITimelineItem"][];
             };
+        };
+        AIProviderUsage: {
+            /** @enum {string} */
+            status: "reported";
+            /** Format: int64 */
+            promptTokens: number;
+            /** Format: int64 */
+            completionTokens: number;
+            /**
+             * Format: int64
+             * @description Must equal promptTokens plus completionTokens.
+             */
+            totalTokens: number;
+            /** Format: int64 */
+            cachedPromptTokens?: number;
+            /** Format: int64 */
+            cacheWritePromptTokens?: number;
+            /**
+             * Format: int64
+             * @description Informational subset of completionTokens and never billed twice.
+             */
+            reasoningCompletionTokens?: number;
+        } | {
+            /** @enum {string} */
+            status: "unavailable";
+            /** @enum {string} */
+            reason: "missing_usage" | "invalid_usage" | "stream_ended_without_usage";
+        } | {
+            /** @enum {string} */
+            status: "reconciliation_required";
+            /** @enum {string} */
+            reason: "missing_usage" | "invalid_usage" | "stream_ended_without_usage" | "request_outcome_unknown" | "hold_deficit";
+        };
+        /** @description Latest confirmed conversation context, tagged with its model identity. It remains stable while a new Run is active and may decrease after context compaction; clients display it only while the conversation model matches. */
+        AIContextUsage: {
+            /** @enum {string} */
+            status: "reported";
+            runId: string;
+            modelId: string;
+            /**
+             * Format: int64
+             * @description Official total_tokens after the latest reported assistant model call; this is not a sum of historical requests.
+             */
+            usedTokens: number;
+            /** Format: int64 */
+            maxContextTokensSnapshot: number;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        AIModelCompletedPayload: {
+            usage: components["schemas"]["AIProviderUsage"];
+            modelId?: string;
+            /** Format: int64 */
+            maxContextTokensSnapshot?: number;
+            creditHoldId?: string;
+            providerRequestId?: string;
+            responseId?: string;
+            responseModel?: string;
+            finishReason?: string;
+        };
+        AIContentDeltaPayload: {
+            itemId: string;
+            contentPartId: string;
+            partIndex: number;
+            delta: string;
+            timelineIndex: number;
+            /**
+             * Format: date-time
+             * @description Present only on the first content.delta frame that creates the live item.
+             */
+            createdAt?: string;
+        };
+        AIThinkingStartedPayload: {
+            itemId: string;
+            summary: string;
+            /** @enum {string} */
+            display: "summary";
+            timelineIndex: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AIThinkingDeltaPayload: {
+            itemId: string;
+            delta: string;
+            /** @enum {string} */
+            display: "summary";
+            timelineIndex: number;
+        };
+        AIEvent: {
+            /** @enum {integer} */
+            version: 2;
+            eventId: string;
+            /** Format: int64 */
+            eventSequence: number;
+            type: string;
+            conversationId: string;
+            turnId: string;
+            runId: string;
+            itemId?: string;
+            contentPartId?: string;
+            toolCallId?: string;
+            item?: components["schemas"]["AITimelineItem"];
+            /** Format: date-time */
+            occurredAt: string;
+            payload: components["schemas"]["AIModelCompletedPayload"] | components["schemas"]["AIContentDeltaPayload"] | components["schemas"]["AIThinkingStartedPayload"] | components["schemas"]["AIThinkingDeltaPayload"] | components["schemas"]["AIObject"];
         };
         AITimelineEventCursor: {
             runId: string;
@@ -4333,6 +4461,7 @@ export interface components {
         };
         AITimelinePage: {
             conversation: components["schemas"]["AIConversationTimelineSummary"];
+            contextUsage?: components["schemas"]["AIContextUsage"];
             /** @description Complete turns in chronological order within this page; a turn is never split across pages. */
             turns: components["schemas"]["AITimelineTurn"][];
             eventCursors: components["schemas"]["AITimelineEventCursor"][];
@@ -4380,6 +4509,8 @@ export interface components {
                 baseUrl: string;
                 /** @description In-memory Agent use only; never returned to browser APIs. */
                 apiKey: string;
+                /** @description When enabled */
+                channelAffinityEnabled: boolean;
                 configured: boolean;
                 models: components["schemas"]["AIModelPricingSnapshot"][];
             };
@@ -6524,6 +6655,55 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @enum {string} */
+        RuntimeClusterPressureLevel: "idle" | "light" | "moderate" | "heavy" | "full" | "unavailable";
+        RuntimeClusterPressureResource: {
+            /**
+             * Format: int64
+             * @description CPU millicores or memory bytes requested by scheduled non-terminal Pods.
+             */
+            requests: number;
+            /**
+             * Format: int64
+             * @description CPU millicores or memory bytes reported as allocatable by Nodes.
+             */
+            allocatable: number;
+            /**
+             * Format: int64
+             * @description Current CPU millicores or memory bytes from metrics.k8s.io when all Nodes were observed.
+             */
+            usage?: number;
+            /** Format: double */
+            requestPercent: number;
+            /** Format: double */
+            usagePercent?: number;
+        };
+        RuntimeClusterPressureDetails: {
+            cpu: components["schemas"]["RuntimeClusterPressureResource"];
+            memory: components["schemas"]["RuntimeClusterPressureResource"];
+            nodeCount: number;
+            podCount: number;
+            metricsAvailable: boolean;
+        };
+        RuntimeClusterPressure: {
+            clusterId: string;
+            /** @enum {string} */
+            status: "ready" | "unavailable";
+            pressureLevel: components["schemas"]["RuntimeClusterPressureLevel"];
+            /**
+             * Format: double
+             * @description Weighted pressure score returned only to platform administrators.
+             */
+            pressureScore?: number;
+            observationCode?: string;
+            /** Format: date-time */
+            observedAt: string;
+            /** @description Exact current resource values returned only to platform administrators. */
+            details?: components["schemas"]["RuntimeClusterPressureDetails"];
+        };
+        RuntimeClusterPressureList: {
+            items: components["schemas"]["RuntimeClusterPressure"][];
+        };
         PaginatedRuntimeClusters: {
             items: components["schemas"]["RuntimeCluster"][];
             page: number;
@@ -6710,7 +6890,11 @@ export interface components {
             applicationName: string;
             applicationIdentifier: string;
             deploymentName: string;
-            stage: string;
+            /**
+             * @description Canonical deployment stage. Use dev, test, staging, or prod; arbitrary values such as default or qa are rejected before installation.
+             * @enum {string}
+             */
+            stage: "dev" | "test" | "staging" | "prod";
             clusterId: string;
             namespace?: string;
             imageRef?: string;
@@ -8324,6 +8508,32 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    observeRuntimeClusterPressure: {
+        parameters: {
+            query: {
+                /** @description One to 100 visible runtime cluster identifiers. Repeat the query parameter for multiple clusters. */
+                clusterId: string[];
+                projectId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current pressure observations in requested cluster order; invisible identifiers are omitted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeClusterPressureList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listGitProviders: {
@@ -15033,7 +15243,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Unbuffered recoverable SSE stream of persisted content */
+            /** @description Unbuffered recoverable SSE stream. Business frames are AIEvent values replayed from a bounded active-Run stream by after or Last-Event-ID; completed output and workflow terminal facts are persisted in the authoritative Timeline. A stream.heartbeat frame is transient JSON with version */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -15044,6 +15254,24 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            /** @description Per-Run or per-Agent-instance SSE subscriber limit reached */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Agent Redis active-stream transport is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     cancelAIRun: {
@@ -15057,7 +15285,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Cancellation accepted */
+            /** @description Cancellation accepted or still processing; a running Run is acknowledged only after its owner flushes the terminal batch. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -15068,6 +15296,15 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            /** @description Agent Redis cancellation transport is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     submitAIRunInput: {

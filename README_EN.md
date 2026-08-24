@@ -36,6 +36,16 @@ luna help catalog query=deployment limit=20 output=json
 For agents, use canonical two-level commands together with
 `output=json interactive=false agent=true`.
 
+Stored OAuth credentials are refreshed automatically by `auth status` and remote
+commands when the access token is within 30 seconds of expiry or already expired.
+Concurrent CLI processes coalesce the refresh so the refresh token is rotated only
+once. `luna auth refresh` remains available for forced refresh and diagnostics;
+routine use does not require it. `LUNA_TOKEN` and personal access tokens do not
+participate in OAuth refresh. If the grant is invalid or a refresh outcome cannot
+be confirmed safely, the CLI returns `oauth_refresh_reauthentication_required`,
+blocks reuse of the old refresh token, and requires `luna login`. The safe
+underlying classification is available only as `details.causeCode`.
+
 The paired `luna-devops-<version>.skill` is published in the same GitHub Release
 and must use the exact CLI version. The CLI remains fully usable without the
 Skill.

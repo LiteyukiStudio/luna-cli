@@ -219,11 +219,67 @@ describe('auth commands', () => {
       token: 'test-token',
     })
   })
+
+  it('automatically refreshes an expired OAuth credential before auth status', async () => {
+    const harness = createHarness({
+      token: null,
+      config: oauthConfig('2020-01-01T00:00:00.000Z'),
+    })
+
+    const result = await runCli(harness.program, [
+      'node',
+      'luna',
+      'auth',
+      'status',
+    ], harness.ports.output)
+
+    expect(result.exitCode).toBe(0)
+    expect(harness.refreshes).toEqual(['oauth-refresh-original'])
+    expect(harness.config.credential).toMatchObject({
+      type: 'oauth',
+      accessToken: 'oauth-access-refreshed',
+      refreshToken: 'oauth-refresh-rotated',
+    })
+    expect(harness.successes.at(-1)?.result.data).toMatchObject({
+      authenticated: true,
+      authType: 'oauth',
+      expired: false,
+      refreshable: true,
+    })
+    expect(JSON.stringify(harness.successes.at(-1)?.result)).not.toContain('oauth-access-refreshed')
+  })
+
+  it('keeps a force-refresh command for explicit diagnostics', async () => {
+    const harness = createHarness({
+      token: null,
+      config: oauthConfig('2999-01-01T00:00:00.000Z'),
+    })
+
+    const result = await runCli(harness.program, [
+      'node',
+      'luna',
+      'auth',
+      'refresh',
+    ], harness.ports.output)
+
+    expect(result.exitCode).toBe(0)
+    expect(harness.refreshes).toEqual(['oauth-refresh-original'])
+    expect(harness.successes.at(-1)?.result).toMatchObject({
+      schemaVersion: 'auth.refresh/v1',
+      data: {
+        authenticated: true,
+        refreshed: true,
+        coalesced: false,
+        outcome: 'refreshed',
+      },
+    })
+    expect(JSON.stringify(harness.successes.at(-1)?.result)).not.toContain('oauth-refresh-rotated')
+  })
 })
 
 function createHarness(options: {
   validationError?: Error
-  token?: string
+  token?: string | null
   deviceCode?: boolean
   config?: LunaConfigDocument
 } = {}) {
@@ -247,6 +303,7 @@ function createHarness(options: {
     mode: string
   }> = []
   const revocations: Array<{ token: string, tokenTypeHint?: string }> = []
+  const refreshes: string[] = []
   const infos: string[] = []
   const errors: unknown[] = []
   const ports: RuntimePorts = {
@@ -324,8 +381,20 @@ function createHarness(options: {
           tokenTypeHint: request.tokenTypeHint,
         })
       },
+      async refreshOAuthCredential(request) {
+        refreshes.push(request.refreshToken)
+        return {
+          accessToken: 'oauth-access-refreshed',
+          refreshToken: 'oauth-refresh-rotated',
+          tokenType: 'Bearer',
+          scopes: ['project:read'],
+          expiresAt: '2999-01-01T00:00:00.000Z',
+        }
+      },
     },
-    env: { LUNA_TOKEN: options.token ?? 'test-token' },
+    env: options.token === null
+      ? {}
+      : { LUNA_TOKEN: options.token ?? 'test-token' },
     isTTY: false,
     version: 'test',
     distribution: 'source',
@@ -340,9 +409,27 @@ function createHarness(options: {
     validations,
     oauthLogins,
     revocations,
+    refreshes,
     infos,
     get config() {
       return config
     },
+  }
+}
+
+function oauthConfig(expiresAt: string): LunaConfigDocument {
+  return {
+    version: 2,
+    server: 'https://luna.example.com',
+    credential: {
+      type: 'oauth',
+      accessToken: 'oauth-access-original',
+      refreshToken: 'oauth-refresh-original',
+      scopes: ['project:read'],
+      expiresAt,
+    },
+    project: null,
+    language: '',
+    output: '',
   }
 }

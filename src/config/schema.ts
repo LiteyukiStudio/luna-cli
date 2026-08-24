@@ -27,11 +27,28 @@ const credentialBaseSchema = z.object({
   createdAt: z.iso.datetime().optional(),
 })
 
+const oauthRefreshStateSchema = z.discriminatedUnion('state', [
+  z.object({
+    code: z.literal('oauth_refresh_in_progress'),
+    state: z.literal('in_progress'),
+    updatedAt: z.iso.datetime(),
+  }),
+  z.object({
+    code: z.enum([
+      'oauth_refresh_outcome_unknown',
+      'oauth_refresh_rejected',
+    ]),
+    state: z.literal('reauthentication_required'),
+    updatedAt: z.iso.datetime(),
+  }),
+])
+
 export const oauthCredentialSchema = credentialBaseSchema
   .extend({
     type: z.literal('oauth'),
     accessToken: z.string().min(1),
     refreshToken: z.string().min(1).optional(),
+    refreshState: oauthRefreshStateSchema.optional(),
     tokenType: z.string().min(1).optional(),
   })
   .passthrough()

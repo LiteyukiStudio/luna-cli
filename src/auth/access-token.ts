@@ -4,7 +4,10 @@ import type { StoreAccessTokenInput } from './types.js'
 import process from 'node:process'
 import { CliCommandError } from '../commands/errors.js'
 import { normalizeServerOrigin } from '../config/server.js'
-import { updateConfig } from '../config/store.js'
+import {
+  updateConfig,
+  withCredentialRefreshLock,
+} from '../config/store.js'
 import {
   assertIsoDate,
   normalizeScopes,
@@ -24,19 +27,20 @@ export async function storeValidatedAccessToken(
   }
   assertIsoDate(input.expiresAt)
 
-  return updateConfig(store, (config) => {
-    const credential: AccessTokenCredential = {
-      type: 'access_token',
-      token,
-      scopes: normalizeScopes(input.scopes),
-      user: input.user,
-      expiresAt: input.expiresAt,
-      createdAt: new Date().toISOString(),
-    }
-    config.server = normalizeServerOrigin(input.server)
-    config.credential = credential
-    config.project = input.project ?? null
-  })
+  return withCredentialRefreshLock(store, () =>
+    updateConfig(store, (config) => {
+      const credential: AccessTokenCredential = {
+        type: 'access_token',
+        token,
+        scopes: normalizeScopes(input.scopes),
+        user: input.user,
+        expiresAt: input.expiresAt,
+        createdAt: new Date().toISOString(),
+      }
+      config.server = normalizeServerOrigin(input.server)
+      config.credential = credential
+      config.project = input.project ?? null
+    }))
 }
 
 export function accessTokenFromEnvironment(

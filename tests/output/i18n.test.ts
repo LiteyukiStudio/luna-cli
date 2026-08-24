@@ -42,5 +42,15 @@ describe("CLI locale selection", () => {
     expect(() => assertLocaleResourceParity()).not.toThrow();
     const i18n = await createCliI18n({ explicit: "zh-CN", env: {} });
     expect(i18n.t("common.empty")).toBe("没有找到数据。");
+    expect(i18n.t("errors.oauth_refresh_reauthentication_required"))
+      .toBe("上一次 OAuth 刷新未能安全完成，请重新登录后再继续。");
+    expect(i18n.t("errors.oauth_refresh_lock_timeout"))
+      .toBe("等待另一个 OAuth 凭据刷新完成时超时，请重试。");
+    expect(i18n.t("errors.auth_context_changed"))
+      .toBe("命令执行期间当前服务或登录身份发生了变化，请确认后重新执行。");
+    expect(i18n.t("errors.oauth_network_error"))
+      .toBe("无法连接 OAuth 服务，请检查网络后重试。");
+    expect(i18n.t("errors.oauth_temporarily_unavailable"))
+      .toBe("OAuth 服务暂时不可用，请稍后重试。");
   });
 });

@@ -2,10 +2,12 @@
 
 ## 机器目录
 
-分别查询
-`luna help catalog category=application limit=100 output=json interactive=false agent=true`
-和
-`luna help catalog category=deployment limit=100 output=json interactive=false agent=true`。
+按任务分别查询 `application`、`app-template` 和 `deployment` 分类，例如：
+
+- `luna help catalog category=application limit=100 output=json interactive=false agent=true`
+- `luna help catalog category=app-template limit=100 output=json interactive=false agent=true`
+- `luna help catalog category=deployment limit=100 output=json interactive=false agent=true`
+
 调用前使用
 `luna help command path=<category.tool> output=json interactive=false agent=true`
 读取具体契约，不凭名称猜测创建、发布或运行时工具。

@@ -1,13 +1,17 @@
 import type { QueryInput } from '@luna-devops/api-client'
+import type { OAuthTokenCredential } from '../auth/oauth.js'
 import type {
   CommandInvocation,
   NormalizedCommandMetadata,
   RuntimePorts,
 } from './types.js'
 import {
+  assertAuthenticationTransition,
   assertOAuthScopes,
+  authenticationContext,
+  refreshStoredOAuthCredential,
   withOAuthScopeRemediation,
-} from '../auth/scope-preflight.js'
+} from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/resolve.js'
 import { planOpenApiRequest } from './api.js'
 import { CliCommandError } from './errors.js'
@@ -18,7 +22,6 @@ const LOCAL_PROTOCOL_PARAMETERS = new Set([
   'maxEvents',
   'overwrite',
 ])
-const OAUTH_REFRESH_SKEW_MS = 30_000
 
 export interface ProtocolRequest {
   readonly response: Response
@@ -42,56 +45,49 @@ export async function openProtocolRequest(
     )
   }
 
-  const config = await ports.config.read()
-  let runtime = resolveRuntimeContext(config, {
-    server: invocation.globals.server,
-    project: invocation.globals.project,
-    output: invocation.globals.output,
-    language: invocation.globals.lang,
-    env: ports.env,
-  })
-  if (
-    runtime.sources.credential === 'config'
-    && runtime.credential?.type === 'oauth'
-    && credentialNeedsRefresh(runtime.credential.expiresAt)
-  ) {
-    const refreshToken = runtime.credential.refreshToken
-    if (!refreshToken || !ports.api.refreshOAuthCredential) {
-      throw new CliCommandError(
-        'oauth_refresh_token_required',
-        'The stored OAuth credential expired and cannot be refreshed.',
-        { status: 401 },
-      )
-    }
-    const refreshed = await ports.api.refreshOAuthCredential({
-      server: runtime.server,
-      refreshToken,
-      scopes: runtime.credential.scopes,
-    })
-    await ports.config.write({
-      ...config,
-      server: runtime.server,
-      credential: {
-        ...runtime.credential,
-        type: 'oauth',
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken ?? refreshToken,
-        tokenType: refreshed.tokenType ?? runtime.credential.tokenType,
-        scopes: refreshed.scopes.length > 0
-          ? refreshed.scopes
-          : runtime.credential.scopes,
-        expiresAt: refreshed.expiresAt,
+  const observedConfig = await ports.config.read()
+  const observedRuntime = resolveInvocationRuntime(observedConfig, invocation, ports)
+  const observedAuthentication = authenticationContext(observedRuntime)
+  if (invocation.authentication) {
+    assertAuthenticationTransition(
+      invocation.authentication,
+      observedAuthentication,
+      undefined,
+      {
+        stage: 'protocol_command_start',
+        refreshOutcome: 'coalesced',
       },
-    })
-    runtime = resolveRuntimeContext(await ports.config.read(), {
-      server: invocation.globals.server,
-      project: invocation.globals.project,
-      output: invocation.globals.output,
-      language: invocation.globals.lang,
-      env: ports.env,
-    })
+    )
   }
 
+  let issuedCredential: OAuthTokenCredential | undefined
+  const refresh = await refreshStoredOAuthCredential(ports.config, {
+    env: ports.env,
+    server: invocation.globals.server,
+    ...(observedRuntime.sources.credential === 'config'
+      && observedRuntime.credential?.type === 'oauth'
+      ? { expectedAccessToken: observedRuntime.credential.accessToken }
+      : {}),
+    timeoutMs: invocation.globals.timeoutMs,
+    refresh: ports.api.refreshOAuthCredential
+      ? async (request) => {
+        issuedCredential = await ports.api.refreshOAuthCredential!(request)
+        return issuedCredential
+      }
+      : undefined,
+  })
+  const config = await ports.config.read()
+  const runtime = resolveInvocationRuntime(config, invocation, ports)
+  const currentAuthentication = authenticationContext(runtime)
+  assertAuthenticationTransition(
+    observedAuthentication,
+    currentAuthentication,
+    issuedCredential,
+    {
+      stage: 'protocol_oauth_preflight',
+      refreshOutcome: refresh.outcome,
+    },
+  )
   assertOAuthScopes(
     runtime.credential,
     runtime.sources.credential,
@@ -133,6 +129,20 @@ export async function openProtocolRequest(
     invocation.globals.timeoutMs,
   )
   let response: Response
+  const latestRuntime = resolveInvocationRuntime(
+    await ports.config.read(),
+    invocation,
+    ports,
+  )
+  assertAuthenticationTransition(
+    currentAuthentication,
+    authenticationContext(latestRuntime),
+    undefined,
+    {
+      stage: 'protocol_send',
+      refreshOutcome: 'unchanged',
+    },
+  )
   try {
     response = await (ports.protocol?.fetch ?? globalThis.fetch)(url, {
       method: planned.method,
@@ -192,12 +202,18 @@ export async function openProtocolRequest(
   }
 }
 
-function credentialNeedsRefresh(expiresAt: string | undefined): boolean {
-  if (!expiresAt)
-    return false
-  const expiresAtMs = Date.parse(expiresAt)
-  return Number.isFinite(expiresAtMs)
-    && expiresAtMs <= Date.now() + OAUTH_REFRESH_SKEW_MS
+function resolveInvocationRuntime(
+  config: unknown,
+  invocation: CommandInvocation,
+  ports: RuntimePorts,
+) {
+  return resolveRuntimeContext(config, {
+    server: invocation.globals.server,
+    project: invocation.globals.project,
+    output: invocation.globals.output,
+    language: invocation.globals.lang,
+    env: ports.env,
+  })
 }
 
 function requestMetadata(metadata: NormalizedCommandMetadata): NormalizedCommandMetadata {

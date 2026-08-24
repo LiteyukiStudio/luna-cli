@@ -86,6 +86,7 @@ export function registerOpenApiCommands(
         params: invocation.params,
         globals: invocation.globals,
         metadata: invocation.metadata,
+        authentication: invocation.authentication,
       })
       return asCommandResult(result, invocation.metadata.schemaVersion)
     })

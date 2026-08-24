@@ -11,6 +11,21 @@ export const OAUTH_REVOKE_PATH = '/api/v1/oauth/revoke'
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_POLL_INTERVAL_SECONDS = 5
 const SLOW_DOWN_SECONDS = 5
+const KNOWN_OAUTH_ERRORS = new Set([
+  'access_denied',
+  'authorization_pending',
+  'expired_token',
+  'invalid_client',
+  'invalid_grant',
+  'invalid_request',
+  'invalid_scope',
+  'invalid_token',
+  'server_error',
+  'slow_down',
+  'temporarily_unavailable',
+  'unauthorized_client',
+  'unsupported_grant_type',
+])
 
 export type OAuthLoginMode = 'authorization_code_pkce' | 'device_code'
 
@@ -55,6 +70,7 @@ export interface OAuthRefreshRequest {
   readonly clientId?: string
   readonly scopes?: readonly string[]
   readonly fetch?: typeof globalThis.fetch
+  readonly timeoutMs?: number
   readonly now?: () => number
 }
 
@@ -64,6 +80,7 @@ export interface OAuthRevokeRequest {
   readonly tokenTypeHint?: 'access_token' | 'refresh_token'
   readonly clientId?: string
   readonly fetch?: typeof globalThis.fetch
+  readonly timeoutMs?: number
 }
 
 export interface OAuthClient {
@@ -170,23 +187,32 @@ export async function refreshOAuthCredential(
     )
   }
   const server = normalizeServerOrigin(request.server)
-  const body = await requestOAuthForm(
-    request.fetch ?? globalThis.fetch,
-    endpoint(server, OAUTH_TOKEN_PATH),
-    {
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-      client_id: nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID,
-      ...(request.scopes?.length
-        ? { scope: normalizeScopes(request.scopes).join(' ') }
-        : {}),
+  const timeoutMs = positiveTimeout(request.timeoutMs)
+  return withOAuthTimeout(
+    timeoutMs,
+    'oauth_refresh_timeout',
+    'The OAuth credential refresh timed out.',
+    async (signal) => {
+      const body = await requestOAuthForm(
+        request.fetch ?? globalThis.fetch,
+        endpoint(server, OAUTH_TOKEN_PATH),
+        {
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          client_id: nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID,
+          ...(request.scopes?.length
+            ? { scope: normalizeScopes(request.scopes).join(' ') }
+            : {}),
+        },
+        signal,
+      )
+      const credential = parseTokenCredential(body, request.scopes ?? [], request.now ?? Date.now)
+      return {
+        ...credential,
+        refreshToken: credential.refreshToken ?? refreshToken,
+      }
     },
   )
-  const credential = parseTokenCredential(body, request.scopes ?? [], request.now ?? Date.now)
-  return {
-    ...credential,
-    refreshToken: credential.refreshToken ?? refreshToken,
-  }
 }
 
 export async function revokeOAuthCredential(
@@ -196,19 +222,28 @@ export async function revokeOAuthCredential(
   if (!token)
     return
 
-  const response = await postOAuthForm(
-    request.fetch ?? globalThis.fetch,
-    endpoint(normalizeServerOrigin(request.server), OAUTH_REVOKE_PATH),
-    {
-      token,
-      client_id: nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID,
-      ...(request.tokenTypeHint ? { token_type_hint: request.tokenTypeHint } : {}),
+  const timeoutMs = positiveTimeout(request.timeoutMs)
+  await withOAuthTimeout(
+    timeoutMs,
+    'oauth_revoke_timeout',
+    'The OAuth credential revocation timed out.',
+    async (signal) => {
+      const response = await postOAuthForm(
+        request.fetch ?? globalThis.fetch,
+        endpoint(normalizeServerOrigin(request.server), OAUTH_REVOKE_PATH),
+        {
+          token,
+          client_id: nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID,
+          ...(request.tokenTypeHint ? { token_type_hint: request.tokenTypeHint } : {}),
+        },
+        signal,
+      )
+      if (response.ok)
+        return
+      const body = await responseRecord(response)
+      throw oauthProtocolError(optionalString(body.error), body, response.status)
     },
   )
-  if (response.ok)
-    return
-  const body = await responseRecord(response)
-  throw oauthProtocolError(optionalString(body.error), body, response.status)
 }
 
 export async function openSystemBrowser(url: string): Promise<boolean> {
@@ -249,8 +284,9 @@ async function requestOAuthForm(
   fetchImpl: typeof globalThis.fetch,
   url: string,
   fields: Readonly<Record<string, string>>,
+  signal?: AbortSignal,
 ): Promise<Readonly<Record<string, unknown>>> {
-  const response = await postOAuthForm(fetchImpl, url, fields)
+  const response = await postOAuthForm(fetchImpl, url, fields, signal)
   const body = await responseRecord(response)
   if (!response.ok)
     throw oauthProtocolError(optionalString(body.error), body, response.status)
@@ -261,15 +297,19 @@ async function postOAuthForm(
   fetchImpl: typeof globalThis.fetch,
   url: string,
   fields: Readonly<Record<string, string>>,
+  signal?: AbortSignal,
 ): Promise<Response> {
+  let response: Response
   try {
-    return await fetchImpl(url, {
+    response = await fetchImpl(url, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
         'content-type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams(fields),
+      redirect: 'manual',
+      signal,
     })
   }
   catch (error) {
@@ -278,6 +318,50 @@ async function postOAuthForm(
       'The OAuth server could not be reached.',
       { status: 502, retryable: true, details: { url }, cause: error },
     )
+  }
+  if (response.status >= 300 && response.status < 400) {
+    throw new CliCommandError(
+      'oauth_redirect_refused',
+      'The OAuth server returned a redirect. Refusing to forward credentials.',
+      {
+        status: 502,
+        details: { requestOrigin: new URL(url).origin },
+      },
+    )
+  }
+  return response
+}
+
+function positiveTimeout(value: number | undefined): number {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? value
+    : 30_000
+}
+
+async function withOAuthTimeout<T>(
+  timeoutMs: number,
+  code: string,
+  message: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort('timeout'), timeoutMs)
+  try {
+    return await operation(controller.signal)
+  }
+  catch (error) {
+    if (controller.signal.aborted) {
+      throw new CliCommandError(code, message, {
+        status: 504,
+        retryable: true,
+        details: { timeoutMs },
+        cause: error,
+      })
+    }
+    throw error
+  }
+  finally {
+    clearTimeout(timeout)
   }
 }
 
@@ -321,20 +405,26 @@ function parseTokenCredential(
 
 function oauthProtocolError(
   error: string | undefined,
-  body: Readonly<Record<string, unknown>>,
+  _body: Readonly<Record<string, unknown>>,
   status: number,
 ): CliCommandError {
-  const code = error ? `oauth_${error}` : 'oauth_request_failed'
-  const safeDescription = optionalString(body.error_description)
+  const normalizedError = normalizeOAuthError(error)
+  const code = normalizedError ? `oauth_${normalizedError}` : 'oauth_request_failed'
   return new CliCommandError(
     code,
-    safeDescription ?? oauthErrorMessage(error),
+    oauthErrorMessage(normalizedError),
     {
-      status: normalizedOAuthStatus(error, status),
-      retryable: error === 'temporarily_unavailable' || status >= 500,
-      details: error ? { oauthError: error } : {},
+      status: normalizedOAuthStatus(normalizedError, status),
+      retryable: normalizedError === 'temporarily_unavailable'
+        || normalizedError === 'server_error'
+        || status >= 500,
+      details: normalizedError ? { oauthError: normalizedError } : {},
     },
   )
+}
+
+function normalizeOAuthError(error: string | undefined): string | undefined {
+  return error && KNOWN_OAUTH_ERRORS.has(error) ? error : undefined
 }
 
 function oauthErrorMessage(error: string | undefined): string {

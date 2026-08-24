@@ -1014,6 +1014,45 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/runtime/clusters/pressure:
+    get:
+      operationId: observeRuntimeClusterPressure
+      tags: [Runtime]
+      summary: Observe current runtime cluster pressure
+      description: Returns a current Kubernetes observation for the requested visible clusters. Platform administrators receive exact allocation and usage details; other users receive only the derived pressure level.
+      x-luna-agent:
+        purpose: { zh: 查询一个或多个运行集群当前的资源分配压力，用于部署前判断集群余量。, en: Observe current resource pressure for one or more runtime clusters before deployment. }
+        aliases: { zh: [查看集群压力, 查询集群负载等级, 比较集群余量], en: [observe cluster pressure, check cluster load level, compare cluster headroom] }
+        avoidWhen: { zh: 查询历史资源用量或计费记录时不要使用此工具。, en: Do not use this tool for historical usage or billing records. }
+        preconditions: { zh: [先用 listRuntimeClusters 获取当前用户可见的真实 clusterId], en: [Resolve visible clusterId values with listRuntimeClusters first] }
+        successEvidence: { zh: 返回实时压力等级；平台管理员还会得到 CPU、内存的 requests、allocatable 与可用实际用量。, en: "Returns a live pressure level and, for platform administrators, exact CPU and memory requests, allocatable capacity, and available usage." }
+      parameters:
+        - name: clusterId
+          in: query
+          required: true
+          description: One to 100 visible runtime cluster identifiers. Repeat the query parameter for multiple clusters.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 100
+            items: { type: string, pattern: '^clu_' }
+        - name: projectId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current pressure observations in requested cluster order; invisible identifiers are omitted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RuntimeClusterPressureList" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/git/providers:
     get:
       operationId: listGitProviders
@@ -5679,7 +5718,20 @@ paths:
       operationId: installAppTemplate
       tags:
         - Projects
-      summary: Install App Template
+      summary: Install an app template into a project
+      description: Creates an application and deployment target from the selected template. When installNow is true, the response also contains the first Release; read that Release back to verify its terminal state.
+      x-luna-agent:
+        purpose: { zh: 从应用市场模板创建应用和部署配置，并可立即创建首个 Release。, en: Create an application and deployment target from an App Marketplace template, optionally creating the first Release. }
+        aliases: { zh: [安装应用模板, 从应用市场安装, 模板部署应用], en: [install app template, install from app marketplace, deploy app template] }
+        avoidWhen: { zh: 修改已有应用或部署配置时不要重复安装模板，应使用对应更新工具。, en: Do not reinstall a template to modify an existing application or deployment target; use the corresponding update operation. }
+        preconditions: { zh: [先用 listAppTemplates 和 getAppTemplate 确认模板与必填参数, 先用 listRuntimeClusters 解析真实 clusterId, stage 必须使用 dev、test、staging 或 prod], en: [Confirm the template and required values with listAppTemplates and getAppTemplate, Resolve an authoritative clusterId with listRuntimeClusters, Use dev, test, staging, or prod for stage] }
+        successEvidence: { zh: 返回安装记录、应用和部署目标；installNow 为 true 时还必须用 getRelease 回读首个 Release 终态。, en: Returns the installation, application, and deployment target; when installNow is true, getRelease must read back the first Release terminal state. }
+      x-luna-cli:
+        command: app-template.install
+        classification: business-command
+        risk: medium
+        requiredScopes: ["project:write"]
+        agentAllowed: true
       parameters:
         - name: projectId
           in: path
@@ -7577,23 +7629,25 @@ paths:
     get:
       operationId: streamAIRunEvents
       tags: [AI Assistant]
-      summary: Replay and stream durable run events
+      summary: Replay and stream active run events
       security: [{ SessionCookie: [] }]
       parameters:
         - { name: runId, in: path, required: true, schema: { type: string } }
         - { name: after, in: query, required: false, schema: { type: integer, format: int64, minimum: 0 } }
         - { name: Last-Event-ID, in: header, required: false, schema: { type: string } }
       responses:
-        "200": { description: Unbuffered recoverable SSE stream of persisted content, thinking, tool, and run lifecycle deltas, content: { text/event-stream: { schema: { type: string } } } }
+        "200": { description: Unbuffered recoverable SSE stream. Business frames are AIEvent values replayed from a bounded active-Run stream by after or Last-Event-ID; completed output and workflow terminal facts are persisted in the authoritative Timeline. A stream.heartbeat frame is transient JSON with version, type, runId, conversationId, and occurredAt; it has no id, is not persisted, and does not advance eventSequence. model.completed uses AIModelCompletedPayload and never substitutes estimated Token values., content: { text/event-stream: { schema: { type: string } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "429": { description: Per-Run or per-Agent-instance SSE subscriber limit reached, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
+        "503": { description: Agent Redis active-stream transport is unavailable, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } }
   /api/v1/ai/runs/{runId}/cancel:
     post:
       operationId: cancelAIRun
       tags: [AI Assistant]
       security: [{ SessionCookie: [] }]
       parameters: [{ name: runId, in: path, required: true, schema: { type: string } }]
-      responses: { "202": { description: Cancellation accepted, content: { application/json: { schema: { $ref: "#/components/schemas/AIObject" } } } }, "401": { $ref: "#/components/responses/Unauthorized" }, "404": { $ref: "#/components/responses/NotFound" } }
+      responses: { "202": { description: Cancellation accepted or still processing; a running Run is acknowledged only after its owner flushes the terminal batch., content: { application/json: { schema: { $ref: "#/components/schemas/AIObject" } } } }, "401": { $ref: "#/components/responses/Unauthorized" }, "404": { $ref: "#/components/responses/NotFound" }, "503": { description: Agent Redis cancellation transport is unavailable, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } } } }
   /api/v1/ai/runs/{runId}/input:
     post:
       operationId: submitAIRunInput
@@ -8128,7 +8182,7 @@ components:
     AIModelConfig:
       type: object
       additionalProperties: false
-      required: [id, name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion, cachedOutputCreditsPerMillion, enabled, createdAt, updatedAt]
+      required: [id, name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion, enabled, createdAt, updatedAt]
       properties:
         id: { type: string }
         name: { type: string, minLength: 1 }
@@ -8137,14 +8191,13 @@ components:
         inputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         outputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         cachedInputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
-        cachedOutputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         enabled: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     AIModelWriteInput:
       type: object
       additionalProperties: false
-      required: [name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion, cachedOutputCreditsPerMillion]
+      required: [name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion]
       properties:
         name: { type: string, minLength: 1 }
         maxContextTokens: { type: integer, format: int64, minimum: 4096, maximum: 2097152 }
@@ -8152,12 +8205,11 @@ components:
         inputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         outputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         cachedInputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
-        cachedOutputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         enabled: { type: boolean }
     AIModelPricingSnapshot:
       type: object
       additionalProperties: false
-      required: [id, name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion, cachedOutputCreditsPerMillion]
+      required: [id, name, maxContextTokens, maxOutputTokens, inputCreditsPerMillion, outputCreditsPerMillion, cachedInputCreditsPerMillion]
       properties:
         id: { type: string }
         name: { type: string, minLength: 1 }
@@ -8166,7 +8218,6 @@ components:
         inputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         outputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
         cachedInputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
-        cachedOutputCreditsPerMillion: { type: string, pattern: "^\\d+(\\.\\d{1,8})?$" }
     AICreateTurnInput:
       type: object
       additionalProperties: false
@@ -8344,8 +8395,115 @@ components:
             status: { type: string, enum: [queued, running, waiting_approval, waiting_input, completed, failed, canceled, interrupted] }
             expectedVersion: { type: integer, format: int64, minimum: 0 }
             errorCode: { type: string }
-            latestInputTokens: { type: integer, format: int64, minimum: 0, description: Provider-reported input tokens for the latest completed assistant model call in this Run. }
+            latestPromptTokens: { type: integer, format: int64, minimum: 0, description: Official prompt_tokens from the latest reported assistant model usage in this Run. }
+            latestUsageModelId: { type: string }
+            latestUsageMaxContextTokensSnapshot: { type: integer, format: int64, minimum: 1 }
             items: { type: array, items: { $ref: "#/components/schemas/AITimelineItem" } }
+    AIProviderUsage:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [status, promptTokens, completionTokens, totalTokens]
+          properties:
+            status: { type: string, enum: [reported] }
+            promptTokens: { type: integer, format: int64, minimum: 0 }
+            completionTokens: { type: integer, format: int64, minimum: 0 }
+            totalTokens: { type: integer, format: int64, minimum: 0, description: Must equal promptTokens plus completionTokens. }
+            cachedPromptTokens: { type: integer, format: int64, minimum: 0 }
+            cacheWritePromptTokens: { type: integer, format: int64, minimum: 0 }
+            reasoningCompletionTokens: { type: integer, format: int64, minimum: 0, description: Informational subset of completionTokens and never billed twice. }
+        - type: object
+          additionalProperties: false
+          required: [status, reason]
+          properties:
+            status: { type: string, enum: [unavailable] }
+            reason: { type: string, enum: [missing_usage, invalid_usage, stream_ended_without_usage] }
+        - type: object
+          additionalProperties: false
+          required: [status, reason]
+          properties:
+            status: { type: string, enum: [reconciliation_required] }
+            reason: { type: string, enum: [missing_usage, invalid_usage, stream_ended_without_usage, request_outcome_unknown, hold_deficit] }
+      discriminator: { propertyName: status }
+    AIContextUsage:
+      type: object
+      additionalProperties: false
+      description: Latest confirmed conversation context, tagged with its model identity. It remains stable while a new Run is active and may decrease after context compaction; clients display it only while the conversation model matches.
+      required: [status, runId, modelId, usedTokens, maxContextTokensSnapshot, recordedAt]
+      properties:
+        status: { type: string, enum: [reported] }
+        runId: { type: string }
+        modelId: { type: string }
+        usedTokens: { type: integer, format: int64, minimum: 0, description: Official total_tokens after the latest reported assistant model call; this is not a sum of historical requests. }
+        maxContextTokensSnapshot: { type: integer, format: int64, minimum: 1 }
+        recordedAt: { type: string, format: date-time }
+    AIModelCompletedPayload:
+      type: object
+      additionalProperties: false
+      required: [usage]
+      properties:
+        usage: { $ref: "#/components/schemas/AIProviderUsage" }
+        modelId: { type: string }
+        maxContextTokensSnapshot: { type: integer, format: int64, minimum: 1 }
+        creditHoldId: { type: string }
+        providerRequestId: { type: string }
+        responseId: { type: string }
+        responseModel: { type: string }
+        finishReason: { type: string }
+    AIContentDeltaPayload:
+      type: object
+      additionalProperties: false
+      required: [itemId, contentPartId, partIndex, delta, timelineIndex]
+      properties:
+        itemId: { type: string }
+        contentPartId: { type: string }
+        partIndex: { type: integer, minimum: 0 }
+        delta: { type: string }
+        timelineIndex: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time, description: Present only on the first content.delta frame that creates the live item. }
+    AIThinkingStartedPayload:
+      type: object
+      additionalProperties: false
+      required: [itemId, summary, display, timelineIndex, createdAt]
+      properties:
+        itemId: { type: string }
+        summary: { type: string }
+        display: { type: string, enum: [summary] }
+        timelineIndex: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+    AIThinkingDeltaPayload:
+      type: object
+      additionalProperties: false
+      required: [itemId, delta, display, timelineIndex]
+      properties:
+        itemId: { type: string }
+        delta: { type: string }
+        display: { type: string, enum: [summary] }
+        timelineIndex: { type: integer, minimum: 0 }
+    AIEvent:
+      type: object
+      additionalProperties: false
+      required: [version, eventId, eventSequence, type, conversationId, turnId, runId, occurredAt, payload]
+      properties:
+        version: { type: integer, enum: [2] }
+        eventId: { type: string }
+        eventSequence: { type: integer, format: int64, minimum: 1 }
+        type: { type: string }
+        conversationId: { type: string }
+        turnId: { type: string }
+        runId: { type: string }
+        itemId: { type: string }
+        contentPartId: { type: string }
+        toolCallId: { type: string }
+        item: { $ref: "#/components/schemas/AITimelineItem" }
+        occurredAt: { type: string, format: date-time }
+        payload:
+          anyOf:
+            - { $ref: "#/components/schemas/AIModelCompletedPayload" }
+            - { $ref: "#/components/schemas/AIContentDeltaPayload" }
+            - { $ref: "#/components/schemas/AIThinkingStartedPayload" }
+            - { $ref: "#/components/schemas/AIThinkingDeltaPayload" }
+            - { $ref: "#/components/schemas/AIObject" }
     AITimelineEventCursor:
       type: object
       additionalProperties: false
@@ -8366,6 +8524,7 @@ components:
       required: [conversation, turns, eventCursors, pageInfo]
       properties:
         conversation: { $ref: "#/components/schemas/AIConversationTimelineSummary" }
+        contextUsage: { $ref: "#/components/schemas/AIContextUsage" }
         turns:
           type: array
           description: Complete turns in chronological order within this page; a turn is never split across pages.
@@ -8418,9 +8577,10 @@ components:
           properties:
             baseUrl: { type: string, format: uri }
             apiKey: { type: string, writeOnly: true, x-luna-sensitive: true, description: In-memory Agent use only; never returned to browser APIs. }
+            channelAffinityEnabled: { type: boolean, description: When enabled, Agent adds a pseudonymous X-Luna-Affinity-Key header only to conversation-bound model requests. }
             configured: { type: boolean }
             models: { type: array, items: { $ref: "#/components/schemas/AIModelPricingSnapshot" } }
-          required: [baseUrl, apiKey, configured, models]
+          required: [baseUrl, apiKey, channelAffinityEnabled, configured, models]
         runtime:
           type: object
           properties:
@@ -11136,6 +11296,49 @@ components:
             createdBy: { type: string }
             createdAt: { type: string, format: date-time }
             updatedAt: { type: string, format: date-time }
+    RuntimeClusterPressureLevel:
+      type: string
+      enum: [idle, light, moderate, heavy, full, unavailable]
+    RuntimeClusterPressureResource:
+      type: object
+      required: [requests, allocatable, requestPercent]
+      properties:
+        requests: { type: integer, format: int64, minimum: 0, description: CPU millicores or memory bytes requested by scheduled non-terminal Pods. }
+        allocatable: { type: integer, format: int64, minimum: 0, description: CPU millicores or memory bytes reported as allocatable by Nodes. }
+        usage: { type: integer, format: int64, minimum: 0, description: Current CPU millicores or memory bytes from metrics.k8s.io when all Nodes were observed. }
+        requestPercent: { type: number, format: double, minimum: 0 }
+        usagePercent: { type: number, format: double, minimum: 0 }
+    RuntimeClusterPressureDetails:
+      type: object
+      required: [cpu, memory, nodeCount, podCount, metricsAvailable]
+      properties:
+        cpu: { $ref: "#/components/schemas/RuntimeClusterPressureResource" }
+        memory: { $ref: "#/components/schemas/RuntimeClusterPressureResource" }
+        nodeCount: { type: integer, minimum: 0 }
+        podCount: { type: integer, minimum: 0 }
+        metricsAvailable: { type: boolean }
+    RuntimeClusterPressure:
+      type: object
+      required: [clusterId, status, pressureLevel, observedAt]
+      properties:
+        clusterId: { type: string, pattern: '^clu_' }
+        status: { type: string, enum: [ready, unavailable] }
+        pressureLevel: { $ref: "#/components/schemas/RuntimeClusterPressureLevel" }
+        pressureScore: { type: number, format: double, minimum: 0, description: Weighted pressure score returned only to platform administrators. }
+        observationCode: { type: string }
+        observedAt: { type: string, format: date-time }
+        details:
+          allOf:
+            - $ref: "#/components/schemas/RuntimeClusterPressureDetails"
+          description: Exact current resource values returned only to platform administrators.
+    RuntimeClusterPressureList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: "#/components/schemas/RuntimeClusterPressure" }
     PaginatedRuntimeClusters:
       type: object
       required: [items, page, pageSize, sortBy, sortOrder, total, totalPages]
@@ -11389,7 +11592,10 @@ components:
         applicationName: { type: string }
         applicationIdentifier: { type: string }
         deploymentName: { type: string }
-        stage: { type: string }
+        stage:
+          type: string
+          enum: [dev, test, staging, prod]
+          description: Canonical deployment stage. Use dev, test, staging, or prod; arbitrary values such as default or qa are rejected before installation.
         clusterId: { type: string }
         namespace: { type: string }
         imageRef: { type: string }
