@@ -1,10 +1,10 @@
 # Luna CLI 规格
 
-> 状态：设计稿
+> 状态：持续实现
 >
 > 目标版本：CLI v0.1.0
 >
-> 最后更新：2026-07-27
+> 最后更新：2026-08-31
 >
 > 命令名：`luna`
 
@@ -686,6 +686,66 @@ SSE 重连只有在服务端提供可恢复游标时才能保证不丢不重；�
 
 同一套 Transport 与协议 fixture 测试必须分别运行于 Node.js `>=22.14.0` 的 npm tarball 和锁定 Bun 版本生成的二进制。二者任一在代理、自定义 CA、SSE、WebSocket、取消或重定向安全行为上不一致，都视为发布阻断，而不是标记为某个分发渠道的已知限制。
 
+#### 6.8.1 kubeconfig 安全适配器
+
+`POST /api/v1/kube-credentials` 返回只出现一次的 bearer token 和完整
+kubeconfig，因此它必须在 OpenAPI 中保持 `classification=protocol-adapter`、
+`hidden=true`，不能注册为通用 raw command。CLI 只通过以下两个人类专用命令
+消费 `createKubeCredential`：
+
+| 命令 | 目标行为 | 冲突行为 |
+| --- | --- | --- |
+| `kubeconfig.write` | 写入一个明确的新文件 | 目标已存在即拒绝，不提供覆盖开关 |
+| `kubeconfig.merge` | 合并到一个现有或新建的 kubeconfig | 默认拒绝同名且内容不同的条目；只有 `replaceConflicts=true` 才替换 |
+
+两条命令均声明 `source=protocol`、`risk=high`、
+`requiredScopes=[token:manage]`、`agentAllowed=false` 和
+`consumedOperations=[createKubeCredential]`。严格 Agent 模式必须在参数解析和
+远程调用前返回 `agent_command_forbidden`；通用 OpenAPI 注册器即使收到错误的
+`hidden=false` 契约，也必须按 operationId deny map 拒绝生成原始创建命令。
+
+命令继续使用统一 `key=value` 语法：
+
+| 参数 | 适用命令 | 规则 |
+| --- | --- | --- |
+| `credentialName` | 两者 | 必填，1 至 64 个字符，只作为服务端凭据名称 |
+| `context` | 两者 | 必填且可重复 1 至 20 次，格式为 `projectId:runtimeClusterId[:applicationId]` |
+| `scope` | 两者 | 必填且可重复，接受 `read`、`write`、`connect`，请求前映射到 `kube:*` |
+| `expiresInDays` | 两者 | 可选，只接受 `1`、`7`、`30`，默认 `7` |
+| `destination` | `write` 必填、`merge` 可选 | 本地目标路径；不使用名为 `kubeconfig` 的输入键，避免与敏感响应字段混淆 |
+| `replaceConflicts` | 仅 `merge` | 可选布尔值，默认 `false`；只有显式 `true` 才替换冲突项 |
+
+`merge` 的目标选择顺序固定为显式 `destination`、只有一个条目的
+`KUBECONFIG`、`~/.kube/config`。环境变量包含多个路径时必须失败并要求用户
+显式选一个文件，不能按 kubectl 的多文件优先级静默写错目标。合并按
+`clusters[].name`、`users[].name`、`contexts[].name` 分别处理：无同名项则追加，
+同名且内容完全相同则保留，同名但内容不同则失败或在明确替换时只替换该项。
+现有非空 `current-context` 始终保留；新文件使用服务端返回的当前 context。
+
+执行顺序必须满足：
+
+1. 在签发前解析参数，解析现有 Kubernetes v1 Config，拒绝符号链接、非普通
+   文件、超限文件、不可写目录和可预判的 cluster/context 同名冲突；
+2. 通过统一 API Adapter 调用 `createKubeCredential`，保留版本协商、OAuth
+   刷新、`token:manage` 预检和后端 RBAC；
+3. 在内存中验证一次性响应：只允许当前 Luna DevOps 同源的
+   `/kube/v1/bindings/<id>` Server；远端实例必须使用 HTTPS，仅本机 loopback
+   开发实例允许同源 HTTP；只允许静态 token user 和 cluster/user/namespace
+   context；拒绝 `exec`、`auth-provider`、上游 CA、`insecure-skip-tls-verify`、
+   `proxy-url`、跨源 Server 和请求外 context；
+4. 使用目标同目录的 `0600` 临时文件写入、flush、原子安装或替换，并尽力
+   flush 父目录；`write` 使用不可覆盖的新文件语义，`merge` 在替换前再次确认
+   已读内容未变化；
+5. 若签发后发生响应校验、合并或本地写入失败，立即调用
+   `revokeKubeCredential`。自动吊销也失败时只返回 opaque Credential ID、稳定
+   cause code 和可执行的手动吊销命令，不能返回 token 或 kubeconfig。
+
+成功输出使用 `cli.luna.devops/kubeconfig-{write|merge}/v1`，只包含
+`path`、`credentialId`、`contexts`、`mode` 和 `replacedConflicts`。一次性
+kubeconfig、bearer token、请求体和含凭据的错误 cause 不得进入 stdout、
+stderr、debug、Help、遥测或测试快照。平台后端仍负责项目空间/应用权限、Scope
+归一化、绑定、审计与实际 kube-apiserver 代理；CLI 不直连集群 API Server。
+
 ### 6.9 异步任务与等待
 
 构建、发布、部署、Hook、网关和系统组件安装等异步命令必须由元数据声明：
@@ -737,6 +797,12 @@ concurrency: none | resource-version | etag
 luna cluster update params=@change.json plan=true agent=true
 luna cluster update planId=plan_123 yes=true agent=true
 ```
+
+§6.8.1 的一次性 kubeconfig 签发是明确例外：接口把绑定校验、凭据签发和审计
+收敛为一个原子服务端操作，且命令禁止 Agent 使用，因此当前不额外引入可重放的
+plan 资源。它仍按 `risk=high` 要求人类确认，完整请求由后端再次执行 Scope、RBAC
+和资源归属校验；`replaceConflicts=true` 只批准本地同名条目替换，不能扩大服务端
+授权范围。若以后允许 Agent 签发或加入跨资源副作用，再按本节升级为服务端计划。
 
 计划响应至少包含：
 
@@ -1397,7 +1463,8 @@ HTTP API 可以采用 RFC 9457 `application/problem+json` 表达 `type`、`title
 - CLI 上报可选匿名使用统计前，必须另行设计并默认关闭。第一版不实现遥测。
 - 日志、构建输出、仓库文件、事件、Webhook 内容、第三方 API 响应和 Kubernetes 字段全部视为不可信数据；CLI 只把它们作为 `data` 返回，不执行其中的命令，也不从中派生 `nextActions`。
 - 人类输出必须转义 ANSI、OSC 8 链接、控制字符和双向文本控制符；JSON/JSONL 保留可解析数据但不得让终端渲染控制序列。
-- Schema 中标记为 `writeOnly`、`format=password` 或 `x-sensitive=true` 的字段必须在 stdout、stderr、debug、审计摘要、崩溃报告和测试快照中统一脱敏。
+- Schema 中标记为 `writeOnly`、`format=password`、`x-sensitive=true` 或 `x-luna-sensitive=true` 的字段必须在 stdout、stderr、debug、审计摘要、崩溃报告和测试快照中统一脱敏。
+- 一次性 kubeconfig 只能在专用适配器内存中短暂存在并直接写入 `0600` 文件；不得经过通用 OpenAPI 输出器，写入失败必须尽力吊销已签发凭据。
 - OTP、恢复码和站点密码属于用户在场凭据。Agent 收到 MFA 挑战后只能暂停并引导用户在浏览器或受控 TTY 中完成，不能要求用户把验证码发进对话，也不能代替用户完成 Step-up。
 - 高风险批准必须绑定 §6.10 的精确计划和短时认证上下文，防止批准被重放到不同目标或修改后的参数。
 - Agent 模式必须限制并行数、分页数量、重试次数、等待时间和输出字节，避免失控循环、Denial of Wallet 和对平台形成意外负载。

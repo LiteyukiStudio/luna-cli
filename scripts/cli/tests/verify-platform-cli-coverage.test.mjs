@@ -39,6 +39,18 @@ const classifications = Object.freeze({
   }),
 });
 
+test("extracts an API group that installs middleware at registration", () => {
+  const routes = extractGinRoutes(
+    `func register(router *gin.Engine) {
+      v1 := router.Group("/api/v1", handlers.identityMiddleware())
+      v1.GET("/projects", handlers.ListProjects)
+    }`,
+    "fixture/router-with-group-middleware.go",
+  );
+
+  assert.deepEqual(routes.map(route => route.key), ["GET /api/v1/projects"]);
+});
+
 test("passes executable commands and exact audited non-command endpoints", () => {
   const routes = extractGinRoutes(
     readFileSync(join(fixtureRoot, "router-covered.txt"), "utf8"),
@@ -69,6 +81,68 @@ test("passes executable commands and exact audited non-command endpoints", () =>
       "webhook-receiver",
       "command",
     ],
+  );
+});
+
+test("requires exact protocol commands to consume the one-time kubeconfig operation", () => {
+  const routes = extractGinRoutes(
+    `func register(router *gin.Engine) {
+      v1 := router.Group("/api/v1")
+      v1.POST("/kube-credentials", handlers.CreateKubeCredential)
+    }`,
+    "fixture/router-kubeconfig.go",
+  );
+  const operations = parseOpenApiSource(
+    `openapi: 3.1.0
+info:
+  title: Fixture
+  version: 1.0.0
+paths:
+  /api/v1/kube-credentials:
+    post:
+      operationId: createKubeCredential
+      tags: [KubeCredentials]
+      x-luna-cli:
+        classification: protocol-adapter
+        hidden: true
+        exclusionReason: One-time credential material is handled by a secure file adapter.
+      responses:
+        "201":
+          description: Created
+`,
+    "fixture/openapi-kubeconfig.yaml",
+  );
+  const classifications = {
+    "POST /api/v1/kube-credentials": {
+      classification: "protocol-adapter",
+      reason: "Consumed only by secure human kubeconfig file adapters.",
+      consumedBy: ["kubeconfig.write", "kubeconfig.merge"],
+    },
+  };
+  const commands = ["kubeconfig.write", "kubeconfig.merge"].map(path => ({
+    path,
+    source: "protocol",
+    consumedOperations: ["createKubeCredential"],
+  }));
+
+  const covered = evaluateCoverage({
+    routes,
+    openApiOperations: operations,
+    cliCommands: commands,
+    classifications,
+  });
+  assert.equal(covered.ok, true, covered.errors.join("\n"));
+
+  const missingConsumption = evaluateCoverage({
+    routes,
+    openApiOperations: operations,
+    cliCommands: commands.map(command => ({ ...command, consumedOperations: [] })),
+    classifications,
+  });
+  assert.equal(missingConsumption.ok, false);
+  assert.match(
+    missingConsumption.errors.join("\n"),
+    /kubeconfig\.write" does not consume "createKubeCredential"/,
   );
 });
 

@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const skillsRoot = join(root, "skills");
 const lunaHome = mkdtempSync(join(tmpdir(), "luna-skills-sync-"));
 const errors = [];
-const localProtocolCategories = new Set(["api", "completion", "help", "version"]);
+const localProtocolCategories = new Set(["api", "completion", "help", "kubeconfig", "version"]);
 const categoryReferences = new Map([
   ["access-token", "security.md"],
   ["ai-assistant", "ai-assistant.md"],
@@ -30,6 +30,8 @@ const categoryReferences = new Map([
   ["gateway", "gateway.md"],
   ["git", "source.md"],
   ["health", "debugging.md"],
+  ["kubectl-access", "security.md"],
+  ["mail", "notifications.md"],
   ["notification", "notifications.md"],
   ["notifications", "notifications.md"],
   ["o-auth-applications", "security.md"],

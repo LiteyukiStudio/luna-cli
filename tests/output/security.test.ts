@@ -54,6 +54,8 @@ describe("output safety", () => {
       },
       scopes: ["access_token:read", "token:read"],
       accessToken: "secret",
+      credentialId: "tok_public_identifier",
+      kubeconfig: "users:\n- user:\n    token: one-time-secret",
     })).toEqual({
       features: {
         accessToken: true,
@@ -61,7 +63,15 @@ describe("output safety", () => {
       },
       scopes: ["access_token:read", "token:read"],
       accessToken: "[REDACTED]",
+      credentialId: "tok_public_identifier",
+      kubeconfig: "[REDACTED]",
     });
+  });
+
+  it("redacts kubeconfig token material from diagnostic text", () => {
+    const safe = redactSensitiveText("kubeconfig write failed: token: one-time-secret");
+    expect(safe).not.toContain("one-time-secret");
+    expect(safe).toContain("token=[REDACTED]");
   });
 
   it("only treats objects on the current recursion path as circular", () => {

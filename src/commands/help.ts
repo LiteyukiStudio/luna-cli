@@ -55,6 +55,7 @@ function compactEntry(metadata: NormalizedCommandMetadata): Readonly<Record<stri
     category: metadata.category,
     tool: metadata.tool,
     source: metadata.source,
+    consumedOperations: metadata.consumedOperations ?? [],
     summary: metadata.summary ?? '',
     risk: metadata.risk,
     transport: metadata.transport,

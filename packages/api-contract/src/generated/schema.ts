@@ -116,7 +116,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revoke an OAuth access or refresh token */
+        /**
+         * Revoke the token family containing an OAuth access or refresh token
+         * @description Revokes every access and refresh token issued by the same login family. Other login families and the consent grant remain active.
+         */
         post: operations["revokeOAuthToken"];
         delete?: never;
         options?: never;
@@ -187,40 +190,6 @@ export interface paths {
         /** Replace one global, application, or deployment build environment */
         put: operations["updateBuildEnvironmentConfig"];
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/bootstrap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get bootstrap and runtime mode status */
-        get: operations["getBootstrapStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/bootstrap/admin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Initialize the first platform admin */
-        post: operations["initializeAdmin"];
         delete?: never;
         options?: never;
         head?: never;
@@ -339,11 +308,55 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get registration and SMTP settings */
+        /** Get registration settings */
         get: operations["getAuthRegistrationSettings"];
-        /** Update registration and SMTP settings */
+        /** Update registration settings */
         put: operations["updateAuthRegistrationSettings"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the global mail service settings
+         * @description Returns the platform SMTP transport and personal-email cooldown configuration without exposing its Secret Store reference or password.
+         */
+        get: operations["getPlatformMailSettings"];
+        /**
+         * Update the global mail service settings
+         * @description Stores a newly supplied SMTP password in Secret Store and configures the personal-event email cooldown; an empty password keeps the current value. The cooldown does not affect registration, account-recovery, administrator-test, or shared-channel email.
+         */
+        put: operations["updatePlatformMailSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mail/settings/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a global mail service test message
+         * @description Sends one test message to the explicit recipient through the saved global SMTP configuration.
+         */
+        post: operations["testPlatformMailSettings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -664,8 +677,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List runtime clusters
-         * @description Pagination is always applied; omitted parameters use page 1 and pageSize 20.
+         * List runtime clusters for the selected visibility
+         * @description Defaults to resources related to the caller. Platform administrators may explicitly request all visible resources. When projectId is provided, it is applied as a stronger filter within the selected visibility. Pagination is always applied; omitted pagination parameters use page 1 and pageSize 20.
          */
         get: operations["listRuntimeClusters"];
         put?: never;
@@ -704,7 +717,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Git providers */
+        /**
+         * List Git providers for the selected visibility
+         * @description Defaults to Git providers related to the caller. Platform administrators may explicitly request all visible providers. When projectId is provided, it is applied as a stronger filter within the selected visibility.
+         */
         get: operations["listGitProviders"];
         put?: never;
         /** Create Git provider */
@@ -791,7 +807,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List current user Git accounts */
+        /**
+         * List Git accounts for the selected visibility
+         * @description Defaults to Git accounts related to the caller. Platform administrators may explicitly request all visible accounts. When projectId is provided, it is applied as a stronger filter within the selected visibility.
+         */
         get: operations["listGitAccounts"];
         put?: never;
         /** Create current user Git account manually */
@@ -895,7 +914,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List artifact registries */
+        /**
+         * List artifact registries for the selected visibility
+         * @description Defaults to artifact registries related to the caller. Platform administrators may explicitly request all visible registries. When projectId is provided, it is applied as a stronger filter within the selected visibility.
+         */
         get: operations["listArtifactRegistries"];
         put?: never;
         /** Create artifact registry */
@@ -948,7 +970,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List registry credentials */
+        /**
+         * List registry credentials for the selected visibility
+         * @description Defaults to credentials related to the caller in the selected registry. Platform administrators may explicitly request all visible credentials. When projectId is provided, it is applied as a stronger filter within the selected visibility.
+         */
         get: operations["listRegistryCredentials"];
         put?: never;
         /** Create registry credential */
@@ -966,7 +991,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List visible registry credentials across registries */
+        /**
+         * List registry credentials across registries for the selected visibility
+         * @description Defaults to credentials related to the caller across registries. Platform administrators may explicitly request all visible credentials.
+         */
         get: operations["listAllRegistryCredentials"];
         put?: never;
         post?: never;
@@ -1001,7 +1029,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List container image records */
+        /**
+         * List container image records for the selected visibility
+         * @description Defaults to container image records related to the caller. Platform administrators may explicitly request all visible records. projectId, applicationId, and registryId are stronger filters within the selected visibility.
+         */
         get: operations["listContainerImages"];
         put?: never;
         /** Create container image record */
@@ -1020,8 +1051,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get the current user's dashboard overview
-         * @description Returns the task-oriented dashboard aggregation in one response. Future dashboard read models are added to this contract instead of being composed from multiple browser requests.
+         * Get the dashboard overview for the selected visibility
+         * @description Returns the task-oriented dashboard aggregation in one response. The overview defaults to project spaces and resources related to the caller; platform administrators may explicitly request the all visibility. Future dashboard read models are added to this contract instead of being composed from multiple browser requests.
          */
         get: operations["getDashboard"];
         put?: never;
@@ -1040,8 +1071,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List projects
-         * @description Pagination is always applied; omitted parameters use page 1 and pageSize 20. Project discovery defaults to project spaces related to the caller. Platform administrators may explicitly request all project spaces.
+         * List project spaces for the selected visibility
+         * @description Project discovery defaults to project spaces related to the caller. Platform administrators may explicitly request all project spaces. Pagination is always applied; omitted pagination parameters use page 1 and pageSize 20.
          */
         get: operations["listProjects"];
         put?: never;
@@ -1355,7 +1386,7 @@ export interface paths {
         get?: never;
         /**
          * Stream one complete archive directly into the prepared runtime Pod
-         * @description This request is not resumable. Content-Length and X-Content-SHA256 must match the transfer created earlier.
+         * @description This request is not resumable. Content-Length must match the transfer created earlier; the API and runtime Pod independently calculate and compare the authoritative checksum while streaming.
          */
         put: operations["uploadVolumeImportContent"];
         post?: never;
@@ -1798,6 +1829,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/kube-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current user's kubectl credentials
+         * @description Returns only credential metadata. Token hashes, plaintext bearer tokens, and kubeconfig content are never returned.
+         */
+        get: operations["listKubeCredentials"];
+        put?: never;
+        /**
+         * Create a kubectl credential and one-time kubeconfig
+         * @description Atomically creates a time-limited kubeconfig credential and one to twenty project or application bindings. The plaintext credential appears only inside the one-time kubeconfig response.
+         */
+        post: operations["createKubeCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kube-credentials/{credentialId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a kubectl credential and every binding it authorizes
+         * @description Only the credential owner can revoke it. Repeating the request for the same already-revoked credential remains successful.
+         */
+        delete: operations["revokeKubeCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/kube-credentials/{credentialId}/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List context bindings for one kubectl credential
+         * @description Returns bounded context metadata for a credential owned by the current user. The namespace is resolved from the authoritative project at request time.
+         */
+        get: operations["listKubeCredentialBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/access-tokens/{tokenId}": {
         parameters: {
             query?: never;
@@ -2029,7 +2124,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Build Variable Sets */
+        /**
+         * List build variable sets for the selected visibility
+         * @description Defaults to variable sets related to the caller. Platform administrators may explicitly request all visible sets. When projectId is provided, it is applied as a stronger filter within the selected visibility.
+         */
         get: operations["listBuildVariableSets"];
         put?: never;
         /** Create Build Variable Set */
@@ -2069,8 +2167,35 @@ export interface paths {
         /** Update Runtime Cluster */
         put: operations["updateRuntimeCluster"];
         post?: never;
-        /** Delete Runtime Cluster */
+        /**
+         * Queue recoverable Runtime Cluster deletion
+         * @description Marks the cluster as deleting, revokes kubectl bindings, waits for active streams to fail their periodic authorization check, and queues the single resource-cleanup owner. Upstream credentials are retained until gateway resources are confirmed removed.
+         */
         delete: operations["deleteRuntimeCluster"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtime/clusters/{clusterId}/kube-gateway": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read desired and authoritative live kubectl gateway state
+         * @description Platform administrators only. Desired enablement and extra rules come from platform configuration; status, observationCode, and lastCheckedAt are read live from the selected Kubernetes cluster.
+         */
+        get: operations["getRuntimeClusterKubeGateway"];
+        /**
+         * Replace desired kubectl gateway configuration and queue reconciliation
+         * @description Platform administrators only. Extra resources must be discovered as namespaced and pass the fixed-deny catalog. Every accepted request queues reconciliation from the latest stored configuration, including repeated identical requests. If queueing fails, the committed desired state remains pending and the periodic reconciler retries it.
+         */
+        put: operations["updateRuntimeClusterKubeGateway"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2100,7 +2225,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Runtime Cluster Resources */
+        /**
+         * List runtime cluster resources for the selected visibility
+         * @description Lists live resources in the selected cluster. Results default to resources related to the caller; platform administrators may explicitly request all visible resources. projectId, applicationId, and environmentId are stronger filters within the selected visibility.
+         */
         get: operations["listRuntimeClusterResources"];
         put?: never;
         post?: never;
@@ -2193,6 +2321,132 @@ export interface paths {
         put?: never;
         /** Install System App Template */
         post: operations["installSystemAppTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get my notification preferences
+         * @description Missing preferences use the product defaults, including personal email notifications enabled.
+         */
+        get: operations["getMyNotificationPreferences"];
+        /** Update my notification preferences */
+        put: operations["updateMyNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List safe personal notification integration presets
+         * @description Returns fixed-destination Webhook integration metadata only; SMTP, Gotify, user-controlled hosts, and stored secrets are never included.
+         */
+        get: operations["listMyNotificationPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List my notification channels */
+        get: operations["listMyNotificationChannels"];
+        put?: never;
+        /**
+         * Create my notification channel
+         * @description Creates one of at most 10 Webhook channels owned by the current user from a fixed-destination built-in preset. Arbitrary adapter and request configuration are not accepted, and the request body is limited to 64 KiB.
+         */
+        post: operations["createMyNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update my notification channel
+         * @description Updates the name, enabled state, or preset-declared Secrets of a Webhook channel owned by the current user; its adapter and request configuration remain fixed.
+         */
+        put: operations["updateMyNotificationChannel"];
+        post?: never;
+        /**
+         * Delete my notification channel
+         * @description Deletes a Webhook channel only when it is owned by the current user.
+         */
+        delete: operations["deleteMyNotificationChannel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-channels/{channelId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test my notification channel
+         * @description Sends one test message through a Webhook channel owned by the current user, limited to 10 attempts per user per minute.
+         */
+        post: operations["testMyNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/notification-deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my notification deliveries
+         * @description Returns only delivery attempts whose recipient is the current user.
+         */
+        get: operations["listMyNotificationDeliveries"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2553,7 +2807,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Platform Events */
+        /**
+         * List platform events for the selected visibility
+         * @description Defaults to events related to the caller. Platform administrators may explicitly request all visible events. Resource identifiers and time or status filters are applied as stronger filters within the selected visibility.
+         */
         get: operations["listPlatformEvents"];
         put?: never;
         post?: never;
@@ -3183,69 +3440,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Exec Release Runtime Command */
+        /**
+         * Exec Release Runtime Command
+         * @description Executes one bounded, non-interactive command in the selected workload container. Every call is independently authorized, audited, and limited; Agent-mediated calls additionally require approval of the current arguments. Command state is not retained between calls.
+         */
         post: operations["execReleaseRuntimeCommand"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a persistent release runtime command session
-         * @description Creates an API-owned, non-TTY shell session for bounded Agent diagnostics. The session is bound to the current user session, Agent Run when present, release, deployment target, and container. Idle and absolute TTLs are enforced by the owning API instance.
-         */
-        post: operations["createReleaseRuntimeCommandSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions/{sessionId}/commands": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Execute a command in a persistent release runtime session
-         * @description Executes one bounded command serially in the existing shell. Authorization, project role, Web Console policy, Agent Run binding, and the parameter-bound approval are revalidated for every command.
-         */
-        post: operations["executeReleaseRuntimeCommandSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/projects/{projectId}/releases/{releaseId}/command-sessions/{sessionId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Close a persistent release runtime command session
-         * @description Closes the API-owned shell and releases its Kubernetes exec stream. Closing does not execute a workload command.
-         */
-        delete: operations["closeReleaseRuntimeCommandSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3545,7 +3745,7 @@ export interface paths {
         };
         /**
          * Resolve AI assistant enablement and access for the current browser session
-         * @description Returns the platform-and-user enablement decision plus the configured browser input limit. It does not probe Agent or Provider runtime health; transient runtime failures are reported by the requested AI operation and never hide the assistant entry point.
+         * @description Returns the platform-and-user enablement decision plus the fixed browser text-input limit. It does not probe Agent or Provider runtime health; transient runtime failures are reported by the requested AI operation and never hide the assistant entry point.
          */
         get: operations["getAICapabilities"];
         put?: never;
@@ -3745,40 +3945,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/ai/ui-actions/pending": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List unacknowledged UI actions for the initiating browser client */
-        get: operations["listPendingAIUIActions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ai/ui-actions/{actionId}/ack": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Acknowledge a browser UI action after route execution succeeds or fails */
-        post: operations["acknowledgeAIUIAction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/ai/turns/{turnId}/runs": {
         parameters: {
             query?: never;
@@ -3873,40 +4039,6 @@ export interface paths {
         put?: never;
         post: operations["decideAIToolApproval"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ai/tool-approval-exemptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the current user's revocable approve-always tool preferences */
-        get: operations["listAIToolApprovalExemptions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ai/tool-approval-exemptions/{operationId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke one approve-always preference for the current user and operation */
-        delete: operations["revokeAIToolApprovalExemption"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4144,8 +4276,11 @@ export interface components {
         AIAssistantAccess: {
             /** @description Whether the platform enables the assistant for the current authenticated user. Runtime Agent or Provider health never changes this value. */
             enabled: boolean;
-            /** @description Maximum UTF-8 request body size enforced by the Luna API BFF. */
-            maxInputBytes: number;
+            /**
+             * @description Maximum UTF-8 text size accepted for one user turn or supplemental input; the JSON envelope has a separate internal transport limit.
+             * @constant
+             */
+            maxInputBytes: 131072;
         };
         AIModelOption: {
             id: string;
@@ -4195,17 +4330,18 @@ export interface components {
         };
         AICreateTurnInput: {
             modelId: string;
+            /** @description Combined text across all parts must not exceed 128 KiB when encoded as UTF-8. */
             input: {
                 parts: {
                     /** @constant */
                     type: "text";
+                    /** @description Text is trimmed and is also subject to the combined 128 KiB UTF-8 limit. */
                     text: string;
                 }[];
             };
             pageContext: {
                 [key: string]: unknown;
             };
-            clientInstanceId: string;
         };
         /** @description Versioned AI Agent response projected through the Luna API BFF. */
         AIObject: {
@@ -4227,38 +4363,21 @@ export interface components {
         };
         AIToolApprovalDecisionInput: {
             /** @enum {string} */
-            decision: "approve" | "approve_always" | "reject";
-            reason?: string;
-        };
-        AIToolApprovalExemption: {
-            operationId: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        AIToolApprovalExemptionList: {
-            items: components["schemas"]["AIToolApprovalExemption"][];
+            decision: "approve" | "reject";
         };
         AIInteractionCardToolActionInput: {
             operationId: string;
             arguments: {
                 [key: string]: unknown;
             };
+            /** @description Text is trimmed and must not exceed 128 KiB when encoded as UTF-8. */
             message: string;
-            clientInstanceId: string;
         };
-        AIUIActionAcknowledgementInput: {
-            clientInstanceId: string;
-            /** @enum {string} */
-            status: "succeeded" | "failed";
-            actualPath?: string;
-            errorCode?: string;
-        } & ({
-            /** @constant */
-            status?: "succeeded";
-        } | {
-            /** @constant */
-            status?: "failed";
-        });
+        AIRunInput: {
+            /** @description Text is trimmed and must not exceed 128 KiB when encoded as UTF-8. */
+            text: string;
+            expectedVersion: number;
+        };
         AIConversationCreateInput: {
             projectId?: string;
             modelId: string;
@@ -4348,23 +4467,23 @@ export interface components {
             /** @enum {string} */
             status: "reported";
             /** Format: int64 */
-            promptTokens: number;
+            inputTokens: number;
             /** Format: int64 */
-            completionTokens: number;
+            outputTokens: number;
             /**
              * Format: int64
-             * @description Must equal promptTokens plus completionTokens.
+             * @description Must equal inputTokens plus outputTokens.
              */
             totalTokens: number;
             /** Format: int64 */
-            cachedPromptTokens?: number;
+            cacheReadInputTokens?: number | null;
             /** Format: int64 */
-            cacheWritePromptTokens?: number;
+            cacheWriteInputTokens?: number | null;
             /**
              * Format: int64
-             * @description Informational subset of completionTokens and never billed twice.
+             * @description Informational subset of outputTokens and never billed twice.
              */
-            reasoningCompletionTokens?: number;
+            reasoningOutputTokens?: number | null;
         } | {
             /** @enum {string} */
             status: "unavailable";
@@ -4502,6 +4621,16 @@ export interface components {
                 traceId?: string;
             };
         };
+        /**
+         * @description auto preserves direct-endpoint detection; select openai or deepseek explicitly when a compatible gateway hides the leaf Provider hostname.
+         * @enum {string}
+         */
+        AIProviderCompatibility: "auto" | "openai" | "deepseek";
+        /**
+         * @description auto sends prompt_cache_key only to the official OpenAI endpoint; enabled opts a confirmed compatible endpoint in, while disabled never sends it.
+         * @enum {string}
+         */
+        AIPromptCacheKeyMode: "auto" | "enabled" | "disabled";
         AIProviderInternalConfig: {
             version: string;
             provider: {
@@ -4509,6 +4638,8 @@ export interface components {
                 baseUrl: string;
                 /** @description In-memory Agent use only; never returned to browser APIs. */
                 apiKey: string;
+                providerCompatibility: components["schemas"]["AIProviderCompatibility"];
+                promptCacheKeyMode: components["schemas"]["AIPromptCacheKeyMode"];
                 /** @description When enabled */
                 channelAffinityEnabled: boolean;
                 configured: boolean;
@@ -4516,8 +4647,10 @@ export interface components {
             };
             runtime: {
                 providerTimeoutMs: number;
+                maxRequestRetries: number;
                 runTimeoutMs: number;
                 agentConcurrentRuns: number;
+                userConcurrentRuns: number;
             };
             toolCatalog: components["schemas"]["AIPlatformToolCatalogOperation"][];
         };
@@ -4645,12 +4778,46 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        AgentObservabilityTraceUsage: {
+            /**
+             * Format: int64
+             * @description Provider-reported input tokens summed across model spans whose luna.gen_ai.request.purpose is assistant in this trace.
+             */
+            inputTokens: number;
+            /**
+             * Format: int64
+             * @description Provider-reported output tokens summed across model spans whose luna.gen_ai.request.purpose is assistant in this trace.
+             */
+            outputTokens: number;
+            /**
+             * Format: int64
+             * @description Cache-read subset of inputTokens
+             */
+            cacheReadInputTokens: number | null;
+            /**
+             * Format: int64
+             * @description Cache-write subset of inputTokens
+             */
+            cacheWriteInputTokens: number | null;
+            /**
+             * Format: int64
+             * @description Reasoning subset of outputTokens
+             */
+            reasoningOutputTokens: number | null;
+            /**
+             * Format: double
+             * @description Weighted cacheReadInputTokens divided by inputTokens as a percentage; null when cache-read usage is incomplete or total input is zero.
+             */
+            cacheHitRate: number | null;
+        };
         AgentObservabilityTraceDetail: {
             traceId: string;
             /** Format: double */
             durationMs: number;
             spanCount: number;
             errorCount: number;
+            /** @description Typed usage for provider-reported assistant-purpose model spans in this trace, or null when reported input/output totals are absent, ambiguous, or invalid. Summary, title, and legacy spans without an explicit purpose are excluded. */
+            usage: components["schemas"]["AgentObservabilityTraceUsage"] | null;
             spans: components["schemas"]["AgentObservabilityTraceSpan"][];
             context?: components["schemas"]["AgentObservabilityTraceContext"];
         };
@@ -4681,6 +4848,16 @@ export interface components {
             assistantMessage: string;
             runId: string;
             traceId: string;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            cacheReadInputTokens: number | null;
+            /** Format: int64 */
+            cacheWriteInputTokens: number | null;
+            /** Format: int64 */
+            reasoningOutputTokens: number | null;
             /** Format: double */
             durationMs: number;
             /** Format: date-time */
@@ -4702,6 +4879,12 @@ export interface components {
             inputTokens: number;
             /** Format: int64 */
             outputTokens: number;
+            /** Format: int64 */
+            cacheReadInputTokens: number | null;
+            /** Format: int64 */
+            cacheWriteInputTokens: number | null;
+            /** Format: int64 */
+            reasoningOutputTokens: number | null;
             /** Format: int64 */
             toolCallCount: number;
             /** Format: double */
@@ -4838,10 +5021,36 @@ export interface components {
             /** @enum {string} */
             range: "1h" | "6h" | "24h" | "7d" | "30d" | "1y";
             summary: {
-                /** @description Input tokens consumed during the selected period. */
+                /**
+                 * Format: int64
+                 * @description Input tokens consumed during the selected period; cache-read and cache-write tokens are subsets and are not added again.
+                 */
                 inputTokens: number;
-                /** @description Output tokens generated during the selected period. */
+                /**
+                 * Format: int64
+                 * @description Output tokens generated during the selected period.
+                 */
                 outputTokens: number;
+                /**
+                 * Format: int64
+                 * @description Cache-read subset of inputTokens
+                 */
+                cacheReadInputTokens: number | null;
+                /**
+                 * Format: int64
+                 * @description Cache-write subset of inputTokens
+                 */
+                cacheWriteInputTokens: number | null;
+                /**
+                 * Format: int64
+                 * @description Reasoning subset of outputTokens
+                 */
+                reasoningOutputTokens: number | null;
+                /**
+                 * Format: double
+                 * @description Weighted cacheReadInputTokens divided by inputTokens as a percentage; null when cache-read usage is incomplete or total input is zero.
+                 */
+                cacheHitRate: number | null;
                 /** @description Tool calls recorded during the selected period */
                 toolCalls: number;
                 /** @description Succeeded tool calls divided by succeeded plus failed calls during the selected period. */
@@ -4872,6 +5081,8 @@ export interface components {
             requestId: string;
             /** @description Trace identifier when the request has a valid trace context. */
             traceId?: string;
+            /** @description Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes. */
+            requiredScope?: string;
             /** @description Whether retrying the same operation without changing arguments may succeed. */
             retryable?: boolean;
             /**
@@ -4984,25 +5195,101 @@ export interface components {
         };
         OAuthApplication: {
             id: string;
+            ownerUserId?: string;
             name: string;
+            description: string;
+            homepageUrl: string;
+            logoUrl: string;
             clientId: string;
             redirectUris: string[];
-            scopes: string[];
-            confidential: boolean;
-            active: boolean;
+            allowedScopes: string;
+            accessTokenLifetimeDays: number;
+            /** Format: date-time */
+            revokedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         OAuthTokenResponse: {
-            access_token: string;
+            readonly access_token: string;
             /** @constant */
             token_type: "Bearer";
-            expires_in: number;
-            refresh_token: string;
+            expires_in?: number;
+            readonly refresh_token?: string;
             scope: string;
+        };
+        OAuthDeviceAuthorizationInput: {
+            client_id: string;
+            scope?: string;
+        };
+        OAuthTokenInput: {
+            /** @enum {string} */
+            grant_type: "authorization_code" | "refresh_token" | "urn:ietf:params:oauth:grant-type:device_code";
+            client_id?: string;
+            client_secret?: string;
+            code?: string;
+            code_verifier?: string;
+            /** Format: uri */
+            redirect_uri?: string;
+            refresh_token?: string;
+            device_code?: string;
+        } & (unknown & unknown & unknown);
+        OAuthTokenRevocationInput: {
+            token: string;
+            /** @enum {string} */
+            token_type_hint?: "access_token" | "refresh_token";
+            client_id?: string;
+            client_secret?: string;
+        };
+        OAuthAuthorizationServerMetadata: {
+            /** Format: uri */
+            issuer: string;
+            /** Format: uri */
+            authorization_endpoint: string;
+            /** Format: uri */
+            device_authorization_endpoint: string;
+            /** Format: uri */
+            token_endpoint: string;
+            /** Format: uri */
+            revocation_endpoint: string;
+            response_types_supported: string[];
+            grant_types_supported: string[];
+            token_endpoint_auth_methods_supported: string[];
+            code_challenge_methods_supported: string[];
+        };
+        OAuthDeviceAuthorizationResponse: {
+            readonly device_code: string;
+            user_code: string;
+            /** Format: uri */
+            verification_uri: string;
+            /** Format: uri */
+            verification_uri_complete: string;
+            /** Format: int64 */
+            expires_in: number;
+            interval: number;
+        };
+        OAuthDeviceVerification: {
+            application: components["schemas"]["OAuthApplication"];
+            userCode: string;
+            scope: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        OAuthDeviceVerificationDecisionInput: {
+            userCode: string;
+            /** @description Approves the request when true; omission or false denies it. */
+            approved?: boolean;
+        };
+        OAuthDeviceVerificationResult: {
+            /** @enum {string} */
+            status: "approved" | "denied";
         };
         OAuthProtocolError: {
             /** @enum {string} */
-            error: "invalid_request" | "invalid_client" | "invalid_grant" | "unauthorized_client" | "unsupported_grant_type" | "invalid_scope" | "authorization_pending" | "slow_down" | "access_denied" | "expired_token";
-            error_description?: string;
+            error: "invalid_request" | "invalid_client" | "invalid_grant" | "unauthorized_client" | "unsupported_grant_type" | "invalid_scope" | "authorization_pending" | "slow_down" | "access_denied" | "expired_token" | "server_error" | "temporarily_unavailable";
+            error_description: string;
+            requestId: string;
         };
         DashboardEntityRef: {
             id: string;
@@ -5123,21 +5410,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        BootstrapStatus: {
-            /**
-             * @description Production initialization requires the API process to have `BOOTSTRAP_TOKEN` configured and the same value supplied as `bootstrapToken`.
-             * @enum {string}
-             */
-            mode: "development" | "production";
-            initialized: boolean;
-            devLoginEnabled: boolean;
-            /** @description Present only in development mode. */
-            devLoginHint?: {
-                /** Format: email */
-                email: string;
-                password: string;
-            };
-        };
         ConfigDefinition: {
             key: string;
             /** @description Stable frontend i18n key for the setting label; the backend does not localize labels. */
@@ -5172,6 +5444,78 @@ export interface components {
             recommended: boolean;
             creatableByUser: boolean;
             requiresAdminRole: boolean;
+        };
+        KubeCredentialContextInput: {
+            projectId: string;
+            runtimeClusterId: string;
+            /** @description Omit to authorize the whole project namespace; when present, the application must belong to projectId. */
+            applicationId?: string;
+        };
+        KubeCredentialCreateInput: {
+            name: string;
+            /**
+             * @description Required credential lifetime in days; permanent kubectl credentials are not supported.
+             * @default 7
+             * @enum {integer}
+             */
+            expiresInDays: 1 | 7 | 30;
+            /** @description Independent Kubernetes transport scopes. kube:write and kube:connect are normalized to include kube:read. */
+            scopes: ("kube:read" | "kube:write" | "kube:connect")[];
+            contexts: components["schemas"]["KubeCredentialContextInput"][];
+        };
+        KubeCredentialSummary: {
+            id: string;
+            name: string;
+            scopes: ("kube:read" | "kube:write" | "kube:connect")[];
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            bindingCount: number;
+        };
+        KubeCredentialBindingSummary: {
+            id: string;
+            projectId: string;
+            runtimeClusterId: string;
+            applicationId?: string;
+            /** @description Current authoritative Kubernetes namespace of projectId, resolved at request time. */
+            namespace: string;
+            contextName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        KubeCredentialCreateResult: {
+            credential: components["schemas"]["KubeCredentialSummary"];
+            bindings: components["schemas"]["KubeCredentialBindingSummary"][];
+            /** @description One-time kubeconfig containing the only plaintext copy of the bearer credential; never returned by list operations. */
+            readonly kubeconfig: string;
+        };
+        PaginatedKubeCredentials: {
+            items: components["schemas"]["KubeCredentialSummary"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "name" | "createdAt" | "expiresAt" | "status";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        PaginatedKubeCredentialBindings: {
+            items: components["schemas"]["KubeCredentialBindingSummary"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "createdAt" | "projectId" | "runtimeClusterId";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
         };
         ApplicationTopology: {
             /** Format: date-time */
@@ -5219,13 +5563,8 @@ export interface components {
             name: string;
             /** @description Human-readable identifier that is immutable while the application exists and unique among active applications in the project space. It may be reused after deletion cleanup; the internal application ID is generated independently. */
             identifier: string;
-            /** @enum {string} */
-            sourceType: "repository" | "image";
-            repositoryUrl?: string;
-            imageReference?: string;
-            dockerfilePath?: string;
-            buildContext?: string;
-            servicePort?: number;
+            /** @description Curated icon name or supported image reference; empty selects the default application icon. */
+            icon?: string;
         };
         /** @description Point-in-time aggregate of Kubernetes replicas for an application. It is returned only when includeRuntime=true and is never persisted as current state. */
         ApplicationDeploymentSummary: {
@@ -5568,7 +5907,6 @@ export interface components {
             filename: string;
             /** Format: int64 */
             contentLength: number;
-            sha256: string;
         };
         VolumeImportCreateResponse: {
             volume: components["schemas"]["ProjectVolume"];
@@ -5696,21 +6034,6 @@ export interface components {
             clientSecret?: string;
             enabled?: boolean;
         };
-        InitializeAdminInput: {
-            /** Format: email */
-            email: string;
-            name?: string;
-            password: string;
-            /** @enum {string} */
-            language?: "zh-CN" | "en-US";
-            /** @description Required when `mode` is `production`; must exactly match the API process `BOOTSTRAP_TOKEN`. Ignored in development. */
-            bootstrapToken?: string;
-            /**
-             * @description When true, also creates a rotating, per-user 30-day HttpOnly remember cookie. The regular session remains valid for 24 hours.
-             * @default false
-             */
-            rememberMe: boolean;
-        };
         LoginInput: {
             /** Format: email */
             email: string;
@@ -5816,8 +6139,6 @@ export interface components {
             stage: string;
             /** @description Runtime cluster ID available to the project. Empty selects the platform default cluster. */
             clusterId?: string;
-            /** @description Optional Kubernetes namespace override. Empty uses the project namespace. */
-            namespace?: string;
             /**
              * @default Deployment
              * @enum {string}
@@ -5860,13 +6181,6 @@ export interface components {
             fsGroupChangePolicy?: "Always" | "OnRootMismatch";
             /** @default false */
             readOnlyRootFilesystem: boolean;
-            /**
-             * @description Tri-state string; empty inherits the platform default.
-             * @enum {string}
-             */
-            allowPrivilegeEscalation?: "" | "true" | "false";
-            /** @description JSON string array or line-separated Linux capabilities to add. */
-            capabilityAdd?: string;
             /** @description JSON string array or line-separated Linux capabilities to drop. */
             capabilityDrop?: string;
             /** @description JSON object or key=value lines. */
@@ -5878,19 +6192,8 @@ export interface components {
             /** @description JSON Kubernetes topology spread constraint array. */
             topologySpreadConstraints?: string;
             priorityClassName?: string;
-            /** @description Optional Kubernetes ServiceAccount name used by the workload Pods. */
-            serviceAccountName?: string;
-            /**
-             * @description Tri-state string controlling ServiceAccount token mounting; empty uses the Kubernetes default.
-             * @enum {string}
-             */
-            automountServiceAccountToken?: "" | "true" | "false";
-            /** @enum {string} */
-            serviceType?: "ClusterIP" | "NodePort" | "LoadBalancer";
             /** @description JSON object or key=value lines. */
             serviceAnnotations?: string;
-            /** @enum {string} */
-            serviceExternalTrafficPolicy?: "Cluster" | "Local";
             /** @enum {string} */
             serviceSessionAffinity?: "None" | "ClientIP";
             /** @default false */
@@ -5902,11 +6205,6 @@ export interface components {
             autoScalingMemoryPercent?: number;
             /** @description JSON Kubernetes horizontal pod autoscaler behavior object. */
             autoScalingBehavior?: string;
-            /**
-             * @description Legacy single-port projection of servicePorts[0]. New clients should use servicePorts.
-             * @default 8080
-             */
-            servicePort: number;
             /** @description Unique container service ports. This list is the authoritative port configuration. */
             servicePorts?: {
                 name?: string;
@@ -5985,8 +6283,6 @@ export interface components {
              * @enum {string}
              */
             concurrencyPolicy: "queue" | "parallel";
-            /** @description Legacy shorthand for live runtime configuration references. */
-            runtimeConfigSetIds?: string[];
             runtimeConfigRefs?: {
                 setId: string;
                 /**
@@ -5995,12 +6291,8 @@ export interface components {
                  */
                 mode: "live" | "snapshot";
             }[];
-            /** @description Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required. */
+            /** @description Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values; it stores these values in the deployment-managed ConfigMap and injects them into the workload. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required. */
             environmentVariables?: components["schemas"]["RuntimeEnvironmentVariableInput"][];
-            /** @description Runtime ConfigMap references. */
-            configRefs?: {
-                [key: string]: string;
-            };
             /** @description JSON array of runtime configuration file mounts. */
             configFiles?: string;
             /** @description JSON array of runtime secret file inputs. Existing plaintext values are never returned. */
@@ -6028,10 +6320,17 @@ export interface components {
             buildTemplateId?: string;
             buildTemplateVersion?: string;
             buildTemplateValues?: string;
+            servicePorts: {
+                name: string;
+                port: number;
+                appProtocol?: string;
+            }[];
+            runtimeConfigRefs: {
+                setId: string;
+                /** @enum {string} */
+                mode: "live" | "snapshot";
+            }[];
             environmentVariables?: components["schemas"]["RuntimeEnvironmentVariable"][];
-            configRefs?: {
-                [key: string]: string;
-            };
             dataVolumes: components["schemas"]["DeploymentDataVolume"][];
             /**
              * @description Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.
@@ -6151,7 +6450,6 @@ export interface components {
              * @enum {string}
              */
             stage?: "dev" | "test" | "staging" | "prod";
-            namespace?: string | null;
         };
         DeploymentTargetBundleImportRequest: {
             bundle: components["schemas"]["DeploymentTargetBundle"];
@@ -6358,7 +6656,7 @@ export interface components {
         };
         DataRetentionDataset: {
             /** @enum {string} */
-            key: "platform_events" | "notification_deliveries" | "worker_task_events" | "build_logs" | "release_logs" | "hook_run_logs" | "expired_auth_data";
+            key: "platform_events" | "notification_deliveries" | "build_logs" | "release_logs" | "hook_run_logs" | "expired_auth_data";
             configKey: string;
             defaultDays: number;
         };
@@ -6366,7 +6664,7 @@ export interface components {
             items: components["schemas"]["DataRetentionDataset"][];
         };
         DataRetentionRequest: {
-            datasets: ("platform_events" | "notification_deliveries" | "worker_task_events" | "build_logs" | "release_logs" | "hook_run_logs" | "expired_auth_data")[];
+            datasets: ("platform_events" | "notification_deliveries" | "build_logs" | "release_logs" | "hook_run_logs" | "expired_auth_data")[];
             /** Format: date-time */
             startAt: string;
             /** Format: date-time */
@@ -6397,10 +6695,10 @@ export interface components {
             /** @enum {string} */
             language: "zh-CN" | "en-US";
             /**
-             * @description Empty follows the platform color theme; otherwise contains a curated multi-color theme or official Radix single-color preset ID.
+             * @description Empty follows the platform color theme; otherwise contains a preset from the current curated catalog.
              * @enum {string}
              */
-            brandColorPreset: "" | "gold" | "bronze" | "brown" | "yellow" | "amber" | "orange" | "tomato" | "red" | "ruby" | "crimson" | "pink" | "plum" | "purple" | "violet" | "iris" | "indigo" | "blue" | "cyan" | "teal" | "jade" | "green" | "grass" | "lime" | "mint" | "sky";
+            brandColorPreset: "" | "aurora" | "harbor" | "sunset" | "botanical" | "meadow" | "citrus" | "gold" | "orange" | "red" | "pink" | "violet" | "blue" | "cyan" | "teal" | "green" | "lime";
             /**
              * @description Empty follows the platform default; minimal uses a neutral canvas and themed uses the brand-tinted canvas.
              * @enum {string}
@@ -6417,30 +6715,50 @@ export interface components {
             allowEmailRegistration: boolean;
             allowOidcRegistration: boolean;
             allowExternalIdentityPassword: boolean;
-            smtpHost: string;
-            smtpPort: number;
-            /** @enum {string} */
-            smtpSecurity: "none" | "starttls" | "tls";
-            smtpUsername: string;
-            smtpPasswordSet: boolean;
-            /** Format: email */
-            smtpFromAddress: string;
-            smtpFromName: string;
         };
         AuthRegistrationSettingsInput: {
             allowEmailRegistration: boolean;
             allowOidcRegistration: boolean;
             allowExternalIdentityPassword: boolean;
-            smtpHost: string;
-            smtpPort: number;
+        };
+        PlatformMailSettings: {
+            host: string;
+            port: number;
             /** @enum {string} */
-            smtpSecurity: "none" | "starttls" | "tls";
-            smtpUsername: string;
+            security: "none" | "starttls" | "tls";
+            username: string;
+            passwordSet: boolean;
+            fromAddress: string;
+            fromName: string;
+            /**
+             * @description Seconds after a personal event email starts during which later personal events are aggregated for the same user. Each digest contains at most 20 events; excess events remain queued for later cooldown cycles. Zero disables waiting. Registration, account-recovery, administrator-test, and shared SMTP email are unaffected.
+             * @default 60
+             */
+            personalEmailCooldownSeconds: number;
+        };
+        PlatformMailSettingsInput: {
+            host: string;
+            port: number;
+            /** @enum {string} */
+            security: "none" | "starttls" | "tls";
+            username: string;
             /** @description Leave empty to keep the existing Secret Store value. */
-            smtpPassword?: string;
+            password?: string;
+            fromAddress: string;
+            fromName: string;
+            /**
+             * @description Seconds after a personal event email starts during which later personal events are aggregated for the same user. Each digest contains at most 20 events; excess events remain queued for later cooldown cycles. Zero disables waiting. Registration, account-recovery, administrator-test, and shared SMTP email are unaffected.
+             * @default 60
+             */
+            personalEmailCooldownSeconds: number;
+        };
+        PlatformMailTestInput: {
             /** Format: email */
-            smtpFromAddress: string;
-            smtpFromName: string;
+            recipient: string;
+        };
+        NotificationTestResult: {
+            /** @enum {string} */
+            status: "ok";
         };
         EmailRegistrationCodeInput: {
             /** Format: email */
@@ -6469,10 +6787,10 @@ export interface components {
             /** @enum {string} */
             language?: "zh-CN" | "en-US";
             /**
-             * @description Empty follows the platform color theme; otherwise stores a curated multi-color theme or official Radix single-color preset ID.
+             * @description Empty follows the platform color theme; otherwise stores a preset from the current curated catalog.
              * @enum {string}
              */
-            brandColorPreset?: "" | "gold" | "bronze" | "brown" | "yellow" | "amber" | "orange" | "tomato" | "red" | "ruby" | "crimson" | "pink" | "plum" | "purple" | "violet" | "iris" | "indigo" | "blue" | "cyan" | "teal" | "jade" | "green" | "grass" | "lime" | "mint" | "sky";
+            brandColorPreset?: "" | "aurora" | "harbor" | "sunset" | "botanical" | "meadow" | "citrus" | "gold" | "orange" | "red" | "pink" | "violet" | "blue" | "cyan" | "teal" | "green" | "lime";
             /**
              * @description Empty follows the platform default; otherwise overrides the interface style.
              * @enum {string}
@@ -6487,6 +6805,52 @@ export interface components {
             /** @enum {string} */
             language?: "zh-CN" | "en-US";
             disabled?: boolean;
+        };
+        PlatformEvent: {
+            id: string;
+            type: string;
+            category: string;
+            severity: string;
+            status: string;
+            projectId: string;
+            applicationId: string;
+            deploymentTargetId: string;
+            resourceType: string;
+            resourceId: string;
+            actorId: string;
+            resourceOwnerUserId: string;
+            summaryKey: string;
+            message: string;
+            correlationId: string;
+            traceId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /** Format: date-time */
+            createdAt: string;
+            detail: {
+                [key: string]: unknown;
+            };
+            links: {
+                [key: string]: string;
+            };
+            /** Format: int64 */
+            deliveryCount: number;
+        };
+        PlatformEventCatalogEntry: {
+            type: string;
+            category: string;
+            defaultSeverity: string;
+            recommendedNotify: boolean;
+        };
+        PaginatedPlatformEvents: {
+            items: components["schemas"]["PlatformEvent"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
         };
         /** @description Extensible business object returned by an API whose domain model is not shared across operations. */
         BusinessObject: {
@@ -6513,39 +6877,49 @@ export interface components {
             /** Format: uri */
             logoUrl?: string;
             redirectUris: string[];
-            allowedScopes?: string[];
+            allowedScopes: string;
             /** @description Zero configures a non-expiring access token. */
             accessTokenLifetimeDays?: number;
         };
+        OAuthAuthorizationRequest: {
+            application: components["schemas"]["OAuthApplication"];
+            scope: string;
+            accessTokenLifetimeDays: number;
+            previouslyAuthorized: boolean;
+        };
         OAuthAuthorizationDecisionInput: {
-            approved: boolean;
+            /** @description Approves the request when true; omission or false denies it. */
+            approved?: boolean;
             clientId: string;
             /** Format: uri */
             redirectUri: string;
-            scope?: string;
+            scope: string;
             state?: string;
-            codeChallenge?: string;
+            codeChallenge: string;
             /** @enum {string} */
-            codeChallengeMethod?: "S256";
+            codeChallengeMethod: "S256";
+        };
+        OAuthAuthorizationDecisionResponse: {
+            /** Format: uri */
+            redirectUrl: string;
         };
         OAuthGrant: {
             id: string;
-            applicationId: string;
-            applicationName?: string;
-            applicationLogoUrl?: string;
-            userId: string;
-            scopes: string[];
+            application: components["schemas"]["OAuthApplication"];
+            scope: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
-            updatedAt?: string;
-            /** Format: date-time */
-            lastUsedAt?: string | null;
+            updatedAt: string;
         };
         PaginatedOAuthApplications: {
             items: components["schemas"]["OAuthApplication"][];
             page: number;
             pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
             total: number;
             totalPages: number;
         };
@@ -6553,13 +6927,17 @@ export interface components {
             items: components["schemas"]["OAuthGrant"][];
             page: number;
             pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
             total: number;
             totalPages: number;
         };
         OAuthApplicationSecretResponse: {
             application: components["schemas"]["OAuthApplication"];
             /** @description One-time plaintext client secret. */
-            clientSecret: string;
+            readonly clientSecret: string;
         };
         BuildVariableSetInput: {
             name: string;
@@ -6641,11 +7019,20 @@ export interface components {
             gatewayTrustedProxyCIDRs?: string;
             gatewayDefaultRequestHeaders?: string;
             gatewayDefaultResponseHeaders?: string;
-            status?: string;
         };
         RuntimeCluster: components["schemas"]["RuntimeClusterInput"] & {
             id: string;
             kubeconfigSet: boolean;
+            kubeGatewayEnabled: boolean;
+            /** @enum {string} */
+            deleteStatus: "active" | "deleting" | "delete_failed" | "deleted";
+            /** Format: date-time */
+            deleteStartedAt?: string;
+            /** Format: date-time */
+            deleteFinishedAt?: string;
+            /** @description Stable frontend-localized deletion observation code; internal deletion messages and drain or cleanup timestamps are never returned. */
+            deleteObservationCode?: string;
+            status: string;
             observationCode?: string;
             /** Format: date-time */
             lastCheckedAt?: string;
@@ -6654,6 +7041,32 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        RuntimeClusterKubeGatewayRule: {
+            /** @description Kubernetes API group; use an empty string only for a discovered core API resource. */
+            apiGroup: string;
+            apiVersion: string;
+            resource: string;
+            subresources?: string[];
+            verbs: ("get" | "list" | "watch" | "create" | "update" | "patch" | "delete" | "deletecollection")[];
+            /**
+             * @description Existing project authorization action evaluated with the current authoritative project role on every request.
+             * @enum {string}
+             */
+            action: "project:read" | "project:write" | "project:manage" | "project:delete" | "project:owner_only" | "project:pin" | "application:read" | "application:create" | "application:update" | "application:delete" | "deployment:read" | "deployment:update" | "deployment:release" | "deployment:restart" | "deployment:rollback" | "deployment:delete" | "deployment:exec" | "build:read" | "build:trigger" | "build:cancel" | "build:delete" | "gateway:read" | "gateway:manage" | "gateway:delete" | "secret:read_summary" | "secret:view_value" | "secret:update" | "cluster:read" | "cluster:use" | "cluster:manage" | "billing:read" | "billing:write" | "git:read" | "git:write" | "registry:read" | "registry:use" | "image:write" | "volume:read" | "volume:write" | "volume:import" | "volume:export" | "volume:delete";
+        };
+        RuntimeClusterKubeGatewayInput: {
+            enabled: boolean;
+            extraResourceRules: components["schemas"]["RuntimeClusterKubeGatewayRule"][];
+        };
+        RuntimeClusterKubeGateway: {
+            enabled: boolean;
+            extraResourceRules: components["schemas"]["RuntimeClusterKubeGatewayRule"][];
+            /** @enum {string} */
+            status: "disabled" | "reconciling" | "ready" | "unavailable";
+            observationCode?: string;
+            /** Format: date-time */
+            lastCheckedAt?: string;
         };
         /** @enum {string} */
         RuntimeClusterPressureLevel: "idle" | "light" | "moderate" | "heavy" | "full" | "unavailable";
@@ -6735,6 +7148,116 @@ export interface components {
             };
             enabled?: boolean;
         };
+        PersonalNotificationChannelCreateInput: {
+            name: string;
+            /** @description ID returned by listMyNotificationPresets; the server owns the adapter and request configuration. */
+            presetId: string;
+            /** @description Only fields declared by the selected personal preset are accepted; undeclared fields are rejected. */
+            secrets: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+        };
+        PersonalNotificationChannelUpdateInput: {
+            name: string;
+            /** @description Only preset-declared fields are accepted; omit or leave a field empty to preserve its stored value. */
+            secrets?: {
+                [key: string]: string;
+            };
+            enabled?: boolean;
+        };
+        UserNotificationPreference: {
+            /** @default true */
+            emailEnabled: boolean;
+            eventTypes: ("build.failed" | "release.failed" | "hook.failed" | "gateway.apply_failed" | "certificate.failed" | "certificate.expired")[];
+        };
+        UserNotificationPreferenceInput: {
+            /** @default true */
+            emailEnabled: boolean;
+            eventTypes: ("build.failed" | "release.failed" | "hook.failed" | "gateway.apply_failed" | "certificate.failed" | "certificate.expired")[];
+        };
+        NotificationPreset: {
+            id: string;
+            name: string;
+            description: string;
+            /** @enum {string} */
+            adapterKind: "webhook";
+            configTemplate: string;
+            jsonBodyTemplate: string;
+            secretFields: string[];
+        };
+        NotificationChannel: {
+            id: string;
+            ownerUserId: string;
+            name: string;
+            adapterKind: string;
+            config: {
+                [key: string]: unknown;
+            };
+            secretSet: {
+                [key: string]: boolean;
+            };
+            enabled: boolean;
+            lastDeliveryStatus?: string;
+            lastDeliveryError?: string;
+            /** Format: date-time */
+            lastDeliveredAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        } & {
+            [key: string]: unknown;
+        };
+        NotificationDelivery: {
+            id: string;
+            projectId?: string;
+            eventId: string;
+            eventType: string;
+            severity: string;
+            channelId: string;
+            adapterKind: string;
+            recipientUserId: string;
+            status: string;
+            attemptCount: number;
+            /** Format: int64 */
+            durationMillis?: number;
+            errorMessage?: string;
+            /** Format: date-time */
+            queuedAt?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** Format: date-time */
+            finishedAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        } & {
+            [key: string]: unknown;
+        };
+        PaginatedNotificationChannels: {
+            items: components["schemas"]["NotificationChannel"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
+        PaginatedNotificationDeliveries: {
+            items: components["schemas"]["NotificationDelivery"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            /** Format: int64 */
+            total: number;
+            totalPages: number;
+        };
         NotificationPresetChannelInput: {
             name: string;
             secrets?: {
@@ -6755,14 +7278,23 @@ export interface components {
         NotificationRuleInput: {
             name: string;
             eventTypes: string[];
-            filter?: {
-                [key: string]: unknown;
-            };
+            filter: components["schemas"]["NotificationRuleFilter"];
             channelIds: string[];
             templateId?: string;
             locale?: string;
             enabled?: boolean;
         };
+        NotificationRuleFilter: {
+            /**
+             * @description Project-scoped delivery is the safe default in clients; all must always be selected explicitly.
+             * @enum {string}
+             */
+            scope: "projects" | "all";
+            projectIds?: string[];
+            severities?: ("info" | "warning" | "error")[];
+            applicationIds?: string[];
+            deploymentTargetIds?: string[];
+        } & (unknown & unknown);
         ProjectOrderInput: {
             projectIds: string[];
         };
@@ -6896,16 +7428,16 @@ export interface components {
              */
             stage: "dev" | "test" | "staging" | "prod";
             clusterId: string;
-            namespace?: string;
             imageRef?: string;
             replicas?: number;
             cpuRequest?: string;
             memoryRequest?: string;
-            /** @description Existing ready project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. Required when dataVolumes contains projectVolume; rejected otherwise. */
+            /** @description Existing project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. A volume is attachable when lifecycleState=ready, or when lifecycleState=provisioning and (pendingOperation=provision or pendingOperation=expand); pendingOperation=import and all other lifecycle/pending-operation combinations are rejected. Required when dataVolumes contains projectVolume; rejected otherwise. */
             projectVolumeId?: string;
             installNow?: boolean;
+            /** @description Dynamic template values. The whole map is treated as sensitive because individual templates may define Secret parameters. */
             values?: {
-                [key: string]: unknown;
+                [key: string]: string;
             };
         };
         BuildRunInput: {
@@ -7008,29 +7540,11 @@ export interface components {
             command: string;
             container?: string;
         };
-        ReleaseRuntimeCommandSessionInput: {
-            /** @description Optional workload container. The platform selects the default container when omitted. */
-            container?: string;
-        };
-        ReleaseRuntimeCommandSessionExecuteInput: {
-            /** @description Shell command executed in the existing session. Command content is never written to logs or traces. */
-            command: string;
-        };
-        RuntimeCommandSession: {
-            sessionId: string;
-            container?: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            lastActiveAt: string;
-            /** Format: date-time */
-            idleExpiresAt: string;
-            /** Format: date-time */
-            expiresAt: string;
-        };
-        RuntimeCommandSessionCommandResult: {
-            /** @description Combined bounded stdout and stderr returned to the authorized caller. */
+        RuntimeExecResult: {
+            pod: string;
+            container: string;
             stdout: string;
+            stderr: string;
             exitCode: number;
             truncated: boolean;
             /** Format: int64 */
@@ -7185,6 +7699,7 @@ export interface components {
         InboxMessageId: string;
         InboxRequestId: string;
         MemberId: string;
+        NotificationChannelId: string;
         OAuthCode: string;
         OAuthState: string;
         Owner: string;
@@ -7197,6 +7712,8 @@ export interface components {
         Repo: string;
         ReleaseId: string;
         SortOrder: "asc" | "desc";
+        /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+        Visibility: "related" | "all";
         TargetId: string;
         TokenId: string;
         TransferId: string;
@@ -7261,6 +7778,7 @@ export interface operations {
                             deviceCode: boolean;
                             oauthAuthorization: boolean;
                             openapiOperations: boolean;
+                            kubectlGateway: boolean;
                         };
                     };
                 };
@@ -7282,9 +7800,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["OAuthAuthorizationServerMetadata"];
                 };
             };
         };
@@ -7298,10 +7814,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/x-www-form-urlencoded": {
-                    client_id: string;
-                    scope?: string;
-                };
+                "application/x-www-form-urlencoded": components["schemas"]["OAuthDeviceAuthorizationInput"];
             };
         };
         responses: {
@@ -7311,16 +7824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        device_code: string;
-                        user_code: string;
-                        /** Format: uri */
-                        verification_uri: string;
-                        /** Format: uri */
-                        verification_uri_complete: string;
-                        expires_in: number;
-                        interval: number;
-                    };
+                    "application/json": components["schemas"]["OAuthDeviceAuthorizationResponse"];
                 };
             };
             /** @description OAuth protocol error. */
@@ -7351,13 +7855,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        application: components["schemas"]["OAuthApplication"];
-                        userCode: string;
-                        scopes: string[];
-                        /** Format: date-time */
-                        expiresAt: string;
-                    };
+                    "application/json": components["schemas"]["OAuthDeviceVerification"];
                 };
             };
             /** @description Invalid, expired, or consumed user code. */
@@ -7380,11 +7878,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    userCode: string;
-                    /** @enum {string} */
-                    decision: "approve" | "deny";
-                };
+                "application/json": components["schemas"]["OAuthDeviceVerificationDecisionInput"];
             };
         };
         responses: {
@@ -7394,10 +7888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "approved" | "denied";
-                    };
+                    "application/json": components["schemas"]["OAuthDeviceVerificationResult"];
                 };
             };
             /** @description Invalid, expired, or consumed user code. */
@@ -7420,22 +7911,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/x-www-form-urlencoded": {
-                    /** @enum {string} */
-                    grant_type: "authorization_code" | "refresh_token" | "urn:ietf:params:oauth:grant-type:device_code";
-                    client_id?: string;
-                    client_secret?: string;
-                    code?: string;
-                    code_verifier?: string;
-                    /** Format: uri */
-                    redirect_uri?: string;
-                    refresh_token?: string;
-                    device_code?: string;
-                };
+                "application/x-www-form-urlencoded": components["schemas"]["OAuthTokenInput"];
             };
         };
         responses: {
-            /** @description OAuth access and refresh tokens. */
+            /** @description OAuth access token and, when the application uses expiring access tokens, a refresh token. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7464,17 +7944,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/x-www-form-urlencoded": {
-                    token: string;
-                    /** @enum {string} */
-                    token_type_hint?: "access_token" | "refresh_token";
-                    client_id?: string;
-                    client_secret?: string;
-                };
+                "application/x-www-form-urlencoded": components["schemas"]["OAuthTokenRevocationInput"];
             };
         };
         responses: {
-            /** @description Token is revoked or was already invalid. */
+            /** @description The matching token family is revoked, or the supplied token was already invalid. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7601,86 +8075,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuildEnvironmentConfig"];
-                };
-            };
-        };
-    };
-    getBootstrapStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bootstrap status. devLoginHint is returned only in development mode. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BootstrapStatus"];
-                };
-            };
-        };
-    };
-    initializeAdmin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InitializeAdminInput"];
-            };
-        };
-        responses: {
-            /** @description Created platform admin and session. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthSessionResponse"];
-                };
-            };
-            /** @description Invalid email, password, language, or JSON (`bootstrap.invalid_input` or `request.invalid_json`). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The production bootstrap token is invalid (`bootstrap.token_invalid`). */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Platform admin already exists. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Production bootstrap is unavailable because `BOOTSTRAP_TOKEN` is not configured (`bootstrap.unavailable`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -7842,7 +8236,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Registration settings with the write-only SMTP password omitted. */
+            /** @description Registration settings. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7872,6 +8266,88 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    getPlatformMailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sanitized global mail settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformMailSettings"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updatePlatformMailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformMailSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Sanitized updated global mail settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformMailSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    testPlatformMailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformMailTestInput"];
+            };
+        };
+        responses: {
+            /** @description Test message accepted by SMTP. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTestResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            /** @description SMTP rejected the message or was unavailable. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };
@@ -8459,6 +8935,9 @@ export interface operations {
     listRuntimeClusters: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -8481,6 +8960,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedRuntimeClusters"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createRuntimeCluster: {
@@ -8539,6 +9020,9 @@ export interface operations {
     listGitProviders: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -8561,6 +9045,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createGitProvider: {
@@ -8703,6 +9189,9 @@ export interface operations {
     listGitAccounts: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -8725,6 +9214,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createGitAccount: {
@@ -8896,6 +9387,9 @@ export interface operations {
     listArtifactRegistries: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -8918,6 +9412,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createArtifactRegistry: {
@@ -9009,7 +9505,9 @@ export interface operations {
     listRegistryCredentials: {
         parameters: {
             query?: {
-                /** @description When provided, return only credentials usable for this project space (global, owned by the current user, or bound to this project); credentials bound only to other projects are excluded. */
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. Returns only credentials usable for this project space; credentials bound only to other projects are excluded. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -9033,6 +9531,7 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
@@ -9064,6 +9563,8 @@ export interface operations {
     listAllRegistryCredentials: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 sortBy?: "name" | "username" | "createdAt";
@@ -9084,6 +9585,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     updateRegistryCredential: {
@@ -9137,8 +9640,13 @@ export interface operations {
     listContainerImages: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
+                /** @description Stronger application filter applied within the selected visibility. */
                 applicationId?: string;
+                /** @description Stronger registry filter applied within the selected visibility. */
                 registryId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -9161,6 +9669,8 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedBusinessObjects"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createContainerImage: {
@@ -9187,7 +9697,10 @@ export interface operations {
     };
     getDashboard: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9203,6 +9716,7 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardOverview"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Authentication is required. */
             401: {
                 headers: {
@@ -9212,6 +9726,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            403: components["responses"]["Forbidden"];
             /** @description Dashboard aggregation failed (`dashboard.load_failed`). */
             500: {
                 headers: {
@@ -9229,8 +9744,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 search?: components["parameters"]["Search"];
-                /** @description Use `related` by default. `all` is allowed only for platform administrators and must be requested explicitly. */
-                scope?: "related" | "all";
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
                 sortBy?: "createdAt" | "name" | "identifier";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -9357,7 +9872,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted project. */
+            /** @description Project deletion accepted and queued for asynchronous resource cleanup. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -9784,7 +10299,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Direct transfer is not configured or the runtime cluster is unavailable */
+            /** @description The volume task queue */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -10035,7 +10550,6 @@ export interface operations {
             query?: never;
             header: {
                 "Content-Length": number;
-                "X-Content-SHA256": string;
             };
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -11001,6 +11515,124 @@ export interface operations {
             };
         };
     };
+    listKubeCredentials: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                status?: "active" | "expired" | "revoked";
+                sortBy?: "name" | "createdAt" | "expiresAt" | "status";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated kubectl credential metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedKubeCredentials"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createKubeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KubeCredentialCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created credential, bounded binding metadata, and one-time kubeconfig. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubeCredentialCreateResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description The selected Kubernetes gateway or its authoritative readiness check is unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    revokeKubeCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credentialId: components["parameters"]["CredentialId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The credential is revoked or was already revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listKubeCredentialBindings: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "projectId" | "runtimeClusterId";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path: {
+                credentialId: components["parameters"]["CredentialId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated kubectl context binding metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedKubeCredentialBindings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     revokeAccessToken: {
         parameters: {
             query?: never;
@@ -11092,7 +11724,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OAuthApplication"];
+                    "application/json": components["schemas"]["OAuthApplicationSecretResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -11140,7 +11772,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Resource deleted. */
+            /** @description OAuth application and its active grants were revoked. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -11250,7 +11882,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["OAuthAuthorizationRequest"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -11277,7 +11909,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["OAuthAuthorizationDecisionResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -11434,6 +12066,9 @@ export interface operations {
     listBuildVariableSets: {
         parameters: {
             query?: {
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
@@ -11567,6 +12202,24 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description An enabled or not-yet-cleaned kubectl gateway prevents replacing kubeconfig or switching away from Kubernetes (`kube_gateway.connection_change_requires_disable`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The previous kubectl gateway cleanup cannot be verified, or reconciliation of the committed runtime-cluster update cannot be queued (`kube_gateway.unavailable` or `kube_gateway.enqueue_failed`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     deleteRuntimeCluster: {
@@ -11580,16 +12233,118 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Resource deleted. */
+            /** @description Deletion state was recorded and cleanup was queued; no response body is returned. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description The cluster is still referenced (`runtime_cluster.in_use`) or its deletion is already in progress (`runtime_cluster.delete_in_progress`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Cleanup could not be queued (`runtime_cluster.cleanup_enqueue_failed`); the cluster is left in `delete_failed` and all kubectl bindings remain revoked while deletion is retried. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getRuntimeClusterKubeGateway: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clusterId: components["parameters"]["ClusterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-cacheable desired configuration and current gateway observation. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeClusterKubeGateway"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The Kubernetes cluster or authoritative gateway observation is unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateRuntimeClusterKubeGateway: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clusterId: components["parameters"]["ClusterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeClusterKubeGatewayInput"];
+            };
+        };
+        responses: {
+            /** @description Desired configuration was stored and reconciliation was queued. */
+            202: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeClusterKubeGateway"];
+                };
+            };
+            /** @description An extra resource rule is malformed, cluster-scoped, unknown, or fixed-denied (`kube_gateway.rule_invalid`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The gateway cannot be validated or reconciliation cannot be queued (`kube_gateway.unavailable` or `kube_gateway.enqueue_failed`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     testRuntimeCluster: {
@@ -11622,8 +12377,13 @@ export interface operations {
             query: {
                 resourceCategory: "namespaces" | "workloads" | "services" | "configs" | "storage";
                 namespace?: string;
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
+                /** @description Stronger project-space filter applied within the selected visibility. */
                 projectId?: string;
+                /** @description Stronger application filter applied within the selected visibility. */
                 applicationId?: string;
+                /** @description Stronger environment filter applied within the selected visibility. */
                 environmentId?: string;
                 page?: number;
                 pageSize?: components["parameters"]["PageSize"];
@@ -11822,6 +12582,294 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getMyNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's notification preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserNotificationPreference"];
+                };
+            };
+            /** @description Authentication required. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateMyNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserNotificationPreferenceInput"];
+            };
+        };
+        responses: {
+            /** @description Updated current user's notification preferences. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserNotificationPreference"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Request body exceeds the 64 KiB personal-notification limit (`notification.request_too_large`). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyNotificationPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe personal Webhook integration presets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreset"][];
+                };
+            };
+        };
+    };
+    listMyNotificationChannels: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "createdAt" | "updatedAt" | "name";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's paginated notification channels. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationChannels"];
+                };
+            };
+        };
+    };
+    createMyNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalNotificationChannelCreateInput"];
+            };
+        };
+        responses: {
+            /** @description Created personal notification channel. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description The user already has 10 personal channels (`notification.channel_limit_reached`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request body exceeds the 64 KiB personal-notification limit (`notification.request_too_large`). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateMyNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelId: components["parameters"]["NotificationChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalNotificationChannelUpdateInput"];
+            };
+        };
+        responses: {
+            /** @description Updated personal notification channel. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Request body exceeds the 64 KiB personal-notification limit (`notification.request_too_large`). */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelId: components["parameters"]["NotificationChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Personal notification channel deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testMyNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelId: components["parameters"]["NotificationChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Test message accepted by the target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTestResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Per-user test limit exceeded (`notification.test_rate_limited`). */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Destination rejected the test or was unavailable (`notification.channel_test_failed`). */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Redis-backed test rate limiting is unavailable (`notification.test_rate_limit_unavailable`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyNotificationDeliveries: {
+        parameters: {
+            query?: {
+                status?: string;
+                eventType?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                sortBy?: "createdAt" | "status" | "eventType";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's paginated notification deliveries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationDeliveries"];
+                };
+            };
         };
     };
     listNotificationPresets: {
@@ -12605,7 +13653,8 @@ export interface operations {
     listPlatformEvents: {
         parameters: {
             query?: {
-                scope?: string;
+                /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
+                visibility?: components["parameters"]["Visibility"];
                 search?: string;
                 projectId?: string[];
                 applicationId?: string[];
@@ -12633,7 +13682,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                    "application/json": components["schemas"]["PaginatedPlatformEvents"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12656,7 +13705,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObjectList"];
+                    "application/json": components["schemas"]["PlatformEventCatalogEntry"][];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12681,7 +13730,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["PlatformEvent"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -12870,7 +13919,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Resource deleted. */
+            /** @description Runtime configuration deletion accepted and queued for asynchronous cleanup; read back the set or list until it no longer exists. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -13384,6 +14433,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     searchProjectMemberCandidates: {
@@ -13939,124 +14989,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BusinessObject"];
+                    "application/json": components["schemas"]["RuntimeExecResult"];
                 };
             };
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    createReleaseRuntimeCommandSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: string;
-                releaseId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReleaseRuntimeCommandSessionInput"];
-            };
-        };
-        responses: {
-            /** @description Runtime command session created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuntimeCommandSession"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    executeReleaseRuntimeCommandSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: string;
-                releaseId: string;
-                sessionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReleaseRuntimeCommandSessionExecuteInput"];
-            };
-        };
-        responses: {
-            /** @description Command completed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuntimeCommandSessionCommandResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The session belongs to another API instance. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The session expired. */
-            410: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    closeReleaseRuntimeCommandSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                projectId: string;
-                releaseId: string;
-                sessionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Runtime command session closed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The session belongs to another API instance. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     streamReleaseRuntimeTerminal: {
@@ -14240,7 +15178,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Resource deleted. */
+            /** @description Gateway route deletion accepted and queued for asynchronous runtime cleanup; read back the route or list until it no longer exists. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -15097,58 +16035,6 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    listPendingAIUIActions: {
-        parameters: {
-            query: {
-                clientInstanceId: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Pending UI actions bound to the current user and browser client. Returns an empty list with agentAvailable=false and retryAfterSeconds while Agent is temporarily unavailable so clients can back off and retry without surfacing a transport error. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIObject"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    acknowledgeAIUIAction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                actionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AIUIActionAcknowledgementInput"];
-            };
-        };
-        responses: {
-            /** @description UI action acknowledgement accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIObject"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
     listAIRuns: {
         parameters: {
             query?: never;
@@ -15243,7 +16129,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Unbuffered recoverable SSE stream. Business frames are AIEvent values replayed from a bounded active-Run stream by after or Last-Event-ID; completed output and workflow terminal facts are persisted in the authoritative Timeline. A stream.heartbeat frame is transient JSON with version */
+            /** @description Unbuffered SSE stream for the single Agent replica. Active frames are AIEvent values replayed from that process's bounded stream by after or Last-Event-ID; committed workflow events */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -15254,17 +16140,8 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            /** @description Per-Run or per-Agent-instance SSE subscriber limit reached */
+            /** @description The limit of 4 subscribers per Run or 64 subscribers per Agent instance was reached */
             429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description Agent Redis active-stream transport is unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15285,7 +16162,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Cancellation accepted or still processing; a running Run is acknowledged only after its owner flushes the terminal batch. */
+            /** @description Cancellation accepted. PostgreSQL records the authoritative canceled terminal state */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -15296,15 +16173,6 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
-            /** @description Agent Redis cancellation transport is unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     submitAIRunInput: {
@@ -15318,7 +16186,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AIObject"];
+                "application/json": components["schemas"]["AIRunInput"];
             };
         };
         responses: {
@@ -15364,48 +16232,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
-        };
-    };
-    listAIToolApprovalExemptions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current user and operation scoped exemptions. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AIToolApprovalExemptionList"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    revokeAIToolApprovalExemption: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                operationId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Exemption revoked or already absent. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
         };
     };
     getAIProgress: {
@@ -15505,6 +16331,15 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            /** @description Provider configuration has not been completed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIObject"];
+                };
+            };
             /** @description Agent or Provider is unavailable */
             503: {
                 headers: {

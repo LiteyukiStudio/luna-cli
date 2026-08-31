@@ -87,6 +87,11 @@ export const NON_COMMAND_ROUTE_CLASSIFICATIONS = Object.freeze({
     classification: "protocol-adapter",
     reason: "Consumed by the CLI logout adapter and not exposed as a raw business command.",
   }),
+  "POST /api/v1/kube-credentials": Object.freeze({
+    classification: "protocol-adapter",
+    reason: "Returns a one-time kubeconfig only to the human-only secure file adapters.",
+    consumedBy: Object.freeze(["kubeconfig.write", "kubeconfig.merge"]),
+  }),
   "POST /api/v1/projects/{projectId}/billing-owner-transfer-requests": Object.freeze({
     classification: "browser-workflow",
     reason: "Starts the interactive inbox confirmation workflow for transferring future billing ownership.",
@@ -269,7 +274,7 @@ function escapeRegExp(value) {
 export function extractGinRoutes(source, sourceName = "router.go") {
   const groupNames = new Set();
   const groupPattern =
-    /\b([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*[A-Za-z_][A-Za-z0-9_]*\.Group\(\s*["`]\/api\/v1["`]\s*\)/g;
+    /\b([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*[A-Za-z_][A-Za-z0-9_]*\.Group\(\s*["`]\/api\/v1["`](?:\s*,[^\r\n]*)?\)/g;
   for (const match of source.matchAll(groupPattern)) {
     groupNames.add(match[1]);
   }
@@ -384,6 +389,7 @@ export function parseOpenApiSource(source, sourceName = "openapi.yaml") {
         method: method.toUpperCase(),
         path: normalizedPath,
         commandPath,
+        operationId: operation.operationId?.trim() ?? "",
         classification: extension.classification ?? "unclassified",
         risk: extension.risk ?? "low",
         hidden: extension.hidden === true,
@@ -421,6 +427,7 @@ function normalizeCliCommand(command) {
       hidden: false,
       risk: "low",
       serverSupported: undefined,
+      consumedOperations: Object.freeze([]),
     });
   }
   return Object.freeze({
@@ -429,6 +436,11 @@ function normalizeCliCommand(command) {
     hidden: command?.hidden === true,
     risk: command?.risk ?? "low",
     serverSupported: command?.serverSupported,
+    consumedOperations: Object.freeze(
+      Array.isArray(command?.consumedOperations)
+        ? command.consumedOperations.filter(value => typeof value === "string")
+        : [],
+    ),
   });
 }
 
@@ -598,6 +610,21 @@ export function evaluateCoverage({
       // The exact route audit is the canonical semantic classification. The
       // OpenAPI extension only has to make the exclusion explicit and hidden;
       // older contracts may use the broader protocol-adapter label.
+      for (const consumerPath of audit?.consumedBy ?? []) {
+        const consumer = cliCommandMap.get(consumerPath);
+        if (!consumer) {
+          errors.push(`${key}: protocol consumer "${consumerPath}" is not registered`);
+          continue;
+        }
+        if (consumer.source !== "protocol") {
+          errors.push(`${key}: protocol consumer "${consumerPath}" is registered from "${consumer.source ?? "unknown"}"`);
+        }
+        if (!operation.operationId) {
+          errors.push(`${key}: protocol-adapter operation must declare operationId`);
+        } else if (!consumer.consumedOperations.includes(operation.operationId)) {
+          errors.push(`${key}: protocol consumer "${consumerPath}" does not consume "${operation.operationId}"`);
+        }
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import type {
   JsonSchema,
 } from './types.js'
 import { CliCommandError } from './errors.js'
+import { PROTOCOL_ONLY_OPERATION_IDS } from './kubeconfig.js'
 import { CommandRegistry } from './registry.js'
 
 interface CatalogLike {
@@ -71,8 +72,13 @@ export function registerOpenApiCommands(
   entries: readonly CommandCatalogEntry[],
 ): void {
   for (const entry of entries) {
-    if (entry.source !== 'openapi' || entry.hidden)
+    if (
+      entry.source !== 'openapi'
+      || entry.hidden
+      || (entry.operationId && PROTOCOL_ONLY_OPERATION_IDS.has(entry.operationId))
+    ) {
       continue
+    }
     registry.register(entry, async (invocation, ports) => {
       if (!entry.operationId) {
         throw new CliCommandError(
