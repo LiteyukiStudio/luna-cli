@@ -100,39 +100,6 @@ LUNA_LANG=zh-CN luna --help
 luna --lang zh-CN project get-projects --help
 ```
 
-## 安全写入 kubeconfig
-
-`kubeconfig.write` 和 `kubeconfig.merge` 会向 Luna DevOps 申请短期 kubectl
-凭据，并把只出现一次的 kubeconfig 安全写到本地。配置中的 Kubernetes
-Server 始终是当前 Luna DevOps 实例的 `/kube/v1/bindings/...` 网关，不会直连
-集群 API Server。先让当前登录获得 `token:manage` Scope，再执行：
-
-```bash
-luna login scope=token:manage
-luna kubeconfig write credentialName=development context=prj_example:clu_example scope=read destination=~/.kube/luna-development.yaml
-luna kubeconfig merge credentialName=development context=prj_example:clu_example:app_example scope=read scope=connect
-```
-
-`context` 格式为 `projectId:runtimeClusterId[:applicationId]`，可重复 1 至 20
-次；`scope` 可重复使用 `read`、`write`、`connect`，`expiresInDays` 只接受
-`1`、`7`、`30`，默认 7 天。`write` 只创建新文件，目标已存在即拒绝；
-`merge` 按 `destination`、单一 `KUBECONFIG`、`~/.kube/config` 的顺序选择
-一个文件，并保留现有条目和 `current-context`。`KUBECONFIG` 含多个路径时
-必须显式指定 `destination`。
-
-同名 cluster、user 或 context 内容不同时，`merge` 默认在签发凭据前或写入前
-失败。只有明确核对后才能传入 `replaceConflicts=true` 覆盖冲突项：
-
-```bash
-luna kubeconfig merge credentialName=development context=prj_example:clu_example scope=read destination=~/.kube/config replaceConflicts=true
-```
-
-CLI 会在申请凭据前检查目标类型、现有配置和目录可写性，最终使用同目录临时
-文件原子替换并设置 `0600`。如果签发后解析、合并或写入失败，会立即尝试吊销
-新凭据。标准输出只包含目标路径、Credential ID、context 名称和写入模式，绝不
-输出 bearer token 或完整 kubeconfig。两个命令仅供人在场使用，`agent=true`
-会在签发前拒绝；高风险确认、后端 RBAC、Scope 与审计仍然生效。
-
 ## Agent 可观测诊断
 
 平台管理员可以通过稳定的 `agent-observability` 分类读取跨用户 Agent 运营数据。先动态发现当前 CLI 和服务端共同支持的命令，再读取目标命令的完整 Schema：
@@ -286,28 +253,6 @@ pnpm add --global @liteyuki/luna-cli@beta
 Standalone binaries will also be attached to GitHub Releases. Stable releases currently include only Linux glibc binaries that pass target-environment smoke tests. Until Apple signing is configured, macOS binaries are available only on prereleases and are explicitly suffixed with `-unsigned`. Windows and Alpine/musl use the npm or pnpm distribution on Node.js `22.14.0` or later.
 
 See the documentation links above for installation, release channels, checksums, SBOMs, provenance, and current limitations.
-
-### Secure kubeconfig writes
-
-The human-only `kubeconfig.write` and `kubeconfig.merge` commands request a
-short-lived kubectl credential and safely store its one-time kubeconfig. The
-Kubernetes server remains the current Luna DevOps `/kube/v1/bindings/...`
-gateway and never points directly at a cluster API server:
-
-```bash
-luna login scope=token:manage
-luna kubeconfig write credentialName=development context=prj_example:clu_example scope=read destination=~/.kube/luna-development.yaml
-luna kubeconfig merge credentialName=development context=prj_example:clu_example:app_example scope=read scope=connect
-```
-
-`write` refuses an existing file. `merge` selects `destination`, a single
-`KUBECONFIG` entry, or `~/.kube/config`, in that order. It preserves existing
-entries and the active context, and rejects different same-name entries unless
-`replaceConflicts=true` is explicit. Files are written atomically with mode
-`0600`; post-issuance failures trigger immediate best-effort credential
-revocation. Output contains only the path, credential ID, context names, and
-mode—never the bearer token or complete kubeconfig. Strict Agent mode is
-rejected before credential issuance.
 
 The CLI includes layered human Help without requiring Skills:
 

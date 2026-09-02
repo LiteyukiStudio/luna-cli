@@ -1829,70 +1829,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/kube-credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the current user's kubectl credentials
-         * @description Returns only credential metadata. Token hashes, plaintext bearer tokens, and kubeconfig content are never returned.
-         */
-        get: operations["listKubeCredentials"];
-        put?: never;
-        /**
-         * Create a kubectl credential and one-time kubeconfig
-         * @description Atomically creates a time-limited kubeconfig credential and one to twenty project or application bindings. The plaintext credential appears only inside the one-time kubeconfig response.
-         */
-        post: operations["createKubeCredential"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/kube-credentials/{credentialId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke a kubectl credential and every binding it authorizes
-         * @description Only the credential owner can revoke it. Repeating the request for the same already-revoked credential remains successful.
-         */
-        delete: operations["revokeKubeCredential"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/kube-credentials/{credentialId}/bindings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List context bindings for one kubectl credential
-         * @description Returns bounded context metadata for a credential owned by the current user. The namespace is resolved from the authoritative project at request time.
-         */
-        get: operations["listKubeCredentialBindings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/access-tokens/{tokenId}": {
         parameters: {
             query?: never;
@@ -2169,33 +2105,9 @@ export interface paths {
         post?: never;
         /**
          * Queue recoverable Runtime Cluster deletion
-         * @description Marks the cluster as deleting, revokes kubectl bindings, waits for active streams to fail their periodic authorization check, and queues the single resource-cleanup owner. Upstream credentials are retained until gateway resources are confirmed removed.
+         * @description Marks the cluster as deleting and queues the single resource-cleanup owner. The upstream credential is retained until cleanup completes.
          */
         delete: operations["deleteRuntimeCluster"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/runtime/clusters/{clusterId}/kube-gateway": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read desired and authoritative live kubectl gateway state
-         * @description Platform administrators only. Desired enablement and extra rules come from platform configuration; status, observationCode, and lastCheckedAt are read live from the selected Kubernetes cluster.
-         */
-        get: operations["getRuntimeClusterKubeGateway"];
-        /**
-         * Replace desired kubectl gateway configuration and queue reconciliation
-         * @description Platform administrators only. Extra resources must be discovered as namespaced and pass the fixed-deny catalog. Every accepted request queues reconciliation from the latest stored configuration, including repeated identical requests. If queueing fails, the committed desired state remains pending and the periodic reconciler retries it.
-         */
-        put: operations["updateRuntimeClusterKubeGateway"];
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5445,78 +5357,6 @@ export interface components {
             creatableByUser: boolean;
             requiresAdminRole: boolean;
         };
-        KubeCredentialContextInput: {
-            projectId: string;
-            runtimeClusterId: string;
-            /** @description Omit to authorize the whole project namespace; when present, the application must belong to projectId. */
-            applicationId?: string;
-        };
-        KubeCredentialCreateInput: {
-            name: string;
-            /**
-             * @description Required credential lifetime in days; permanent kubectl credentials are not supported.
-             * @default 7
-             * @enum {integer}
-             */
-            expiresInDays: 1 | 7 | 30;
-            /** @description Independent Kubernetes transport scopes. kube:write and kube:connect are normalized to include kube:read. */
-            scopes: ("kube:read" | "kube:write" | "kube:connect")[];
-            contexts: components["schemas"]["KubeCredentialContextInput"][];
-        };
-        KubeCredentialSummary: {
-            id: string;
-            name: string;
-            scopes: ("kube:read" | "kube:write" | "kube:connect")[];
-            /** @enum {string} */
-            status: "active" | "expired" | "revoked";
-            /** Format: date-time */
-            expiresAt: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: int64 */
-            bindingCount: number;
-        };
-        KubeCredentialBindingSummary: {
-            id: string;
-            projectId: string;
-            runtimeClusterId: string;
-            applicationId?: string;
-            /** @description Current authoritative Kubernetes namespace of projectId, resolved at request time. */
-            namespace: string;
-            contextName: string;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        KubeCredentialCreateResult: {
-            credential: components["schemas"]["KubeCredentialSummary"];
-            bindings: components["schemas"]["KubeCredentialBindingSummary"][];
-            /** @description One-time kubeconfig containing the only plaintext copy of the bearer credential; never returned by list operations. */
-            readonly kubeconfig: string;
-        };
-        PaginatedKubeCredentials: {
-            items: components["schemas"]["KubeCredentialSummary"][];
-            page: number;
-            pageSize: number;
-            /** @enum {string} */
-            sortBy: "name" | "createdAt" | "expiresAt" | "status";
-            /** @enum {string} */
-            sortOrder: "asc" | "desc";
-            /** Format: int64 */
-            total: number;
-            totalPages: number;
-        };
-        PaginatedKubeCredentialBindings: {
-            items: components["schemas"]["KubeCredentialBindingSummary"][];
-            page: number;
-            pageSize: number;
-            /** @enum {string} */
-            sortBy: "createdAt" | "projectId" | "runtimeClusterId";
-            /** @enum {string} */
-            sortOrder: "asc" | "desc";
-            /** Format: int64 */
-            total: number;
-            totalPages: number;
-        };
         ApplicationTopology: {
             /** Format: date-time */
             generatedAt: string;
@@ -7023,7 +6863,6 @@ export interface components {
         RuntimeCluster: components["schemas"]["RuntimeClusterInput"] & {
             id: string;
             kubeconfigSet: boolean;
-            kubeGatewayEnabled: boolean;
             /** @enum {string} */
             deleteStatus: "active" | "deleting" | "delete_failed" | "deleted";
             /** Format: date-time */
@@ -7041,32 +6880,6 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt?: string;
-        };
-        RuntimeClusterKubeGatewayRule: {
-            /** @description Kubernetes API group; use an empty string only for a discovered core API resource. */
-            apiGroup: string;
-            apiVersion: string;
-            resource: string;
-            subresources?: string[];
-            verbs: ("get" | "list" | "watch" | "create" | "update" | "patch" | "delete" | "deletecollection")[];
-            /**
-             * @description Existing project authorization action evaluated with the current authoritative project role on every request.
-             * @enum {string}
-             */
-            action: "project:read" | "project:write" | "project:manage" | "project:delete" | "project:owner_only" | "project:pin" | "application:read" | "application:create" | "application:update" | "application:delete" | "deployment:read" | "deployment:update" | "deployment:release" | "deployment:restart" | "deployment:rollback" | "deployment:delete" | "deployment:exec" | "build:read" | "build:trigger" | "build:cancel" | "build:delete" | "gateway:read" | "gateway:manage" | "gateway:delete" | "secret:read_summary" | "secret:view_value" | "secret:update" | "cluster:read" | "cluster:use" | "cluster:manage" | "billing:read" | "billing:write" | "git:read" | "git:write" | "registry:read" | "registry:use" | "image:write" | "volume:read" | "volume:write" | "volume:import" | "volume:export" | "volume:delete";
-        };
-        RuntimeClusterKubeGatewayInput: {
-            enabled: boolean;
-            extraResourceRules: components["schemas"]["RuntimeClusterKubeGatewayRule"][];
-        };
-        RuntimeClusterKubeGateway: {
-            enabled: boolean;
-            extraResourceRules: components["schemas"]["RuntimeClusterKubeGatewayRule"][];
-            /** @enum {string} */
-            status: "disabled" | "reconciling" | "ready" | "unavailable";
-            observationCode?: string;
-            /** Format: date-time */
-            lastCheckedAt?: string;
         };
         /** @enum {string} */
         RuntimeClusterPressureLevel: "idle" | "light" | "moderate" | "heavy" | "full" | "unavailable";
@@ -7778,7 +7591,6 @@ export interface operations {
                             deviceCode: boolean;
                             oauthAuthorization: boolean;
                             openapiOperations: boolean;
-                            kubectlGateway: boolean;
                         };
                     };
                 };
@@ -11515,124 +11327,6 @@ export interface operations {
             };
         };
     };
-    listKubeCredentials: {
-        parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                pageSize?: components["parameters"]["PageSize"];
-                search?: components["parameters"]["Search"];
-                status?: "active" | "expired" | "revoked";
-                sortBy?: "name" | "createdAt" | "expiresAt" | "status";
-                sortOrder?: components["parameters"]["SortOrder"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated kubectl credential metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedKubeCredentials"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-        };
-    };
-    createKubeCredential: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KubeCredentialCreateInput"];
-            };
-        };
-        responses: {
-            /** @description Created credential, bounded binding metadata, and one-time kubeconfig. */
-            201: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubeCredentialCreateResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-            /** @description The selected Kubernetes gateway or its authoritative readiness check is unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    revokeKubeCredential: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                credentialId: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The credential is revoked or was already revoked. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    listKubeCredentialBindings: {
-        parameters: {
-            query?: {
-                page?: components["parameters"]["Page"];
-                pageSize?: components["parameters"]["PageSize"];
-                sortBy?: "createdAt" | "projectId" | "runtimeClusterId";
-                sortOrder?: components["parameters"]["SortOrder"];
-            };
-            header?: never;
-            path: {
-                credentialId: components["parameters"]["CredentialId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated kubectl context binding metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedKubeCredentialBindings"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-        };
-    };
     revokeAccessToken: {
         parameters: {
             query?: never;
@@ -12202,24 +11896,6 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description An enabled or not-yet-cleaned kubectl gateway prevents replacing kubeconfig or switching away from Kubernetes (`kube_gateway.connection_change_requires_disable`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description The previous kubectl gateway cleanup cannot be verified, or reconciliation of the committed runtime-cluster update cannot be queued (`kube_gateway.unavailable` or `kube_gateway.enqueue_failed`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     deleteRuntimeCluster: {
@@ -12251,92 +11927,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Cleanup could not be queued (`runtime_cluster.cleanup_enqueue_failed`); the cluster is left in `delete_failed` and all kubectl bindings remain revoked while deletion is retried. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    getRuntimeClusterKubeGateway: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                clusterId: components["parameters"]["ClusterId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Non-cacheable desired configuration and current gateway observation. */
-            200: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuntimeClusterKubeGateway"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            /** @description The Kubernetes cluster or authoritative gateway observation is unavailable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    updateRuntimeClusterKubeGateway: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                clusterId: components["parameters"]["ClusterId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RuntimeClusterKubeGatewayInput"];
-            };
-        };
-        responses: {
-            /** @description Desired configuration was stored and reconciliation was queued. */
-            202: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuntimeClusterKubeGateway"];
-                };
-            };
-            /** @description An extra resource rule is malformed, cluster-scoped, unknown, or fixed-denied (`kube_gateway.rule_invalid`). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            /** @description The gateway cannot be validated or reconciliation cannot be queued (`kube_gateway.unavailable` or `kube_gateway.enqueue_failed`). */
+            /** @description Cleanup could not be queued (`runtime_cluster.cleanup_enqueue_failed`); the cluster is left in `delete_failed` while deletion is retried. */
             503: {
                 headers: {
                     [name: string]: unknown;

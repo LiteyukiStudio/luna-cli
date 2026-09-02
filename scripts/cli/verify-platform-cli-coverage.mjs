@@ -87,11 +87,6 @@ export const NON_COMMAND_ROUTE_CLASSIFICATIONS = Object.freeze({
     classification: "protocol-adapter",
     reason: "Consumed by the CLI logout adapter and not exposed as a raw business command.",
   }),
-  "POST /api/v1/kube-credentials": Object.freeze({
-    classification: "protocol-adapter",
-    reason: "Returns a one-time kubeconfig only to the human-only secure file adapters.",
-    consumedBy: Object.freeze(["kubeconfig.write", "kubeconfig.merge"]),
-  }),
   "POST /api/v1/projects/{projectId}/billing-owner-transfer-requests": Object.freeze({
     classification: "browser-workflow",
     reason: "Starts the interactive inbox confirmation workflow for transferring future billing ownership.",

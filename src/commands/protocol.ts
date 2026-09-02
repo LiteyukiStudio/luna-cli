@@ -8,7 +8,6 @@ import type {
 } from './types.js'
 import { executeDownload } from './download.js'
 import { CliCommandError } from './errors.js'
-import { kubeconfigCommandDefinitions } from './kubeconfig.js'
 import { executeWebSocketTerminal } from './protocol-terminal.js'
 import { executeSseStream } from './stream.js'
 
@@ -25,7 +24,6 @@ export interface ProtocolCommandDefinition {
 
 export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition[] {
   return [
-    ...kubeconfigCommandDefinitions(),
     protocolDefinition({
       category: 'build',
       tool: 'job-logs-follow',

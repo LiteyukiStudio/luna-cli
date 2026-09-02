@@ -111,21 +111,4 @@ describe('openAPI command catalog normalization', () => {
       }),
     )
   })
-
-  it('never registers the one-time kubeconfig response as a generic raw command', () => {
-    const registry = createRegistryFromContract({
-      OPERATION_CATALOG: [{
-        operationId: 'createKubeCredential',
-        command: {
-          category: 'kubectl-access',
-          tool: 'post-kube-credentials',
-          hidden: false,
-        },
-      }],
-    })
-
-    expect(registry.get('kubectl-access.post-kube-credentials')).toBeUndefined()
-    expect(registry.get('kubeconfig.write')).toBeDefined()
-    expect(registry.get('kubeconfig.merge')).toBeDefined()
-  })
 })

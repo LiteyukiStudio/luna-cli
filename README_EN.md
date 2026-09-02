@@ -50,41 +50,6 @@ The paired `luna-devops-<version>.skill` is published in the same GitHub Release
 and must use the exact CLI version. The CLI remains fully usable without the
 Skill.
 
-## Secure kubeconfig writes
-
-The human-only `kubeconfig.write` and `kubeconfig.merge` commands request a
-short-lived kubectl credential and safely store its one-time kubeconfig. The
-Kubernetes server remains the current Luna DevOps `/kube/v1/bindings/...`
-gateway and never points directly at a cluster API server:
-
-```bash
-luna login scope=token:manage
-luna kubeconfig write credentialName=development context=prj_example:clu_example scope=read destination=~/.kube/luna-development.yaml
-luna kubeconfig merge credentialName=development context=prj_example:clu_example:app_example scope=read scope=connect
-```
-
-`context` uses `projectId:runtimeClusterId[:applicationId]` and may appear 1 to
-20 times. `scope` may repeat with `read`, `write`, or `connect`.
-`expiresInDays` accepts 1, 7, or 30 and defaults to 7. `write` refuses an
-existing destination. `merge` selects `destination`, a single `KUBECONFIG`
-entry, or `~/.kube/config`, in that order; multiple `KUBECONFIG` entries require
-an explicit destination.
-
-Merge preserves existing entries and `current-context`. Different same-name
-clusters, users, or contexts are rejected unless `replaceConflicts=true` is
-explicit:
-
-```bash
-luna kubeconfig merge credentialName=development context=prj_example:clu_example scope=read destination=~/.kube/config replaceConflicts=true
-```
-
-The CLI checks the target before issuance, writes atomically with mode `0600`,
-and immediately attempts to revoke a newly issued credential if parsing,
-merging, or writing fails. Output contains only the path, credential ID, context
-names, and mode—never the bearer token or complete kubeconfig. Strict Agent
-mode is rejected before issuance; high-risk confirmation, server-side RBAC,
-scope checks, and auditing remain authoritative.
-
 ## Agent observability diagnostics
 
 Platform administrators can inspect cross-user Agent operations through the
