@@ -34,4 +34,27 @@ describe('structured output limits', () => {
     )).toThrow(expect.objectContaining({ code: 'output_too_large', status: 413 }))
     expect(capture.stdout()).toBe('')
   })
+
+  it('never appends a session summary to interactive terminal bytes', () => {
+    const capture = memoryOutputStreams()
+    const output = new CommandOutput({ streams: capture.streams, version: 'test' })
+    const terminalMetadata = {
+      ...metadata,
+      category: 'release',
+      tool: 'exec',
+      canonicalPath: 'release.exec',
+      source: 'protocol',
+      transport: 'websocket',
+    } as NormalizedCommandMetadata
+
+    for (const format of ['table', 'json', 'raw-json', 'yaml', 'jsonl', 'name'] as const) {
+      output.writeSuccess(
+        terminalMetadata,
+        { data: { exitCode: 0, bytesSent: 10, bytesReceived: 20 } },
+        { ...globals, output: format, interactive: true, agent: false },
+      )
+    }
+
+    expect(capture.stdout()).toBe('')
+  })
 })

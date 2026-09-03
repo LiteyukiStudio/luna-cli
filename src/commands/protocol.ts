@@ -90,7 +90,8 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
     }),
     webSocketDefinition({
       category: 'release',
-      tool: 'terminal',
+      tool: 'exec',
+      aliases: ['terminal'],
       path: RELEASE_TERMINAL_PATH,
       consumedOperations: [
         'AuthorizeReleaseRuntimeTerminal',
@@ -104,6 +105,12 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
       ],
       mfaPurpose: 'runtime_terminal',
       scopes: ['deployment:exec'],
+      summary: 'Open an interactive exec session for a release',
+      description: 'Connect the local TTY to the release container until the remote shell exits.',
+      examples: [
+        'luna release exec projectId=prj_example releaseId=rel_example',
+        'luna release exec projectId=prj_example releaseId=rel_example container=app',
+      ],
     }),
   ]
 }
@@ -150,7 +157,7 @@ function webSocketDefinition(
     method: 'GET',
     transport: 'websocket',
     streaming: true,
-    agentAllowed: true,
+    agentAllowed: false,
     risk: options.risk ?? 'high',
     summary: options.summary ?? 'Open an interactive terminal',
   })

@@ -43,6 +43,8 @@ export class CommandOutput implements OutputPort {
     result: CommandResult,
     globals: CommandExecutionGlobals,
   ): void {
+    if (metadata.transport === 'websocket')
+      return
     const channels = new OutputChannels(this.#streams, { quiet: globals.quiet })
     if (
       globals.output === 'table'

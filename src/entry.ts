@@ -41,6 +41,7 @@ export function createLunaCli(options: LunaCliOptions = {}) {
         openapiDigest: registry.catalogMetadata.openapiDigest,
       },
     }),
+    protocol: options.ports?.protocol,
     env,
     isTTY: options.ports?.isTTY ?? Boolean(process.stdout.isTTY),
     version,

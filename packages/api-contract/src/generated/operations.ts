@@ -5,7 +5,7 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:59e622b46930e33df9e78e4f83d2f96b662c92a63510e788163a5044cbf5b801",
+  "sourceDigest": "sha256:da2771f948d90631fe66de9cb5aea08aa2c388d5bc763f9061fc6633cee47079",
   "operationCount": 302
 } as const satisfies OpenApiSnapshotMetadata;
 
@@ -56992,11 +56992,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         },
-        "description": "WebSocket protocol switch accepted after the ticket or browser session is authorized."
+        "description": "WebSocket protocol switch accepted with the `luna.devops.terminal.v1` subprotocol after the ticket or browser session is authorized."
       }
     ],
     "summary": "Stream Runtime Cluster Pod Terminal",
-    "description": "Opens the Pod terminal WebSocket. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow.",
+    "description": "Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
     "operationId": "streamRuntimeClusterPodTerminal",
     "inputSchema": {
       "type": "object",
@@ -93547,11 +93547,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         },
-        "description": "WebSocket protocol switch accepted after the ticket or browser session is authorized."
+        "description": "WebSocket protocol switch accepted with the `luna.devops.terminal.v1` subprotocol after the ticket or browser session is authorized."
       }
     ],
     "summary": "Stream Release Runtime Terminal",
-    "description": "Opens the release terminal WebSocket. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow.",
+    "description": "Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
     "operationId": "streamReleaseRuntimeTerminal",
     "inputSchema": {
       "type": "object",

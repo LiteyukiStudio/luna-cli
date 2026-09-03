@@ -225,10 +225,13 @@ export interface ApiPort {
 
 export interface ProtocolPort {
   readonly fetch?: typeof globalThis.fetch
-  readonly createWebSocket?: (url: string) => ProtocolWebSocket
+  readonly createWebSocket?: (
+    url: string,
+    protocols?: string | readonly string[],
+  ) => ProtocolWebSocket
   readonly stdin?: ProtocolInputStream
   readonly stdout?: ProtocolOutputStream
-  readonly onInterrupt?: (listener: () => void) => () => void
+  readonly onInterrupt?: (listener: (signal?: NodeJS.Signals) => void) => () => void
 }
 
 export interface ProtocolInputStream {
@@ -247,6 +250,7 @@ export interface ProtocolOutputStream {
   readonly rows?: number
   write: (chunk: string | Uint8Array) => boolean
   on?: (event: string, listener: (...args: unknown[]) => void) => unknown
+  once?: (event: string, listener: (...args: unknown[]) => void) => unknown
   off?: (event: string, listener: (...args: unknown[]) => void) => unknown
 }
 
@@ -259,8 +263,14 @@ export interface ProtocolWebSocketEvent {
 export interface ProtocolWebSocket {
   readonly readyState: number
   binaryType: string
-  send: (data: string | ArrayBuffer | ArrayBufferView) => void
+  send: (
+    data: string | ArrayBuffer | ArrayBufferView,
+    callback?: (error?: Error) => void,
+  ) => void
   close: (code?: number, reason?: string) => void
+  terminate?: () => void
+  pause?: () => void
+  resume?: () => void
   addEventListener: (
     event: string,
     listener: (event: ProtocolWebSocketEvent) => void,

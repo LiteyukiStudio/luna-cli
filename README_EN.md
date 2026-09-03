@@ -50,6 +50,23 @@ The paired `luna-devops-<version>.skill` is published in the same GitHub Release
 and must use the exact CLI version. The CLI remains fully usable without the
 Skill.
 
+## Interactive release exec
+
+After signing in with OAuth, connect the local TTY directly to a running
+release container:
+
+```bash
+luna release exec projectId=prj_example releaseId=rel_example
+luna release exec projectId=prj_example releaseId=rel_example container=api
+```
+
+The command keeps the interactive shell attached until `exit` or `Ctrl-D`, then
+restores the local terminal. Terminal payloads remain binary so UTF-8 text, ANSI
+control bytes, and window resize events are not reinterpreted by the CLI.
+`release terminal` is a human-facing alias. This command requires an interactive
+TTY, the `deployment:exec` scope, and the platform runtime-terminal authorization;
+it is unavailable in `agent=true` mode.
+
 ## Agent observability diagnostics
 
 Platform administrators can inspect cross-user Agent operations through the

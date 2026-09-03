@@ -2194,7 +2194,7 @@ export interface paths {
         };
         /**
          * Stream Runtime Cluster Pod Terminal
-         * @description Opens the Pod terminal WebSocket. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow.
+         * @description Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
          */
         get: operations["streamRuntimeClusterPodTerminal"];
         put?: never;
@@ -3372,7 +3372,7 @@ export interface paths {
         };
         /**
          * Stream Release Runtime Terminal
-         * @description Opens the release terminal WebSocket. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow.
+         * @description Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
          */
         get: operations["streamReleaseRuntimeTerminal"];
         put?: never;
@@ -12109,7 +12109,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description WebSocket protocol switch accepted after the ticket or browser session is authorized. */
+            /** @description WebSocket protocol switch accepted with the `luna.devops.terminal.v1` subprotocol after the ticket or browser session is authorized. */
             101: {
                 headers: {
                     [name: string]: unknown;
@@ -14604,7 +14604,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description WebSocket protocol switch accepted after the ticket or browser session is authorized. */
+            /** @description WebSocket protocol switch accepted with the `luna.devops.terminal.v1` subprotocol after the ticket or browser session is authorized. */
             101: {
                 headers: {
                     [name: string]: unknown;

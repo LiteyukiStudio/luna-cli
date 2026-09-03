@@ -92,6 +92,20 @@ luna project get-projects --help
 `server=https://...`；再次登录会覆盖本地现有的实例、凭据和默认项目空间。
 CLI 不提供 context 切换机制，一个本地配置始终只表示一个活动登录。
 
+## Release 交互执行
+
+使用 OAuth 登录后，可以把本地 TTY 直接连接到 Release 当前运行容器：
+
+```bash
+luna release exec projectId=prj_example releaseId=rel_example
+luna release exec projectId=prj_example releaseId=rel_example container=api
+```
+
+命令进入远端交互式 Shell，输入输出、ANSI 控制字节和窗口尺寸以二进制终端流传输；
+执行 `exit` 或按 `Ctrl-D` 后结束远端会话并恢复本地终端。`release terminal` 保留为
+同一命令的人工别名。该命令要求真实交互式 TTY、`deployment:exec` Scope 和平台端
+运行终端授权，不能在 `agent=true` 模式下使用。
+
 语言解析顺序为：`--lang`、`LUNA_LANG`、本地配置的 `language`、系统
 `LC_ALL` / `LC_MESSAGES` / `LANG`、运行时语言，最后回退英文。例如：
 
@@ -242,6 +256,18 @@ participate in OAuth refresh. If the grant is invalid or a refresh outcome canno
 be confirmed safely, the CLI returns `oauth_refresh_reauthentication_required`,
 blocks reuse of the old refresh token, and requires `luna login`. The safe
 underlying classification is available only as `details.causeCode`.
+
+### Interactive release exec
+
+```bash
+luna release exec projectId=prj_example releaseId=rel_example
+luna release exec projectId=prj_example releaseId=rel_example container=api
+```
+
+The command attaches the local raw TTY until `exit` or `Ctrl-D`, then restores
+the local terminal. UTF-8, ANSI, and control bytes remain binary end to end;
+`release terminal` is the human-facing alias. This OAuth-only command requires
+`deployment:exec` and cannot run in Agent mode.
 
 ### Installation
 

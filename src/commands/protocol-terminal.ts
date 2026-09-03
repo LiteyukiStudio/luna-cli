@@ -9,11 +9,18 @@ import type {
 } from './types.js'
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
+import { onExit } from 'signal-exit'
+import WebSocket from 'ws'
 import { CliCommandError } from './errors.js'
 import { authorizeProtocolTicket } from './protocol-ticket.js'
 
+const WEB_SOCKET_CONNECTING = 0
 const WEB_SOCKET_OPEN = 1
-const TERMINAL_EOF_CLOSE_CODES = new Set([1000, 1001, 1005, 1006])
+const WEB_SOCKET_CLOSED = 3
+const WEB_SOCKET_NORMAL_CLOSE = 1000
+const TERMINAL_SUBPROTOCOL = 'luna.devops.terminal.v1'
+const MAX_TERMINAL_DIMENSION = 65_535
+const TERMINAL_FORCE_CLOSE_MS = 250
 
 export async function executeWebSocketTerminal(
   invocation: CommandInvocation,
@@ -47,13 +54,17 @@ async function runTerminalSession(
   let remoteExitCode: number | undefined
   let opened = false
   let settled = false
+  let rawModeActive = false
+  let inputAttached = false
+  let resizeAttached = false
+  let pendingOutputFrames = 0
   let outputQueue = Promise.resolve()
+  let removeExitGuard = () => {}
 
   return new Promise<CommandResult>((resolve, reject) => {
     const handshakeTimeout = setTimeout(() => {
       if (opened || settled)
         return
-      socket.close(1000, 'handshake timeout')
       settleError(new CliCommandError(
         'terminal_connection_timeout',
         'The terminal WebSocket connection timed out.',
@@ -62,50 +73,88 @@ async function runTerminalSession(
           retryable: true,
           details: { timeoutMs: invocation.globals.timeoutMs },
         },
-      ))
+      ), WEB_SOCKET_NORMAL_CLOSE, 'handshake timeout')
     }, invocation.globals.timeoutMs)
 
     const onOpen = () => {
       opened = true
       clearTimeout(handshakeTimeout)
       try {
-        stdin.setRawMode?.(true)
+        stdin.setRawMode!(true)
+        rawModeActive = true
+        stdin.on('data', onInput)
+        inputAttached = true
+        stdout.on?.('resize', onResize)
+        resizeAttached = true
         stdin.resume?.()
         sendResize(socket, stdout)
+        removeExitGuard = subscribeTerminalExit(ports, (signal) => {
+          restoreTerminal()
+          if (ports.protocol?.onInterrupt) {
+            settleError(new CliCommandError(
+              'terminal_interrupted',
+              'The terminal session was interrupted.',
+              { status: 499, exitCode: signalExitCode(signal) },
+            ), WEB_SOCKET_NORMAL_CLOSE, 'interrupted')
+            return
+          }
+          if (socket.readyState === WEB_SOCKET_OPEN)
+            socket.close(WEB_SOCKET_NORMAL_CLOSE, 'local process exit')
+        })
       }
       catch (error) {
-        socket.close(1011, 'terminal initialization failed')
         settleError(new CliCommandError(
           'terminal_initialization_failed',
           'The local terminal could not enter interactive mode.',
           { status: 500, cause: error },
-        ))
+        ), 1011, 'terminal initialization failed')
       }
     }
     const onMessage = (event: ProtocolWebSocketEvent) => {
+      pendingOutputFrames += 1
+      if (pendingOutputFrames === 1)
+        socket.pause?.()
       outputQueue = outputQueue.then(async () => {
+        if (settled) {
+          finishOutputFrame()
+          return
+        }
         const result = await writeTerminalMessage(event.data, stdout)
         bytesReceived += result.bytes
         if (result.exitCode !== undefined)
           remoteExitCode = result.exitCode
-      }).catch((error) => {
-        socket.close(1011, 'terminal output failed')
-        settleError(new CliCommandError(
-          'terminal_output_failed',
-          'The terminal output could not be written.',
-          { status: 500, cause: error },
-        ))
+        finishOutputFrame()
+      }).catch((error: unknown) => {
+        finishOutputFrame()
+        const terminalError = error instanceof CliCommandError
+          ? error
+          : new CliCommandError(
+              'terminal_output_failed',
+              'The terminal output could not be written.',
+              { status: 500, cause: error },
+            )
+        settleError(
+          terminalError,
+          terminalError.code === 'terminal_protocol_error' ? 1002 : 1011,
+          terminalError.code === 'terminal_protocol_error'
+            ? 'invalid terminal control message'
+            : 'terminal output failed',
+        )
       })
     }
+    function finishOutputFrame(): void {
+      pendingOutputFrames = Math.max(0, pendingOutputFrames - 1)
+      if (pendingOutputFrames === 0 && !settled)
+        socket.resume?.()
+    }
     const onError = () => {
-      socket.close(1011, 'terminal connection failed')
       settleError(new CliCommandError(
         opened ? 'terminal_connection_error' : 'terminal_connection_failed',
         opened
           ? 'The terminal WebSocket connection failed.'
           : 'The terminal WebSocket could not be established.',
         { status: 502, retryable: true },
-      ))
+      ), 1011, 'terminal connection failed')
     }
     const onClose = (event: ProtocolWebSocketEvent) => {
       if (settled)
@@ -114,12 +163,7 @@ async function runTerminalSession(
         if (settled)
           return
         const closeCode = event.code ?? 1006
-        const exitCode = remoteExitCode ?? exitCodeFromReason(event.reason)
-        // The backend may finish an established exec stream without sending a
-        // WebSocket close frame, which runtimes expose as 1005/1006. A preceding
-        // error event still settles the session as a failure.
-        const backendReachedEof = opened && TERMINAL_EOF_CLOSE_CODES.has(closeCode)
-        if (!backendReachedEof && exitCode === undefined) {
+        if (closeCode !== WEB_SOCKET_NORMAL_CLOSE) {
           settleError(new CliCommandError(
             'terminal_connection_closed',
             'The terminal WebSocket closed unexpectedly.',
@@ -131,45 +175,76 @@ async function runTerminalSession(
           ))
           return
         }
-        settleSuccess(closeCode, event.reason ?? '', exitCode ?? 0)
+        if (remoteExitCode === undefined) {
+          settleError(new CliCommandError(
+            'terminal_exit_status_missing',
+            'The terminal closed without a remote exit status.',
+            {
+              status: 502,
+              retryable: true,
+              details: { closeCode, reason: event.reason ?? '' },
+            },
+          ))
+          return
+        }
+        settleSuccess(closeCode, event.reason ?? '', remoteExitCode)
       })
     }
-    const onInput = (chunk: unknown) => {
+    function onInput(chunk: unknown): void {
       if (socket.readyState !== WEB_SOCKET_OPEN)
         return
       const payload = terminalInput(chunk)
       if (!payload)
         return
       bytesSent += byteLength(payload)
-      socket.send(payload)
+      try {
+        socket.send(payload, (error) => {
+          if (!error || settled)
+            return
+          settleError(new CliCommandError(
+            'terminal_input_failed',
+            'Terminal input could not be sent.',
+            { status: 502, retryable: true, cause: error },
+          ))
+        })
+      }
+      catch (error) {
+        settleError(new CliCommandError(
+          'terminal_input_failed',
+          'Terminal input could not be sent.',
+          { status: 502, retryable: true, cause: error },
+        ))
+      }
     }
-    const onResize = () => {
-      if (socket.readyState === WEB_SOCKET_OPEN)
-        sendResize(socket, stdout)
-    }
-    const onInterrupt = () => {
-      if (settled)
+    function onResize(): void {
+      if (socket.readyState !== WEB_SOCKET_OPEN)
         return
-      socket.close(1000, 'interrupted')
-      settleError(new CliCommandError(
-        'terminal_interrupted',
-        'The terminal session was interrupted.',
-        { status: 499, exitCode: 130 },
-      ))
+      try {
+        sendResize(socket, stdout)
+      }
+      catch (error) {
+        settleError(new CliCommandError(
+          'terminal_resize_failed',
+          'The terminal size could not be sent.',
+          { status: 502, retryable: true, cause: error },
+        ))
+      }
     }
-    const unsubscribeInterrupt = subscribeInterrupt(ports, onInterrupt)
 
     function cleanup(): void {
       clearTimeout(handshakeTimeout)
+      removeExitGuard()
+      removeExitGuard = () => {}
       socket.removeEventListener?.('open', onOpen)
       socket.removeEventListener?.('message', onMessage)
       socket.removeEventListener?.('error', onError)
       socket.removeEventListener?.('close', onClose)
-      stdin.off?.('data', onInput)
-      stdout.off?.('resize', onResize)
-      unsubscribeInterrupt()
+      if (inputAttached)
+        stdin.off?.('data', onInput)
+      if (resizeAttached)
+        stdout.off?.('resize', onResize)
+      restoreTerminal()
       try {
-        stdin.setRawMode?.(previousRawMode)
         if (!previousRawMode)
           stdin.pause?.()
       }
@@ -177,10 +252,26 @@ async function runTerminalSession(
         // The process may already be shutting down.
       }
     }
-    function settleError(error: CliCommandError): void {
+    function restoreTerminal(): void {
+      if (!rawModeActive)
+        return
+      rawModeActive = false
+      try {
+        stdin.setRawMode!(previousRawMode)
+      }
+      catch {
+        // The process may already be shutting down.
+      }
+    }
+    function settleError(
+      error: CliCommandError,
+      closeCode = 1011,
+      closeReason = 'terminal session failed',
+    ): void {
       if (settled)
         return
       settled = true
+      closeTerminalSocket(socket, closeCode, closeReason)
       cleanup()
       reject(error)
     }
@@ -222,8 +313,6 @@ async function runTerminalSession(
     socket.addEventListener('message', onMessage)
     socket.addEventListener('error', onError)
     socket.addEventListener('close', onClose)
-    stdin.on('data', onInput)
-    stdout.on?.('resize', onResize)
   })
 }
 
@@ -256,6 +345,13 @@ function assertInteractiveTty(invocation: CommandInvocation, ports: RuntimePorts
       },
     )
   }
+  if (typeof stdin.setRawMode !== 'function') {
+    throw new CliCommandError(
+      'terminal_raw_mode_unsupported',
+      'The local terminal does not support raw mode.',
+      { status: 422, details: { command: invocation.metadata.canonicalPath } },
+    )
+  }
 }
 
 function authorizationOperation(invocation: CommandInvocation): string {
@@ -273,15 +369,8 @@ function authorizationOperation(invocation: CommandInvocation): string {
 
 function createWebSocket(url: string, ports: RuntimePorts): ProtocolWebSocket {
   if (ports.protocol?.createWebSocket)
-    return ports.protocol.createWebSocket(url)
-  if (typeof globalThis.WebSocket !== 'function') {
-    throw new CliCommandError(
-      'websocket_runtime_unavailable',
-      'This CLI runtime does not provide WebSocket support.',
-      { status: 501 },
-    )
-  }
-  return new globalThis.WebSocket(url) as unknown as ProtocolWebSocket
+    return ports.protocol.createWebSocket(url, TERMINAL_SUBPROTOCOL)
+  return new WebSocket(url, TERMINAL_SUBPROTOCOL) as unknown as ProtocolWebSocket
 }
 
 function terminalUrl(
@@ -328,8 +417,8 @@ function appendQueryValue(url: URL, name: string, value: unknown): void {
 }
 
 function sendResize(socket: ProtocolWebSocket, stdout: ProtocolOutputStream): void {
-  const cols = positiveInteger(stdout.columns)
-  const rows = positiveInteger(stdout.rows)
+  const cols = terminalDimension(stdout.columns)
+  const rows = terminalDimension(stdout.rows)
   if (!cols || !rows)
     return
   socket.send(JSON.stringify({ type: 'resize', cols, rows }))
@@ -340,28 +429,35 @@ async function writeTerminalMessage(
   stdout: ProtocolOutputStream,
 ): Promise<{ bytes: number, exitCode?: number }> {
   const exitCode = remoteExitMessage(data)
-  if (exitCode !== undefined)
-    return { bytes: 0, exitCode }
   if (typeof data === 'string') {
-    stdout.write(data)
-    return { bytes: Buffer.byteLength(data) }
+    if (exitCode !== undefined)
+      return { bytes: 0, exitCode }
+    throw new CliCommandError(
+      'terminal_protocol_error',
+      'The terminal server sent an invalid control message.',
+      { status: 502, retryable: false },
+    )
   }
   if (data instanceof ArrayBuffer) {
     const bytes = new Uint8Array(data)
-    stdout.write(bytes)
+    await writeTerminalBytes(stdout, bytes)
     return { bytes: bytes.byteLength }
   }
   if (ArrayBuffer.isView(data)) {
     const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
-    stdout.write(bytes)
+    await writeTerminalBytes(stdout, bytes)
     return { bytes: bytes.byteLength }
   }
   if (data instanceof Blob) {
     const bytes = new Uint8Array(await data.arrayBuffer())
-    stdout.write(bytes)
+    await writeTerminalBytes(stdout, bytes)
     return { bytes: bytes.byteLength }
   }
-  return { bytes: 0 }
+  throw new CliCommandError(
+    'terminal_protocol_error',
+    'The terminal server sent an unsupported frame.',
+    { status: 502, retryable: false },
+  )
 }
 
 function remoteExitMessage(data: unknown): number | undefined {
@@ -375,7 +471,12 @@ function remoteExitMessage(data: unknown): number | undefined {
       && (value as { type?: unknown }).type === 'exit'
     ) {
       const code = (value as { code?: unknown }).code
-      return typeof code === 'number' && Number.isSafeInteger(code) ? code : undefined
+      return typeof code === 'number'
+        && Number.isSafeInteger(code)
+        && code >= 0
+        && code <= 255
+        ? code
+        : undefined
     }
   }
   catch {
@@ -384,29 +485,23 @@ function remoteExitMessage(data: unknown): number | undefined {
   return undefined
 }
 
-function terminalInput(value: unknown): string | ArrayBuffer | ArrayBufferView | undefined {
-  if (typeof value === 'string' || value instanceof ArrayBuffer || ArrayBuffer.isView(value))
-    return value
+function terminalInput(value: unknown): Uint8Array | undefined {
+  if (typeof value === 'string')
+    return Buffer.from(value, 'utf8')
+  if (value instanceof ArrayBuffer)
+    return Buffer.from(value)
+  if (ArrayBuffer.isView(value))
+    return Buffer.from(value.buffer, value.byteOffset, value.byteLength)
   return undefined
 }
 
-function byteLength(value: string | ArrayBuffer | ArrayBufferView): number {
-  if (typeof value === 'string')
-    return Buffer.byteLength(value)
+function byteLength(value: ArrayBuffer | ArrayBufferView): number {
   return value.byteLength
 }
 
-function exitCodeFromReason(reason: string | undefined): number | undefined {
-  const match = /(?:^|\b)exit(?:Code)?[=: ]+(-?\d+)(?:\b|$)/i.exec(reason ?? '')
-  if (!match)
-    return undefined
-  const value = Number(match[1])
-  return Number.isSafeInteger(value) ? value : undefined
-}
-
-function positiveInteger(value: number | undefined): number | undefined {
+function terminalDimension(value: number | undefined): number | undefined {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
-    ? value
+    ? Math.min(value, MAX_TERMINAL_DIMENSION)
     : undefined
 }
 
@@ -414,15 +509,91 @@ function processExitCode(value: number): number {
   return Number.isSafeInteger(value) && value > 0 && value <= 255 ? value : 1
 }
 
-function subscribeInterrupt(ports: RuntimePorts, listener: () => void): () => void {
+function subscribeTerminalExit(
+  ports: RuntimePorts,
+  listener: (signal?: NodeJS.Signals) => void,
+): () => void {
   if (ports.protocol?.onInterrupt)
     return ports.protocol.onInterrupt(listener)
-  process.once('SIGINT', listener)
-  process.once('SIGTERM', listener)
-  return () => {
-    process.off('SIGINT', listener)
-    process.off('SIGTERM', listener)
+  return onExit((_code, signal) => listener(signal ?? undefined), { alwaysLast: true })
+}
+
+function signalExitCode(signal: NodeJS.Signals | undefined): number {
+  switch (signal) {
+    case 'SIGHUP': return 129
+    case 'SIGQUIT': return 131
+    case 'SIGTERM': return 143
+    default: return 130
   }
+}
+
+function closeTerminalSocket(
+  socket: ProtocolWebSocket,
+  code: number,
+  reason: string,
+): void {
+  // ws emits an asynchronous error when a CONNECTING socket is closed. Keep a
+  // sink installed after the session listeners are removed so that shutdown
+  // cannot escape as an uncaught EventEmitter error in Node.js.
+  socket.addEventListener('error', ignoreTerminalSocketError)
+  if (socket.readyState === WEB_SOCKET_CLOSED)
+    return
+  try {
+    socket.close(code, reason)
+  }
+  catch {
+    try {
+      socket.terminate?.()
+    }
+    catch {
+      // The transport is already unusable; terminal cleanup must still finish.
+    }
+    return
+  }
+  if (socket.readyState === WEB_SOCKET_CLOSED || !socket.terminate)
+    return
+  const timer = setTimeout(() => {
+    if (socket.readyState === WEB_SOCKET_CLOSED)
+      return
+    try {
+      socket.terminate?.()
+    }
+    catch {
+      // The close path is best-effort after the command has already failed.
+    }
+  }, socket.readyState === WEB_SOCKET_CONNECTING ? 0 : TERMINAL_FORCE_CLOSE_MS)
+  timer.unref?.()
+}
+
+function ignoreTerminalSocketError(): void {
+  // The command has already produced a stable terminal error.
+}
+
+async function writeTerminalBytes(
+  stdout: ProtocolOutputStream,
+  bytes: Uint8Array,
+): Promise<void> {
+  if (stdout.write(bytes))
+    return
+  if (!stdout.once) {
+    throw new CliCommandError(
+      'terminal_output_backpressure_unsupported',
+      'The local output stream cannot signal when it is ready for more terminal data.',
+      { status: 500 },
+    )
+  }
+  await new Promise<void>((resolve, reject) => {
+    function onDrain(): void {
+      stdout.off?.('error', onError)
+      resolve()
+    }
+    function onError(error: unknown): void {
+      stdout.off?.('drain', onDrain)
+      reject(error)
+    }
+    stdout.once!('drain', onDrain)
+    stdout.once!('error', onError)
+  })
 }
 
 function asInputStream(value: unknown): ProtocolInputStream {

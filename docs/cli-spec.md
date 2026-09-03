@@ -498,7 +498,7 @@ project=<value> / --project <value>
 | `hook` | `config-list`、`config-create`、`config-update`、`config-delete`、`run-list`、`run-logs` |
 | `application` | `list`、`get`、`create`、`update`、`delete`、`topology` |
 | `deployment` | `target-list`、`target-create`、`target-update`、`target-delete`、`target-restart`、`metrics-follow` |
-| `release` | `list`、`create`、`image-candidate-list`、`logs`、`runtime-logs`、`exec`、`terminal`、`rollback` |
+| `release` | `list`、`create`、`image-candidate-list`、`logs`、`runtime-logs`、`exec`（`terminal` 人工别名）、`rollback` |
 | `gateway` | `route-list`、`route-create`、`route-update`、`route-delete`、`domain-check` |
 | `billing` | `summary`、`deployment-spend`、`ledger-list`、`usage-list`、`rate-list`、`rate-update`、`wallet-transaction-create`、`external-transaction-create`、`gateway-traffic-status` |
 | `access-token` | `scope-list`、`list`、`create`、`revoke` |
@@ -668,6 +668,15 @@ CLI 至少提供以下统一适配器：
 | `websocket-terminal` | Pod 与发布终端 | 原始终端模式、stdin/stdout、resize、ping/pong、退出状态、信号恢复 |
 | `binary-download` | 专用文件传输适配器（当前未注册业务命令） | `Content-Disposition`、文件名净化、覆盖确认、临时文件原子重命名、stdout 模式 |
 | `oauth-protocol` | authorize、token、revoke、Device Code | PKCE、state、轮询间隔、刷新旋转、吊销与错误码 |
+
+交互终端使用 WebSocket 子协议 `luna.devops.terminal.v1`。stdin 与 stdout 只使用
+Binary frame，CLI 不解析、转码或过滤 UTF-8、ANSI 与 C0/C1 控制字节；Text frame
+只承载 `resize` 和 `exit` 控制消息。远端 Shell 必须先发送唯一的
+`{"type":"exit","code":N}`，再以 `1000` 关闭连接；缺少退出状态、异常关闭码或
+非法控制消息都视为会话失败。CLI 只在连接建立并进入 raw mode 后开始读取 stdin，
+按 stdout `drain` 实施背压，并在成功、远端错误、网络错误及进程信号路径恢复原 TTY。
+终端 stdout 始终只包含远端原始字节，任何 `output` 配置都不会在会话结束后追加摘要或
+结构化 Envelope。
 
 所有适配器必须建立在统一 `HttpTransport` 上。Transport 至少负责：
 
