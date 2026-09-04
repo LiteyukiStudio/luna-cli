@@ -68,9 +68,7 @@ Envelope 契约。
   检索命令，再使用
   `luna help command path=<category.tool> output=json interactive=false agent=true`
   读取完整契约。
-- 机器 Help 是参数、输入 Schema、输出、接口所需 Scope、风险和错误码的事实来源。
-  其中 Scope 用于个人访问令牌、第三方 OAuth 应用和 Agent 服务身份等受限凭据，
-  不是 `luna login` 的可选参数。
+- 机器 Help 是参数、输入 Schema、输出、风险和错误码的事实来源。
 - `serverSupported=null` 表示尚未确认服务端能力，不代表已经支持。
 - 命令目录中不存在的工具不得推测，也不得用 `api request` 补成业务能力。
 - OAuth/OIDC 回调与 Webhook 接收端点不是 Agent 可直接调用的业务工具。
@@ -105,7 +103,7 @@ Envelope 契约。
 5. Agent 或其他非交互调用执行需要确认的操作时，必须先取得用户对本次具体操作
    的明确授权，再显式传入 `--yes`；使用 `key=value` 形式时等价为
    `yes=true`。同时保留 `output=json interactive=false agent=true`，且只执行一次。
-6. `--yes` 只关闭 CLI 提示，不会绕过后端权限、适用的接口 Scope、Step-up MFA、资源版本或
+6. `--yes` 只关闭 CLI 提示，不会绕过后端权限、Step-up MFA、资源版本或
    其他服务端策略。
 7. 执行后重新读取资源，按后置条件判断结果。
 8. 发生冲突、目标漂移或不确定终态时重新读取，不盲目重试或追加 `force`。
@@ -136,7 +134,7 @@ Envelope 契约。
   敏感操作的二次验证，个人访问令牌也不能绕过 Step-up MFA。
 - CLI 终端必须使用 CLI OAuth 登录，并为对应 purpose 完成有效的 Step-up MFA。
   个人访问令牌不能满足或绕过该协议能力的用户在场要求。
-- 不通过扩大 Scope、改用管理员账号、重新登录其他实例或绕过 CLI 恢复失败操作。
+- 不通过改用管理员账号、重新登录其他实例或绕过 CLI 恢复失败操作。
 
 ## 结果报告
 

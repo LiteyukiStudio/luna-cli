@@ -13,7 +13,7 @@ const upstreamUrl =
 
 function defaultLocalSource() {
   const candidates = [
-    resolve(repositoryRoot, "../openapi/openapi.yaml"),
+    resolve(repositoryRoot, "../../openapi/openapi.yaml"),
     resolve(repositoryRoot, "../luna-devops/openapi/openapi.yaml"),
     resolve(repositoryRoot, "../devops/openapi/openapi.yaml"),
   ];

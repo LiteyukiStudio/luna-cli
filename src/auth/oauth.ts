@@ -27,8 +27,6 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'unsupported_grant_type',
 ])
 
-export type OAuthLoginMode = 'authorization_code_pkce' | 'device_code'
-
 export interface OAuthVerification {
   readonly userCode: string
   readonly verificationUri: string
@@ -53,7 +51,6 @@ export interface OAuthLoginResult extends OAuthTokenCredential {
 
 export interface OAuthLoginRequest {
   readonly server: string
-  readonly mode: OAuthLoginMode
   readonly clientId?: string
   readonly fetch?: typeof globalThis.fetch
   readonly openBrowser?: (url: string) => Promise<boolean> | boolean
@@ -89,14 +86,6 @@ export interface OAuthClient {
 export async function beginOAuthLogin(
   request: OAuthLoginRequest,
 ): Promise<OAuthLoginResult> {
-  if (request.mode !== 'device_code') {
-    throw new CliCommandError(
-      'oauth_login_mode_unsupported',
-      'Only OAuth Device Code login is supported by this CLI.',
-      { status: 422, details: { mode: request.mode } },
-    )
-  }
-
   const server = normalizeServerOrigin(request.server)
   const clientId = nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID
   const fetchImpl = request.fetch ?? globalThis.fetch

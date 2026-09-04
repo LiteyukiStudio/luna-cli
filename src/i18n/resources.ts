@@ -48,7 +48,7 @@ export const resources = {
           title: 'Input syntax:',
           keyValue: 'Business parameters use key=value.',
           files: 'Use key=@file.json or key=@- for files, JSON, and multiline input.',
-          repeat: 'Repeat a key for array parameters: scope=read scope=write.',
+          repeat: 'Repeat a key for array parameters: key=first key=second.',
         },
         catalogSummary: '{{commands}} commands in {{categories}} categories. Use output=json for machine-readable results.',
         localeHint: 'Set LUNA_LANG=zh-CN or pass --lang zh-CN to change the help language.',
@@ -64,7 +64,6 @@ export const resources = {
           project: 'Project selection',
           transport: 'Transport',
           endpoint: 'Endpoint',
-          scopes: 'Required scopes',
         },
         values: {
           risk: {
@@ -139,7 +138,6 @@ export const resources = {
       },
       parameters: {
         all: 'Apply to or include all matching items.',
-        allowDiagnostic: 'Explicitly permit a diagnostic API request.',
         body: 'Request body; use @file or @- for structured or multiline data.',
         category: 'Filter by command category.',
         credential: 'Saved credential name.',
@@ -161,7 +159,6 @@ export const resources = {
         projectName: 'Project display name.',
         query: 'Free-text search query.',
         risk: 'Filter by command risk level.',
-        scope: 'OAuth or personal access token scope; repeat for multiple scopes.',
         sortBy: 'Field used to sort the result.',
         sortOrder: 'Sort direction: asc or desc.',
         status: 'Resource status used as a filter or update value.',
@@ -350,7 +347,7 @@ export const resources = {
           title: '输入规则：',
           keyValue: '业务参数统一使用 key=value。',
           files: '文件、JSON 和多行内容使用 key=@file.json 或 key=@- 从标准输入读取。',
-          repeat: '数组参数重复传入同一个键，例如 scope=read scope=write。',
+          repeat: '数组参数重复传入同一个键，例如 key=first key=second。',
         },
         catalogSummary: '当前共有 {{categories}} 个分类、{{commands}} 条命令；使用 output=json 可获得机器可读结果。',
         localeHint: '可设置 LUNA_LANG=zh-CN，或传入 --lang zh-CN 切换帮助语言。',
@@ -366,7 +363,6 @@ export const resources = {
           project: '项目空间选择',
           transport: '传输方式',
           endpoint: '接口',
-          scopes: '所需权限',
         },
         values: {
           risk: {
@@ -441,7 +437,6 @@ export const resources = {
       },
       parameters: {
         all: '对全部匹配项生效，或包含全部匹配项。',
-        allowDiagnostic: '显式允许发送诊断 API 请求。',
         body: '请求体；结构化或多行内容请使用 @file 或 @-。',
         category: '按命令分类筛选。',
         credential: '已保存的凭据名称。',
@@ -463,7 +458,6 @@ export const resources = {
         projectName: '项目空间显示名称。',
         query: '自由文本搜索条件。',
         risk: '按命令风险级别筛选。',
-        scope: 'OAuth 或个人令牌权限；多个权限可重复传入。',
         sortBy: '结果排序字段。',
         sortOrder: '排序方向：asc 或 desc。',
         status: '用于筛选或更新的资源状态。',

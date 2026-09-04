@@ -25,7 +25,6 @@ describe('agent observability machine help', () => {
     for (const item of data.items) {
       expect(item).toHaveProperty('summary')
       expect(item).toHaveProperty('risk')
-      expect(item).toHaveProperty('scopes')
       expect(item).toHaveProperty('agentAllowed')
       expect(item).toHaveProperty('mainParameters')
       expect(item).not.toHaveProperty('inputSchema')

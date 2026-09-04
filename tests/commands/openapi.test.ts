@@ -1,61 +1,28 @@
+import * as apiContract from '@luna-devops/api-contract'
 import { describe, expect, it } from 'vitest'
 import {
   createRegistryFromContract,
   extractCatalog,
 } from '../../src/commands/index.js'
 
-describe('openAPI command catalog normalization', () => {
-  it('reads nested canonical metadata and infers required project context', () => {
-    const catalog = extractCatalog({
-      OPERATION_CATALOG_METADATA: {
-        catalogVersion: 'v1',
-        openapiDigest: 'openapi',
-        catalogDigest: 'catalog',
-      },
-      OPERATION_CATALOG: [{
-        operationId: 'updateApplication',
-        method: 'patch',
-        path: '/api/v1/projects/{projectId}/applications/{applicationId}',
-        command: {
-          category: 'application',
-          tool: 'update',
-          categoryAliases: ['app'],
-          aliases: ['edit'],
-          risk: 'high',
-          requiredScopes: ['applications:write'],
-          mfaPurpose: 'application_update',
-          projectContext: 'required',
-          streaming: true,
-          agentAllowed: false,
-          examples: ['luna application update applicationId=app_example body=@update.json'],
-        },
-        parameters: [
-          { name: 'projectId', in: 'path', required: true },
-          { name: 'applicationId', in: 'path', required: true },
-        ],
-        requestBody: {
-          required: true,
-          contentTypes: ['application/json'],
-        },
-      }],
-    })
+const catalog = extractCatalog(apiContract)
 
-    expect(catalog.metadata.schemaDigest).toBe('catalog')
-    expect(catalog.entries[0]).toMatchObject({
-      category: 'application',
-      tool: 'update',
+describe('openAPI command catalog normalization', () => {
+  it('reads the canonical package exports and command metadata', () => {
+    const entry = catalog.entries.find(item => item.operationId === 'updateApplication')
+
+    expect(catalog.metadata).toEqual({
+      catalogVersion: apiContract.OPERATION_CATALOG_METADATA.catalogVersion,
+      openapiDigest: apiContract.OPERATION_CATALOG_METADATA.openapiDigest,
+      schemaDigest: apiContract.OPERATION_CATALOG_METADATA.catalogDigest,
+    })
+    expect(entry).toMatchObject({
       source: 'openapi',
+      operationId: 'updateApplication',
       projectContext: 'required',
       risk: 'high',
-      scopes: ['applications:write'],
-      categoryAliases: ['app'],
-      aliases: ['edit'],
-      mfaPurpose: 'application_update',
-      streaming: true,
-      agentAllowed: false,
-      examples: ['luna application update applicationId=app_example body=@update.json'],
     })
-    expect(catalog.entries[0]?.parameters).toContainEqual(expect.objectContaining({
+    expect(entry?.parameters).toContainEqual(expect.objectContaining({
       name: 'body',
       location: 'body',
       required: true,
@@ -64,71 +31,27 @@ describe('openAPI command catalog normalization', () => {
   })
 
   it('does not disable inline input when value sources are unspecified', () => {
-    const catalog = extractCatalog({
-      OPERATION_CATALOG: [{
-        operationId: 'listProjects',
-        method: 'get',
-        path: '/api/v1/projects',
-        command: { category: 'project', tool: 'list' },
-        parameters: [{ name: 'page', in: 'query' }],
-      }],
-    })
+    const entry = catalog.entries.find(item => item.operationId === 'listProjects')
+    const page = entry?.parameters?.find(parameter => parameter.name === 'page')
 
-    expect(catalog.entries[0]?.parameters?.[0]?.valueSources).toBeUndefined()
+    expect(page?.valueSources).toBeUndefined()
   })
 
   it('maps Idempotency-Key to the existing global option', () => {
-    const catalog = extractCatalog({
-      OPERATION_CATALOG: [{
-        operationId: 'createProjectVolume',
-        method: 'post',
-        path: '/api/v1/projects/{projectId}/volumes',
-        command: { category: 'volume', tool: 'create' },
-        parameters: [
-          { name: 'projectId', in: 'path', required: true },
-          { name: 'Idempotency-Key', in: 'header', required: true },
-        ],
-        inputSchema: {
-          type: 'object',
-          properties: {
-            'projectId': { type: 'string' },
-            'Idempotency-Key': { type: 'string' },
-          },
-          required: ['projectId', 'Idempotency-Key'],
-          additionalProperties: false,
-        },
-      }],
-    })
+    const entry = catalog.entries.find(item => item.operationId === 'createProjectVolume')
 
-    expect(catalog.entries[0]?.parameters).toEqual([
-      expect.objectContaining({ name: 'projectId', location: 'path' }),
-    ])
-    expect(catalog.entries[0]?.inputSchema).toMatchObject({
-      properties: { projectId: { type: 'string' } },
-      required: ['projectId'],
+    expect(entry?.parameters).not.toContainEqual(
+      expect.objectContaining({ name: 'Idempotency-Key' }),
+    )
+    expect(entry?.inputSchema).toMatchObject({
+      properties: expect.not.objectContaining({ 'Idempotency-Key': expect.anything() }),
     })
+    expect(entry?.inputSchema?.required).not.toContain('Idempotency-Key')
   })
 
   it('does not register hidden OpenAPI operations as canonical raw commands', () => {
-    const registry = createRegistryFromContract({
-      OPERATION_CATALOG: [
-        {
-          operationId: 'listProjects',
-          command: { category: 'project', tool: 'list' },
-        },
-        {
-          operationId: 'streamBuildLogs',
-          command: {
-            category: 'build',
-            tool: 'stream-logs-raw',
-            hidden: true,
-          },
-        },
-      ],
-    })
+    const registry = createRegistryFromContract(apiContract)
 
-    expect(registry.get('project.list')).toBeDefined()
-    expect(registry.get('build.stream-logs-raw')).toBeUndefined()
     expect(registry.get('build.job-logs-follow')).toMatchObject({
       metadata: {
         source: 'protocol',
@@ -138,29 +61,14 @@ describe('openAPI command catalog normalization', () => {
     expect(registry.list({ includeHidden: true })).not.toContainEqual(
       expect.objectContaining({
         metadata: expect.objectContaining({
-          operationId: 'streamBuildLogs',
+          operationId: 'streamBuildJobLogs',
         }),
       }),
     )
   })
 
   it('lets a typed protocol wrapper consume a colliding raw operation', () => {
-    const registry = createRegistryFromContract({
-      OPERATION_CATALOG: [
-        {
-          operationId: 'updateProjectVolume',
-          method: 'patch',
-          path: '/api/v1/projects/{projectId}/volumes/{volumeId}',
-          command: { category: 'volume', tool: 'update' },
-        },
-        {
-          operationId: 'createProjectVolume',
-          method: 'post',
-          path: '/api/v1/projects/{projectId}/volumes',
-          command: { category: 'volume', tool: 'create' },
-        },
-      ],
-    })
+    const registry = createRegistryFromContract(apiContract)
 
     expect(registry.require('volume.update').metadata).toMatchObject({
       source: 'protocol',

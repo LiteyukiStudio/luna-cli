@@ -49,7 +49,6 @@ export interface CommandMetadata {
   readonly errorSchema?: JsonSchema
   readonly schemaVersion?: string
   readonly schemaDigest?: string
-  readonly scopes?: readonly string[]
   readonly mfaPurpose?: string
   readonly risk?: CommandRisk
   readonly transport?: CommandTransport
@@ -70,7 +69,6 @@ export interface NormalizedCommandMetadata extends CommandMetadata {
   readonly parameters: readonly CommandParameter[]
   readonly aliases: readonly string[]
   readonly categoryAliases: readonly string[]
-  readonly scopes: readonly string[]
 }
 
 export interface CommandCatalogMetadata {

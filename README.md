@@ -8,7 +8,7 @@ Luna CLI 是 Luna DevOps 的命令行客户端，面向终端用户和自动化 
 luna <工具分类> <具体工具> key=value
 ```
 
-English documentation follows the Chinese section.
+英文说明见上方链接。
 
 ## 当前状态
 
@@ -35,14 +35,12 @@ Webhook、内部接收器和底层协议操作不会注册为 canonical raw comm
 下载和终端等能力只通过对应的专用协议命令提供。`high` 和 `critical` 风险操作
 在交互终端中必须逐次明确确认；非交互或 Agent 模式必须显式传入 `--yes`，
 否则以稳定的 `confirmation_required` 错误拒绝。CLI 的确认只表示调用意图，
-后端权限、适用的接口 Scope 与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
+后端权限与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
 人类诊断逃生口，不参与业务能力伪装。终端要求 CLI OAuth 登录与对应 purpose
 的有效 Step-up；个人访问令牌不能满足或绕过这一协议授权。
-第一方 `luna-cli` 的 Device Code 登录不接受、展示或保存用户可选 Scope，也不依据
-本地权限副本预检命令或生成扩大权限的重新登录命令。CLI 会话权限在每次请求时按
-当前用户的平台角色、项目空间成员关系和资源策略由服务端裁决。个人访问令牌、
-第三方 OAuth 应用和 Agent 服务身份仍按 OpenAPI 声明的接口 Scope 限权；机器 Help
-展示这些接口要求，但 Scope 不能替代项目空间角色和后端权限检查。
+CLI 会话权限在每次请求时按当前用户的平台角色、项目空间成员关系和资源策略由服务端
+裁决，不在本地复制授权结论。个人访问令牌、第三方 OAuth 应用和 Agent 服务身份仍由
+服务端按 OpenAPI 声明的接口 Scope 限权。
 本地存储的 OAuth 凭据会在 Access Token 到期前 30 秒或已经过期时，
 由 `auth status` 和远程命令自动刷新；多个 CLI 进程会合并同一轮刷新，
 避免重复旋转 Refresh Token。`luna auth refresh` 仅用于强制手动刷新或
@@ -102,8 +100,8 @@ luna release exec projectId=prj_example releaseId=rel_example container=api
 
 命令进入远端交互式 Shell，输入输出、ANSI 控制字节和窗口尺寸以二进制终端流传输；
 执行 `exit` 或按 `Ctrl-D` 后结束远端会话并恢复本地终端。`release terminal` 保留为
-同一命令的人工别名。该命令要求真实交互式 TTY、`deployment:exec` Scope 和平台端
-运行终端授权，不能在 `agent=true` 模式下使用。
+同一命令的人工别名。该命令要求真实交互式 TTY、CLI OAuth 登录和平台端运行终端授权，
+不能在 `agent=true` 模式下使用。
 
 语言解析顺序为：`--lang`、`LUNA_LANG`、本地配置的 `language`、系统
 `LC_ALL` / `LC_MESSAGES` / `LANG`、运行时语言，最后回退英文。例如：
@@ -122,7 +120,7 @@ luna help catalog category=agent-observability limit=20 output=json interactive=
 luna help command path=agent-observability.overview output=json interactive=false agent=true
 ```
 
-建议按 `overview` → `turns` / `tools` → `tool-calls` / `trace` 逐步缩小范围。列表必须显式传入有界分页，时间范围仅支持 `1h`、`6h`、`24h`、`7d`、`30d` 和 `1y`。这些读操作要求平台管理员身份和 `agent-observability:read` Scope；数据源测试是人工管理员命令，严格 Agent 模式不会执行。
+建议按 `overview` → `turns` / `tools` → `tool-calls` / `trace` 逐步缩小范围。列表必须显式传入有界分页，时间范围仅支持 `1h`、`6h`、`24h`、`7d`、`30d` 和 `1y`。这些读操作要求平台管理员身份；数据源测试是人工管理员命令，严格 Agent 模式不会执行。
 
 JSON 输出保留统一 Envelope、分页元数据、request ID 和 correlation ID。CLI 会在输出前移除原始 Trace blob、System Prompt 和受控 GenAI 内容；原始对话暂不是稳定 CLI 能力。
 
@@ -181,7 +179,7 @@ Skills 与 CLI 使用相同版本并由同一个 `v*` GitHub Release 发布，�
 
 - [中文 CLI 文档](https://luna-devops.liteyuki.org/guide/cli/)
 - [English CLI documentation](https://luna-devops.liteyuki.org/en/guide/cli/)
-- [完整设计规格](./docs/cli-spec.md)
+- [CLI 架构与协议约束](./docs/cli-spec.md)
 
 ## 项目空间数据卷
 
@@ -260,103 +258,3 @@ LUNA_PLATFORM_ROOT=.. pnpm check:platform-coverage
 
 `v*` tag 只发布 Luna CLI 与同版本 Skill。Luna DevOps 平台在
 `LiteyukiStudio/luna-devops` 仓库独立发版。
-
----
-
-## English
-
-Luna CLI is the command-line client for Luna DevOps, designed for both people and automation agents:
-
-```text
-luna <category> <tool> key=value
-```
-
-### Current status
-
-The CLI is in prerelease. The source manifest uses the `0.0.0-development` placeholder and `private: true` to prevent accidental publication; release versions are injected from `v*` tags. It includes one active server/account login, OAuth Device Code authentication with refresh and revocation, an explicit personal-access-token fallback, a default project, structured input and output, OpenAPI-generated business commands, dedicated protocol commands, command discovery, and release validation. Live coverage totals and ratios come only from `pnpm check:platform-cli-coverage`.
-
-`src/entry.ts` is the shared npm and Bun entry point, and workspace packages are bundled safely into the distribution. Prereleases are available on npm and pass npm/pnpm global-install, localized Help, machine Help, and supported standalone-binary smoke tests.
-
-Canonical OpenAPI commands automatically negotiate the API generation and
-minimum CLI version through `/api/v1/meta`. The exact OpenAPI digest is
-diagnostic metadata: `luna doctor` reports a mismatch, while compatible
-commands in the same API generation remain available. Hidden browser callbacks,
-webhooks, internal receivers,
-and low-level protocol operations are not registered as canonical raw commands;
-SSE, downloads, and terminals are exposed only through their dedicated protocol
-commands. High- and critical-risk operations require an explicit interactive
-confirmation, or `--yes` in non-interactive and agent mode. CLI confirmation
-records caller intent only: server permissions, scopes, and step-up MFA remain
-authoritative. Terminal protocols require a CLI OAuth login and a valid step-up
-assertion for the matching purpose; personal access tokens cannot
-satisfy or bypass that authorization. First-party `luna-cli` Device Code login
-does not accept, display, or persist user-selectable scopes, and commands do not
-preflight a copied grant or synthesize a broader login request. The server
-authorizes every CLI request from the user's current platform role, project
-membership, and resource policy. Personal access tokens, third-party OAuth apps,
-and Agent service identities remain restricted by the endpoint scopes declared in
-OpenAPI; machine Help exposes those endpoint requirements without replacing RBAC.
-Generic `api request` remains a human-only diagnostic escape hatch.
-Stored OAuth credentials are refreshed automatically by `auth status` and remote
-commands when the access token is within 30 seconds of expiry or already expired.
-Concurrent CLI processes coalesce the refresh so the refresh token is rotated only
-once. `luna auth refresh` remains available for forced refresh and diagnostics;
-routine use does not require it. `LUNA_TOKEN` and personal access tokens do not
-participate in OAuth refresh. If the grant is invalid or a refresh outcome cannot
-be confirmed safely, the CLI returns `oauth_refresh_reauthentication_required`,
-blocks reuse of the old refresh token, and requires `luna login`. The safe
-underlying classification is available only as `details.causeCode`.
-
-### Interactive release exec
-
-```bash
-luna release exec projectId=prj_example releaseId=rel_example
-luna release exec projectId=prj_example releaseId=rel_example container=api
-```
-
-The command attaches the local raw TTY until `exit` or `Ctrl-D`, then restores
-the local terminal. UTF-8, ANSI, and control bytes remain binary end to end;
-`release terminal` is the human-facing alias. This OAuth-only command requires
-`deployment:exec` and cannot run in Agent mode.
-
-### Installation
-
-```bash
-npm install --global @liteyuki/luna-cli@beta
-pnpm add --global @liteyuki/luna-cli@beta
-```
-
-Standalone binaries will also be attached to GitHub Releases. Stable releases currently include only Linux glibc binaries that pass target-environment smoke tests. Until Apple signing is configured, macOS binaries are available only on prereleases and are explicitly suffixed with `-unsigned`. Windows and Alpine/musl use the npm or pnpm distribution on Node.js `22.14.0` or later.
-
-See the documentation links above for installation, release channels, checksums, SBOMs, provenance, and current limitations.
-
-The CLI includes layered human Help without requiring Skills:
-
-```bash
-luna
-luna --help
-luna login
-luna login server=https://devops.example.com
-printf '%s' "$LUNA_TOKEN" | luna login mode=access-token token=@-
-luna whoami
-luna doctor
-luna logout
-luna project --help
-luna project get-projects --help
-```
-
-The four root shortcuts reuse the canonical `auth login`, `auth status`,
-`health doctor`, and `auth logout` handlers. Scripts and agents must use the
-canonical two-level paths; strict Agent mode rejects root aliases.
-
-Running `luna` without a subcommand displays the same localized root Help and
-does not perform a remote operation. A bare `luna login` always targets the
-official `https://devops.liteyuki.org` instance. Pass `server=https://...` to
-log in elsewhere; a new login replaces the locally active server, credential,
-and default project. There is no context-switching layer. Locale precedence is
-`--lang`, `LUNA_LANG`, configured `language`, system locale, then English. Use
-`LUNA_LANG=zh-CN luna --help` for Chinese. npm `latest` and `beta` are separate
-update channels, so prerelease testing must explicitly install `@beta`. Skills
-build on the CLI's machine-readable Help for more precise agent operation; the
-CLI does not depend on Skills. Skills use the exact same version and ship in the
-same `v*` GitHub Release as the CLI.

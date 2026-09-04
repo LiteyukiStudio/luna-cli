@@ -592,7 +592,6 @@ describe('server-authoritative authorization', () => {
         operationId: 'updateProject',
         method: 'patch',
         path: '/api/v1/projects/{projectId}',
-        scopes: ['project:write'],
         parameters: [
           { name: 'projectId', location: 'path', required: true },
           { name: 'body', location: 'body', required: true },

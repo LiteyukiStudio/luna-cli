@@ -1,4 +1,8 @@
 import type {
+  OperationCatalogEntry,
+  OperationCatalogMetadata,
+} from '@luna-devops/api-contract'
+import type {
   CommandCatalogEntry,
   CommandCatalogMetadata,
   CommandParameter,
@@ -8,63 +12,33 @@ import type {
 import { CliCommandError } from './errors.js'
 import { CommandRegistry } from './registry.js'
 
-interface CatalogLike {
-  readonly metadata?: Partial<CommandCatalogMetadata>
-  readonly catalogVersion?: string
-  readonly openapiDigest?: string
-  readonly schemaDigest?: string
-  readonly commands?: readonly unknown[]
-  readonly entries?: readonly unknown[]
+interface CanonicalContractModule {
+  readonly OPERATION_CATALOG: readonly OperationCatalogEntry[]
+  readonly OPERATION_CATALOG_METADATA: OperationCatalogMetadata
 }
 
 const GLOBAL_HTTP_HEADERS = new Set(['idempotency-key'])
 
-export function createRegistryFromContract(contractModule: unknown): CommandRegistry {
+export function createRegistryFromContract(contractModule: CanonicalContractModule): CommandRegistry {
   const catalog = extractCatalog(contractModule)
   const registry = new CommandRegistry(catalog.metadata)
   registerOpenApiCommands(registry, catalog.entries)
   return registry
 }
 
-export function extractCatalog(contractModule: unknown): {
+export function extractCatalog(contractModule: CanonicalContractModule): {
   metadata: Partial<CommandCatalogMetadata>
   entries: readonly CommandCatalogEntry[]
 } {
-  const moduleRecord = asRecord(contractModule)
-  const candidate
-    = moduleRecord.OPERATION_CATALOG
-      ?? moduleRecord.commandCatalog
-      ?? moduleRecord.COMMAND_CATALOG
-      ?? moduleRecord.cliCommandCatalog
-      ?? moduleRecord.default
-  const value = typeof candidate === 'function' ? candidate() : candidate
-  const catalog = asRecord(value) as CatalogLike
-  const exportedMetadata = asRecord(moduleRecord.OPERATION_CATALOG_METADATA)
-  const entries = Array.isArray(value)
-    ? value
-    : Array.isArray(catalog.commands)
-      ? catalog.commands
-      : Array.isArray(catalog.entries)
-        ? catalog.entries
-        : []
+  const metadata = contractModule.OPERATION_CATALOG_METADATA
 
   return {
     metadata: {
-      catalogVersion:
-        stringValue(exportedMetadata.catalogVersion)
-        ?? stringValue(catalog.metadata?.catalogVersion)
-        ?? stringValue(catalog.catalogVersion),
-      openapiDigest:
-        stringValue(exportedMetadata.openapiDigest)
-        ?? stringValue(catalog.metadata?.openapiDigest)
-        ?? stringValue(catalog.openapiDigest),
-      schemaDigest:
-        stringValue(exportedMetadata.catalogDigest)
-        ?? stringValue(exportedMetadata.schemaDigest)
-        ?? stringValue(catalog.metadata?.schemaDigest)
-        ?? stringValue(catalog.schemaDigest),
+      catalogVersion: metadata.catalogVersion,
+      openapiDigest: metadata.openapiDigest,
+      schemaDigest: metadata.catalogDigest,
     },
-    entries: entries.map(normalizeCatalogEntry),
+    entries: contractModule.OPERATION_CATALOG.map(normalizeCatalogEntry),
   }
 }
 
@@ -108,26 +82,23 @@ export function registerOpenApiCommands(
   }
 }
 
-function normalizeCatalogEntry(value: unknown): CommandCatalogEntry {
-  const entry = asRecord(value)
-  const command = asRecord(entry.command)
-  const extension = asRecord(entry.xLunaCli ?? entry['x-luna-cli'] ?? entry.cli)
-  const category = requiredString(entry.category ?? command.category ?? extension.category, 'category')
-  const tool = requiredString(entry.tool ?? command.tool ?? extension.tool, 'tool')
+function normalizeCatalogEntry(entry: OperationCatalogEntry): CommandCatalogEntry {
+  const command = entry.command
+  const category = command.category
+  const tool = command.tool
   const parameters = parameterArray(entry.parameters)
     .filter(parameter => !isGlobalHttpHeader(parameter))
-  const requestBody = asRecord(entry.requestBody)
-  if (Object.keys(requestBody).length > 0) {
+  if (entry.requestBody) {
     parameters.push({
       name: 'body',
       location: 'body',
       description: 'OpenAPI request body.',
-      required: booleanValue(requestBody.required),
+      required: entry.requestBody.required,
       valueSources: ['file', 'stdin'],
       schema: {
         type: ['object', 'array', 'string', 'null'],
-        contentTypes: stringArray(requestBody.contentTypes),
-        schemaRefs: stringArray(requestBody.schemaRefs),
+        contentTypes: entry.requestBody.contentTypes,
+        schemaRefs: entry.requestBody.schemaRefs,
       },
     })
   }
@@ -135,47 +106,27 @@ function normalizeCatalogEntry(value: unknown): CommandCatalogEntry {
   return {
     category,
     tool,
-    canonicalPath: stringValue(entry.canonicalPath ?? command.canonicalPath),
-    categoryAliases: stringArray(
-      entry.categoryAliases ?? command.categoryAliases ?? extension.categoryAliases,
-    ),
-    aliases: stringArray(entry.aliases ?? command.aliases ?? extension.aliases),
+    canonicalPath: command.canonicalPath,
+    categoryAliases: command.categoryAliases,
+    aliases: command.aliases,
     source: 'openapi',
-    operationId: stringValue(entry.operationId),
-    consumedOperations: stringArray(entry.consumedOperations),
-    summary: stringValue(entry.summary),
-    summaryKey: stringValue(entry.summaryKey),
-    description: stringValue(entry.description),
-    descriptionKey: stringValue(entry.descriptionKey),
+    operationId: entry.operationId,
+    summary: entry.summary,
+    description: entry.description,
     parameters,
     inputSchema: withoutGlobalHttpHeaders(schemaValue(entry.inputSchema)),
     outputSchema: schemaValue(entry.outputSchema),
     errorSchema: schemaValue(entry.errorSchema),
-    schemaVersion: stringValue(entry.schemaVersion),
-    schemaDigest: stringValue(entry.schemaDigest),
-    scopes: stringArray(entry.scopes ?? command.requiredScopes ?? extension.scopes),
-    mfaPurpose: stringValue(
-      entry.mfaPurpose ?? command.mfaPurpose ?? extension.mfaPurpose,
-    ),
-    risk: riskValue(entry.risk ?? command.risk ?? extension.risk),
-    transport: transportValue(entry.transport ?? command.transport ?? extension.transport),
-    projectContext: projectContextValue(
-      entry.projectContext
-      ?? command.projectContext
-      ?? extension.projectContext
-      ?? asRecord(extension.projectContext).mode,
-    ) ?? inferProjectContext(parameters),
-    streaming: booleanValue(
-      entry.streaming ?? command.streaming ?? extension.streaming,
-    ),
-    hidden: booleanValue(entry.hidden ?? command.hidden),
-    agentAllowed:
-      typeof (entry.agentAllowed ?? command.agentAllowed ?? extension.agentAllowed) === 'boolean'
-        ? booleanValue(entry.agentAllowed ?? command.agentAllowed ?? extension.agentAllowed)
-        : undefined,
-    examples: stringArray(entry.examples ?? command.examples ?? extension.examples),
-    method: stringValue(entry.method),
-    path: stringValue(entry.path),
+    mfaPurpose: command.mfaPurpose,
+    risk: command.risk,
+    transport: command.transport,
+    projectContext: command.projectContext,
+    streaming: command.streaming,
+    hidden: command.hidden,
+    agentAllowed: command.agentAllowed,
+    examples: command.examples,
+    method: entry.method,
+    path: entry.path,
   }
 }
 
@@ -248,38 +199,6 @@ function asCommandResult(value: unknown, schemaVersion?: string): CommandResult 
   return { data: value, schemaVersion }
 }
 
-function riskValue(value: unknown): 'low' | 'medium' | 'high' | 'critical' | undefined {
-  return value === 'low' || value === 'medium' || value === 'high' || value === 'critical'
-    ? value
-    : undefined
-}
-
-function transportValue(
-  value: unknown,
-): 'local' | 'http' | 'sse' | 'websocket' | 'download' | 'upload' | undefined {
-  return value === 'local'
-    || value === 'http'
-    || value === 'sse'
-    || value === 'websocket'
-    || value === 'download'
-    || value === 'upload'
-    ? value
-    : undefined
-}
-
-function inferProjectContext(
-  parameters: readonly CommandParameter[],
-): 'required' | 'optional' | 'none' {
-  const projectParameter = parameters.find(parameter =>
-    parameter.name === 'project'
-    || parameter.name === 'projectId'
-    || parameter.name === 'projectID',
-  )
-  if (!projectParameter)
-    return 'none'
-  return projectParameter.required ? 'required' : 'optional'
-}
-
 function parameterLocation(
   value: unknown,
 ): 'query' | 'header' | 'path' | 'cookie' | 'body' | undefined {
@@ -288,14 +207,6 @@ function parameterLocation(
     || value === 'path'
     || value === 'cookie'
     || value === 'body'
-    ? value
-    : undefined
-}
-
-function projectContextValue(
-  value: unknown,
-): 'required' | 'optional' | 'none' | undefined {
-  return value === 'required' || value === 'optional' || value === 'none'
     ? value
     : undefined
 }
@@ -322,12 +233,6 @@ function stringValue(value: unknown): string | undefined {
 
 function booleanValue(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
-}
-
-function stringArray(value: unknown): readonly string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : []
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

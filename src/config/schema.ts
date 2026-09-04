@@ -50,24 +50,19 @@ export const oauthCredentialSchema = credentialBaseSchema
     refreshState: oauthRefreshStateSchema.optional(),
     tokenType: z.string().min(1).optional(),
   })
-  .passthrough()
 
 export const accessTokenCredentialSchema = credentialBaseSchema
   .extend({
     type: z.literal('access_token'),
     token: z.string().min(1),
   })
-  .passthrough()
 
 const credentialValueSchema = z.discriminatedUnion('type', [
   oauthCredentialSchema,
   accessTokenCredentialSchema,
 ])
 
-export const credentialSchema = z.preprocess(
-  stripLegacyCredentialScopes,
-  credentialValueSchema,
-)
+export const credentialSchema = credentialValueSchema
 
 export const projectSnapshotSchema = z
   .object({
@@ -120,11 +115,4 @@ export function cloneConfigDocument(config: LunaConfigDocument): StoredLunaConfi
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function stripLegacyCredentialScopes(value: unknown): unknown {
-  if (!isRecord(value) || !Object.hasOwn(value, 'scopes'))
-    return value
-  const { scopes: _legacyScopes, ...credential } = value
-  return credential
 }

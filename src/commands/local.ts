@@ -104,7 +104,6 @@ function registerAuth(registry: CommandRegistry): void {
       }
       const result = await ports.api.beginOAuthLogin({
         server,
-        mode: 'device_code',
         onVerification: async (verification) => {
           const codePrompt = translate(
             ports,
@@ -481,7 +480,6 @@ function registerHelp(registry: CommandRegistry): void {
       parameter('query'),
       parameter('category'),
       parameter('risk'),
-      parameter('scope'),
       parameter('transport'),
       parameter('limit', { schema: integerSchema }),
       parameter('cursor'),
@@ -699,12 +697,11 @@ function registerApiDiagnostic(registry: CommandRegistry): void {
           valueSources: ['file', 'stdin'],
           schema: { type: ['object', 'array', 'string', 'null'] },
         }),
-        parameter('allowDiagnostic', { schema: booleanSchema }),
       ],
       inputSchema: { type: 'object', additionalProperties: true },
       examples: [
-        'luna api request method=GET path=/api/v1/health allowDiagnostic=true',
-        'luna api request method=POST path=/api/v1/example body=@request.json allowDiagnostic=true',
+        'luna api request method=GET path=/api/v1/health',
+        'luna api request method=POST path=/api/v1/example body=@request.json',
       ],
     }),
     source: 'local',
@@ -717,7 +714,7 @@ function registerApiDiagnostic(registry: CommandRegistry): void {
     if (!path.startsWith('/api/') || path.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(path)) {
       throw invalidArguments('path must be a relative Luna API path beginning with /api/.', 'path')
     }
-    const { method: _method, path: _path, allowDiagnostic: _allow, ...params } = invocation.params
+    const { method: _method, path: _path, ...params } = invocation.params
     const result = await ports.api.request({
       method,
       path,

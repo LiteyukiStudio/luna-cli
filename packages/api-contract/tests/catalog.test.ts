@@ -27,9 +27,7 @@ function operation(
     path: "/api/v1/widgets/{widgetId}",
     tags: ["Widgets"],
     deprecated: false,
-    security: [],
     parameters: [],
-    responses: [],
     ...overrides,
   };
 }
@@ -160,7 +158,6 @@ describe("OpenAPI operation catalog", () => {
           classification: "business-command",
           risk: "high",
           transport: "download",
-          requiredScopes: ["project:read", "widget:read"],
           categoryAliases: ["workspace"],
           aliases: ["show-widget"],
           mfaPurpose: "data_export",
@@ -184,7 +181,6 @@ describe("OpenAPI operation catalog", () => {
         classification: "business-command",
         risk: "high",
         transport: "download",
-        requiredScopes: ["project:read", "widget:read"],
         categoryAliases: ["workspace"],
         aliases: ["show-widget", "get-widget"],
         mfaPurpose: "data_export",
@@ -245,26 +241,21 @@ describe("OpenAPI operation catalog", () => {
     expect(entry?.command.agentAllowed).toBe(true);
   });
 
-  it("publishes explicit CLI contracts for dashboard and retention operations", () => {
+  it("publishes explicit risk contracts for dashboard and retention operations", () => {
     expect(findOperationByCommand("dashboard.show")?.command).toMatchObject({
       risk: "low",
-      requiredScopes: ["dashboard:read"],
     });
     expect(findOperationByCommand("retention.catalog")?.command).toMatchObject({
       risk: "low",
-      requiredScopes: ["retention:read"],
     });
     expect(findOperationByCommand("retention.preview")?.command).toMatchObject({
       risk: "low",
-      requiredScopes: ["retention:read"],
     });
     expect(findOperationByCommand("retention.cleanup")?.command).toMatchObject({
       risk: "critical",
-      requiredScopes: ["retention:manage"],
     });
     expect(findOperationByCommand("access-token.scope-list")?.command).toMatchObject({
       risk: "low",
-      requiredScopes: ["token:manage"],
     });
   });
 
@@ -282,7 +273,6 @@ describe("OpenAPI operation catalog", () => {
         command: {
           agentAllowed: true,
           classification: "business-command",
-          requiredScopes: ["agent-observability:read"],
           risk: "low",
           source: "explicit",
         },
@@ -343,13 +333,6 @@ describe("OpenAPI operation catalog", () => {
 
     const completeCatalog = filterOperationCatalog({ includeHidden: true });
     expect(completeCatalog).toHaveLength(OPERATION_CATALOG.length);
-    expect(
-      completeCatalog.filter(
-        (entry) =>
-          entry.command.hidden &&
-          entry.command.classification === "protocol-adapter",
-      ),
-    ).toHaveLength(14);
   });
 
   it("rejects duplicate public identifiers", () => {

@@ -30,14 +30,10 @@ describe('oAuth authentication', () => {
       refreshToken: 'refresh-secret',
       tokenType: 'Bearer',
     })
-    expect(credential).not.toHaveProperty('scopes')
-
     const status = await getAuthStatus(store, { env: {} })
     expect(status.credential).toMatchObject({
       type: 'oauth',
     })
-    expect(status).not.toHaveProperty('scopes')
-    expect(status.credential).not.toHaveProperty('scopes')
     expect(JSON.stringify(status)).not.toContain('access-secret')
     expect(JSON.stringify(status)).not.toContain('refresh-secret')
   })
@@ -108,7 +104,6 @@ describe('oAuth authentication', () => {
       reauthenticationRequired: true,
       refreshable: false,
     })
-    expect(safeStatus).not.toHaveProperty('scopes')
     expect(JSON.stringify(safeStatus)).not.toContain('blocked-access-secret')
     expect(JSON.stringify(safeStatus)).not.toContain('blocked-refresh-secret')
   })
@@ -147,7 +142,6 @@ describe('oAuth authentication', () => {
 
     const result = await beginOAuthLogin({
       server: 'https://devops.example.com/',
-      mode: 'device_code',
       fetch,
       openBrowser: async (url) => {
         browserUrls.push(url)
@@ -191,7 +185,6 @@ describe('oAuth authentication', () => {
         browserOpened: true,
       },
     })
-    expect(result).not.toHaveProperty('scopes')
   })
 
   it('refreshes an OAuth credential and preserves a rotated or existing refresh token', async () => {

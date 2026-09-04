@@ -36,12 +36,10 @@ luna help catalog query=deployment limit=20 output=json
 For agents, use canonical two-level commands together with
 `output=json interactive=false agent=true`.
 
-First-party `luna-cli` Device Code login does not accept, display, or persist
-user-selectable scopes. The server authorizes each CLI request from the user's
-current platform role, project membership, and resource policy; the CLI does not
-preflight a copied grant or generate a broader login command. Personal access
-tokens, third-party OAuth apps, and Agent service identities remain restricted by
-the endpoint scopes declared in OpenAPI, which are still shown in machine Help.
+The server authorizes each CLI request from the user's current platform role,
+project membership, and resource policy; the CLI does not copy authorization
+decisions locally. Personal access tokens, third-party OAuth apps, and Agent
+service identities remain restricted by the endpoint scopes declared in OpenAPI.
 
 Stored OAuth credentials are refreshed automatically by `auth status` and remote
 commands when the access token is within 30 seconds of expiry or already expired.
@@ -71,8 +69,8 @@ The command keeps the interactive shell attached until `exit` or `Ctrl-D`, then
 restores the local terminal. Terminal payloads remain binary so UTF-8 text, ANSI
 control bytes, and window resize events are not reinterpreted by the CLI.
 `release terminal` is a human-facing alias. This command requires an interactive
-TTY, the `deployment:exec` scope, and the platform runtime-terminal authorization;
-it is unavailable in `agent=true` mode.
+TTY, CLI OAuth login, and platform runtime-terminal authorization; it is
+unavailable in `agent=true` mode.
 
 ## Agent observability diagnostics
 
@@ -88,9 +86,8 @@ luna help command path=agent-observability.overview output=json interactive=fals
 Start with `overview`, narrow anomalies through `turns` or `tools`, and inspect
 specific evidence through `tool-calls` or `trace`. Lists require explicit bounded
 pagination. Supported periods are `1h`, `6h`, `24h`, `7d`, `30d`, and `1y`.
-These reads require a platform administrator and the
-`agent-observability:read` scope. Source testing remains a human administrator
-command and is unavailable in strict Agent mode.
+These reads require a platform administrator. Source testing remains a human
+administrator command and is unavailable in strict Agent mode.
 
 JSON results use the common envelope with pagination, request IDs, and
 correlation IDs. Before output, the CLI removes raw trace blobs, system prompts,
@@ -162,7 +159,7 @@ pnpm sync:openapi
 LUNA_PLATFORM_ROOT=.. pnpm check:platform-coverage
 ```
 
-See the [CLI specification](./docs/cli-spec.md) and the
+See the [CLI architecture and protocol constraints](./docs/cli-spec.md) and the
 [documentation site](https://luna-devops.liteyuki.org/en/guide/cli/).
 
 ## Project volumes

@@ -512,7 +512,6 @@ export async function executeVolumeAdopt(
     operationId: 'createProjectVolume',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volumes',
-    scopes: ['volume:write'],
     params: {
       projectId,
       body: {
@@ -571,7 +570,6 @@ export async function executeVolumeUpdate(
     operationId: 'updateProjectVolume',
     method: 'PATCH',
     path: '/api/v1/projects/{projectId}/volumes/{volumeId}',
-    scopes: ['volume:write'],
     params: { 'projectId': projectId, 'volumeId': volumeId, 'If-Match': revision, 'body': body },
   })
   return volumeMutationResult(result, projectId)
@@ -586,7 +584,6 @@ export async function executeVolumeDelete(
     operationId: 'deleteProjectVolume',
     method: 'DELETE',
     path: '/api/v1/projects/{projectId}/volumes/{volumeId}',
-    scopes: ['volume:delete'],
     params: {
       'projectId': projectId,
       'volumeId': requiredString(invocation.params.volumeId, 'volumeId'),
@@ -607,16 +604,14 @@ export async function executeVolumeRetry(
     operationId: 'getProjectVolume',
     method: 'GET',
     path: '/api/v1/projects/{projectId}/volumes/{volumeId}',
-    scopes: ['volume:read'],
     params: { projectId, volumeId },
   }))
-  const authorization = volumeRetryAuthorization(current)
+  const mfaPurpose = volumeRetryMfaPurpose(current)
   const result = await executeApiOperation(invocation, ports, {
     operationId: 'retryProjectVolumeOperation',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volumes/{volumeId}/retry',
-    scopes: [authorization.scope],
-    ...(authorization.mfaPurpose ? { mfaPurpose: authorization.mfaPurpose } : {}),
+    ...(mfaPurpose ? { mfaPurpose } : {}),
     params: {
       'projectId': projectId,
       'volumeId': volumeId,
@@ -626,19 +621,18 @@ export async function executeVolumeRetry(
   return volumeMutationResult(result, projectId)
 }
 
-function volumeRetryAuthorization(volume: Readonly<Record<string, unknown>>): {
-  readonly scope: 'volume:delete' | 'volume:write'
-  readonly mfaPurpose?: 'volume_adopt' | 'volume_delete'
-} {
+function volumeRetryMfaPurpose(
+  volume: Readonly<Record<string, unknown>>,
+): 'volume_adopt' | 'volume_delete' | undefined {
   const pendingOperation = optionalString(volume.pendingOperation)
   if (pendingOperation === 'delete')
-    return { scope: 'volume:delete', mfaPurpose: 'volume_delete' }
+    return 'volume_delete'
   if (pendingOperation === 'expand')
-    return { scope: 'volume:write' }
+    return undefined
   if (pendingOperation === 'provision') {
     return volume.sourceKind === 'existing_claim' && volume.ownershipMode === 'managed'
-      ? { scope: 'volume:write', mfaPurpose: 'volume_adopt' }
-      : { scope: 'volume:write' }
+      ? 'volume_adopt'
+      : undefined
   }
   throw new CliCommandError(
     'volume.state_conflict',
@@ -657,7 +651,6 @@ export async function executeVolumeTransferRetry(
     operationId: 'getVolumeTransfer',
     method: 'GET',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}',
-    scopes: ['volume:read'],
     params: { projectId, transferId },
   }))
   const direction = requiredString(current.direction, 'direction')
@@ -673,7 +666,6 @@ export async function executeVolumeTransferRetry(
     operationId: 'retryVolumeTransfer',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}/retry',
-    scopes: [direction === 'import' ? 'volume:import' : 'volume:export'],
     mfaPurpose: direction === 'import' ? 'volume_import' : 'volume_export',
     params: { projectId, transferId },
   })
@@ -711,7 +703,6 @@ async function createImportTransfer(
     operationId: 'createVolumeImport',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volume-imports',
-    scopes: ['volume:import'],
     params: {
       projectId,
       body: {
@@ -739,7 +730,6 @@ async function createExportTransfer(
     operationId: 'createVolumeExport',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volumes/{volumeId}/exports',
-    scopes: ['volume:export'],
     params: {
       projectId,
       volumeId: requiredString(invocation.params.volumeId, 'volumeId'),
@@ -820,7 +810,6 @@ async function getVolumeTransfer(
     operationId: 'getVolumeTransfer',
     method: 'GET',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}',
-    scopes: ['volume:read'],
     params: { projectId, transferId },
   }))
 }
@@ -858,7 +847,6 @@ async function uploadImportContent(
     operationId: 'uploadVolumeImportContent',
     method: 'PUT',
     path: '/api/v1/projects/{projectId}/volume-imports/{transferId}/content',
-    scopes: ['volume:import'],
     params: { projectId, transferId },
   })
   try {
@@ -930,7 +918,6 @@ async function authorizeDownload(
     operationId: 'authorizeVolumeTransferDownload',
     method: 'POST',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}/download-authorizations',
-    scopes: ['volume:export'],
     params: { projectId, transferId },
   }))
   return requiredString(authorization.ticket, 'ticket')
@@ -951,7 +938,6 @@ async function downloadExportContent(
     operationId: 'downloadVolumeTransferContent',
     method: 'GET',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}/content',
-    scopes: ['volume:export'],
     params: { projectId, transferId, ticket },
   })
   const { response } = await openProtocolRequest(request, ports, {
@@ -1033,7 +1019,6 @@ async function requestExportManifest(
     operationId: 'downloadVolumeTransferManifest',
     method: 'GET',
     path: '/api/v1/projects/{projectId}/volume-transfers/{transferId}/manifest',
-    scopes: ['volume:export'],
     params: { projectId, transferId, ticket },
   })
   const { response } = await openProtocolRequest(request, ports, {
@@ -2357,7 +2342,6 @@ async function executeApiOperation(
     readonly operationId: string
     readonly method: string
     readonly path: string
-    readonly scopes: readonly string[]
     readonly mfaPurpose?: string
     readonly params: Readonly<Record<string, unknown>>
   },
@@ -2378,7 +2362,6 @@ function protocolInvocation(
     readonly operationId: string
     readonly method: string
     readonly path: string
-    readonly scopes: readonly string[]
     readonly mfaPurpose?: string
     readonly params: Readonly<Record<string, unknown>>
   },
@@ -2396,7 +2379,6 @@ function operationMetadata(
     readonly operationId: string
     readonly method: string
     readonly path: string
-    readonly scopes: readonly string[]
     readonly mfaPurpose?: string
     readonly params: Readonly<Record<string, unknown>>
   },
@@ -2431,7 +2413,6 @@ function operationMetadata(
     operationId: operation.operationId,
     method: operation.method,
     path: operation.path,
-    scopes: operation.scopes,
     ...(operation.mfaPurpose ? { mfaPurpose: operation.mfaPurpose } : {}),
     transport: 'http',
     streaming: false,

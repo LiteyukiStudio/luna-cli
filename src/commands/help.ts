@@ -16,7 +16,6 @@ export function catalogResult(
     query: stringParam(params.query),
     category: stringParam(params.category),
     risk: stringParam(params.risk),
-    scope: stringParam(params.scope),
     transport: stringParam(params.transport),
     includeHidden: booleanParam(params.all, false),
   })
@@ -60,7 +59,6 @@ function compactEntry(metadata: NormalizedCommandMetadata): Readonly<Record<stri
     risk: metadata.risk,
     transport: metadata.transport,
     projectContext: metadata.projectContext,
-    scopes: metadata.scopes,
     agentAllowed: metadata.agentAllowed,
     mainParameters: metadata.parameters
       .filter(parameter => parameter.location === 'path' || parameter.location === 'query')

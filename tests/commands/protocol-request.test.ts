@@ -147,7 +147,6 @@ function invocation(
       method: 'get',
       path: '/api/v1/builds/logs',
       transport: 'sse',
-      scopes: ['build:read'],
     }),
     params: {},
     globals: { ...GLOBALS, server: 'https://luna.example.test' },

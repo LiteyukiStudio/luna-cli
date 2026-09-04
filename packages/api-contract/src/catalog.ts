@@ -174,16 +174,6 @@ function fallbackRisk(method: HttpMethod): CommandRisk {
   }
 }
 
-function requiredScopes(operation: OpenApiOperationSnapshot): readonly string[] {
-  const extensionScopes = operation.xLunaCli?.requiredScopes;
-  const scopes =
-    extensionScopes ??
-    operation.security.flatMap((requirement) =>
-      Object.values(requirement).flatMap((values) => values),
-    );
-  return Object.freeze([...new Set(scopes)].sort());
-}
-
 function projectContext(
   operation: OpenApiOperationSnapshot,
 ): ProjectContextMode {
@@ -271,7 +261,6 @@ export function buildOperationCatalog(
         operation.xLunaCli?.classification ?? "unclassified",
       risk: operation.xLunaCli?.risk ?? fallbackRisk(operation.method),
       transport: operation.xLunaCli?.transport ?? "http",
-      requiredScopes: requiredScopes(operation),
       mfaPurpose: operation.xLunaCli?.mfaPurpose,
       projectContext: projectContext(operation),
       streaming:
@@ -406,7 +395,6 @@ function searchText(operation: OperationCatalogEntry): string {
     operation.summary,
     operation.description,
     ...operation.tags,
-    ...operation.command.requiredScopes,
   ]
     .filter(Boolean)
     .join(" ")
@@ -427,7 +415,6 @@ export function filterOperationCatalog(
   );
   const risks = asArray<CommandRisk>(filter.risk);
   const transports = asArray<CommandTransport>(filter.transport);
-  const scopes = asArray(filter.scope);
 
   return OPERATION_CATALOG.filter((operation) => {
     if (!filter.includeDeprecated && operation.deprecated) {
@@ -461,12 +448,6 @@ export function filterOperationCatalog(
       return false;
     }
     if (!includesAny(transports, [operation.command.transport])) {
-      return false;
-    }
-    if (
-      scopes.length > 0 &&
-      !scopes.every((scope) => operation.command.requiredScopes.includes(scope))
-    ) {
       return false;
     }
     if (

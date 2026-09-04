@@ -6,7 +6,7 @@
 `luna help catalog category=registry limit=100 output=json interactive=false agent=true`
 读取镜像站领域命令，再用
 `luna help command path=<category.tool> output=json interactive=false agent=true`
-确认具体输入、Scope、风险和服务端支持状态。
+确认具体输入、风险和服务端支持状态。
 
 ## 工作流
 

@@ -15,7 +15,7 @@ Agent 递归读取自身或其他用户的诊断数据。
 ## 诊断流程
 
 1. 执行 `luna auth status output=json interactive=false agent=true`，确认当前实例、账号和认证状态；
-   当前账号必须是平台管理员，并持有 `agent-observability:read` Scope。
+   当前账号必须是平台管理员。
 2. 执行 `luna agent-observability overview range=1h output=json interactive=false agent=true`，先判断
    Turn、工具、Token、耗时和数据源的整体状态。遇到 `unavailable` 时保留 `observationCode`、
    request ID 与 correlation ID，不使用历史结果代替当前事实。

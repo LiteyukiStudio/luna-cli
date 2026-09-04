@@ -38,9 +38,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       path,
       tags: operation.tags ?? [],
       deprecated: operation.deprecated ?? false,
-      security: operation.security ?? document.security ?? [],
       parameters,
-      responses,
       summary: operation.summary,
       description: operation.description,
       operationId: operation.operationId,
@@ -52,7 +50,7 @@ for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
       ),
       outputSchema: responseSchemaSnapshot(responses, status => status >= 200 && status < 300),
       errorSchema: responseSchemaSnapshot(responses, status => status >= 400),
-      xLunaCli: operation["x-luna-cli"],
+      xLunaCli: cliExtensionSnapshot(operation["x-luna-cli"]),
     }));
   }
 }
@@ -74,6 +72,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = ${JSON.stringify(snapshots, null, 2)}
 `;
 
 await writeFile(outputPath, generated, "utf8");
+
+function cliExtensionSnapshot(extension) {
+  if (!extension) return undefined;
+  const { requiredScopes: _requiredScopes, ...runtimeFields } = extension;
+  return runtimeFields;
+}
 
 function parameterSnapshot(parameter) {
   const resolved = resolveReference(parameter);

@@ -22,7 +22,6 @@ describe('auth commands', () => {
     expect(result.exitCode).toBe(0)
     expect(harness.oauthLogins).toEqual([{
       server: 'https://luna.example.com',
-      mode: 'device_code',
     }])
     expect(harness.config.server).toBe('https://luna.example.com')
     expect(harness.config.credential).toMatchObject({
@@ -66,26 +65,10 @@ describe('auth commands', () => {
     expect(result.exitCode).toBe(0)
     expect(harness.oauthLogins).toEqual([{
       server: 'https://devops.liteyuki.org',
-      mode: 'device_code',
     }])
     expect(harness.config.server).toBe('https://devops.liteyuki.org')
     expect(harness.config.project).toBeNull()
     expect(harness.config.credential?.type).toBe('oauth')
-  })
-
-  it('does not accept a user-selectable scope for first-party login', async () => {
-    const harness = createHarness()
-
-    const result = await runCli(harness.program, [
-      'node',
-      'luna',
-      'login',
-      'scope=project:read',
-    ], harness.ports.output)
-
-    expect(result.exitCode).not.toBe(0)
-    expect(harness.oauthLogins).toEqual([])
-    expect(harness.errors[0]).toMatchObject({ code: 'invalid_arguments' })
   })
 
   it('supports whoami and logout shortcuts through the canonical handlers', async () => {
@@ -311,7 +294,6 @@ function createHarness(options: {
   const validations: Array<{ server: string, token: string }> = []
   const oauthLogins: Array<{
     server: string
-    mode: string
   }> = []
   const revocations: Array<{ token: string, tokenTypeHint?: string }> = []
   const refreshes: string[] = []
@@ -359,7 +341,6 @@ function createHarness(options: {
       async beginOAuthLogin(request) {
         oauthLogins.push({
           server: request.server,
-          mode: request.mode,
         })
         await request.onVerification?.({
           userCode: 'LUNA-CODE',

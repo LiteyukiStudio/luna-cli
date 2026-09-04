@@ -123,7 +123,7 @@ describe('project volume transfer protocol adapters', () => {
           format: 'tar_gz',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
 
     const result = await command.handler(invocation(command.metadata, {
@@ -163,7 +163,6 @@ describe('project volume transfer protocol adapters', () => {
       directory,
       execute as RuntimePorts['api']['execute'],
       fetch as typeof globalThis.fetch,
-      ['volume:import', 'volume:read'],
     )
     const command = new CommandRegistry().require('volume.import')
     fileSystemFaults.failImportDetach = true
@@ -213,7 +212,7 @@ describe('project volume transfer protocol adapters', () => {
         schemaVersion: 'test/v1',
         data: { id: 'vtx_ready', direction: 'import', state: 'ready', expectedBytes: bytes.length },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -244,7 +243,7 @@ describe('project volume transfer protocol adapters', () => {
             }
           : { id: 'vtx_streaming', direction: 'import', state: 'streaming' },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -288,7 +287,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       },
-    }), fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }), fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
 
     const result = await command.handler(invocation(command.metadata, {
@@ -353,7 +352,7 @@ describe('project volume transfer protocol adapters', () => {
         status: 503,
         retryable: true,
       })
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
     const request = invocation(command.metadata, {
       projectId: 'project-a',
@@ -401,7 +400,7 @@ describe('project volume transfer protocol adapters', () => {
           lastErrorCode: 'volume_transfer.prepare_failed',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.import')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -438,7 +437,7 @@ describe('project volume transfer protocol adapters', () => {
         schemaVersion: 'test/v1',
         data: { id: 'vtx_import', direction: 'import', state: 'ready', format: 'tar_gz' },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:import', 'volume:read'], (listener) => {
+    }, fetch as typeof globalThis.fetch, (listener) => {
       interrupt = listener
       return () => {
         interrupt = undefined
@@ -496,7 +495,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const result = await command.handler(invocation(command.metadata, {
@@ -553,7 +552,7 @@ describe('project volume transfer protocol adapters', () => {
           format: 'tar_gz',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -597,10 +596,7 @@ describe('project volume transfer protocol adapters', () => {
         status: 503,
         retryable: true,
       })
-    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch, [
-      'volume:read',
-      'volume:export',
-    ])
+    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -678,7 +674,7 @@ describe('project volume transfer protocol adapters', () => {
           dataSHA256,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const result = await command.handler(invocation(command.metadata, {
@@ -748,7 +744,7 @@ describe('project volume transfer protocol adapters', () => {
           dataSHA256: 'a'.repeat(64),
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -819,7 +815,7 @@ describe('project volume transfer protocol adapters', () => {
           dataSHA256,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -888,7 +884,7 @@ describe('project volume transfer protocol adapters', () => {
           dataSHA256,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
     fileSystemFaults.linkDestination = manifestPath
 
@@ -930,7 +926,7 @@ describe('project volume transfer protocol adapters', () => {
           format: 'tar_gz',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -958,7 +954,7 @@ describe('project volume transfer protocol adapters', () => {
         schemaVersion: 'test/v1',
         data: { id: 'vtx_export', direction: 'export', state: 'ready', format: 'tar_gz' },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
     fileSystemFaults.failNextLink = true
 
@@ -997,10 +993,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch, [
-      'volume:read',
-      'volume:export',
-    ])
+    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -1039,10 +1032,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch, [
-      'volume:read',
-      'volume:export',
-    ])
+    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -1087,10 +1077,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch, [
-      'volume:read',
-      'volume:export',
-    ])
+    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -1133,10 +1120,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch, [
-      'volume:read',
-      'volume:export',
-    ])
+    }, vi.fn(async () => new Response(archive)) as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -1178,7 +1162,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     const error = await captureCommandError(command.handler(invocation(command.metadata, {
@@ -1223,7 +1207,7 @@ describe('project volume transfer protocol adapters', () => {
           sha256: checksum,
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
     fileSystemFaults.replaceSourceAfterLink = {
       destination,
@@ -1267,7 +1251,7 @@ describe('project volume transfer protocol adapters', () => {
           format: 'tar_gz',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -1304,7 +1288,7 @@ describe('project volume transfer protocol adapters', () => {
           format: 'tar_gz',
         },
       }
-    }, fetch as typeof globalThis.fetch, ['volume:read', 'volume:export'])
+    }, fetch as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.export')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -1331,7 +1315,7 @@ describe('project volume transfer protocol adapters', () => {
         }
       }
       return { schemaVersion: 'test/v1', data: { id: 'pvol_test', revision: 4 } }
-    }, vi.fn() as typeof globalThis.fetch, ['volume:read', 'volume:write', 'volume:delete'])
+    }, vi.fn() as typeof globalThis.fetch)
 
     for (const [path, params] of [
       ['volume.update', { revision: 3, capacity: '2Gi' }],
@@ -1352,27 +1336,25 @@ describe('project volume transfer protocol adapters', () => {
   })
 
   it.each([
-    [{ pendingOperation: 'delete' }, 'volume:delete', 'volume_delete'],
-    [{ pendingOperation: 'expand' }, 'volume:write', undefined],
-    [{ pendingOperation: 'provision', sourceKind: 'blank', ownershipMode: 'managed' }, 'volume:write', undefined],
-    [{ pendingOperation: 'provision', sourceKind: 'existing_claim', ownershipMode: 'managed' }, 'volume:write', 'volume_adopt'],
-  ] as const)('dynamically authorizes volume retry for %o', async (volume, scope, mfaPurpose) => {
+    [{ pendingOperation: 'delete' }, 'volume_delete'],
+    [{ pendingOperation: 'expand' }, undefined],
+    [{ pendingOperation: 'provision', sourceKind: 'blank', ownershipMode: 'managed' }, undefined],
+    [{ pendingOperation: 'provision', sourceKind: 'existing_claim', ownershipMode: 'managed' }, 'volume_adopt'],
+  ] as const)('selects the volume retry MFA purpose for %o', async (volume, mfaPurpose) => {
     const directory = await temporaryDirectory()
     const calls: Array<{
       readonly operationId: string
-      readonly scopes: readonly string[]
       readonly mfaPurpose?: string
     }> = []
     const ports = createPorts(directory, async (request) => {
       calls.push({
         operationId: request.operationId,
-        scopes: request.metadata.scopes,
         ...(request.metadata.mfaPurpose ? { mfaPurpose: request.metadata.mfaPurpose } : {}),
       })
       return request.operationId === 'getProjectVolume'
         ? { schemaVersion: 'test/v1', data: { id: 'pvol_test', revision: 5, ...volume } }
         : { schemaVersion: 'test/v1', data: { id: 'pvol_test', revision: 6 } }
-    }, vi.fn() as typeof globalThis.fetch, ['volume:read', scope])
+    }, vi.fn() as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.retry')
 
     await command.handler(invocation(command.metadata, {
@@ -1382,10 +1364,9 @@ describe('project volume transfer protocol adapters', () => {
     }), ports)
 
     expect(calls).toEqual([
-      { operationId: 'getProjectVolume', scopes: ['volume:read'] },
+      { operationId: 'getProjectVolume' },
       {
         operationId: 'retryProjectVolumeOperation',
-        scopes: [scope],
         ...(mfaPurpose ? { mfaPurpose } : {}),
       },
     ])
@@ -1400,7 +1381,7 @@ describe('project volume transfer protocol adapters', () => {
         schemaVersion: 'test/v1',
         data: { id: 'pvol_test', revision: 5, ...(pendingOperation ? { pendingOperation } : {}) },
       }
-    }, vi.fn() as typeof globalThis.fetch, ['volume:read'])
+    }, vi.fn() as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume.retry')
 
     await expect(command.handler(invocation(command.metadata, {
@@ -1412,19 +1393,17 @@ describe('project volume transfer protocol adapters', () => {
   })
 
   it.each([
-    ['import', 'volume:import'],
-    ['export', 'volume:export'],
-  ] as const)('preflights %s retry with %s', async (direction, expectedScope) => {
+    ['import', 'volume_import'],
+    ['export', 'volume_export'],
+  ] as const)('preflights %s retry with its MFA purpose', async (direction, mfaPurpose) => {
     const directory = await temporaryDirectory()
     const calls: Array<{
       readonly operationId: string
-      readonly scopes: readonly string[]
       readonly mfaPurpose?: string
     }> = []
     const ports = createPorts(directory, async (request) => {
       calls.push({
         operationId: request.operationId,
-        scopes: request.metadata.scopes,
         ...(request.metadata.mfaPurpose
           ? { mfaPurpose: request.metadata.mfaPurpose }
           : {}),
@@ -1432,7 +1411,7 @@ describe('project volume transfer protocol adapters', () => {
       return request.operationId === 'getVolumeTransfer'
         ? { schemaVersion: 'test/v1', data: { id: 'vtx_retry', direction, state: 'failed' } }
         : { schemaVersion: 'test/v1', data: { id: 'vtx_new', direction, state: 'queued' } }
-    }, vi.fn() as typeof globalThis.fetch, ['volume:read', expectedScope])
+    }, vi.fn() as typeof globalThis.fetch)
     const command = new CommandRegistry().require('volume-transfer.retry')
     expect(command.metadata.agentAllowed).toBe(false)
 
@@ -1442,11 +1421,10 @@ describe('project volume transfer protocol adapters', () => {
     }), ports)
 
     expect(calls).toEqual([
-      { operationId: 'getVolumeTransfer', scopes: ['volume:read'] },
+      { operationId: 'getVolumeTransfer' },
       {
         operationId: 'retryVolumeTransfer',
-        scopes: [expectedScope],
-        mfaPurpose: direction === 'import' ? 'volume_import' : 'volume_export',
+        mfaPurpose,
       },
     ])
   })
@@ -1505,7 +1483,6 @@ function createPorts(
   lunaHome: string,
   execute: (request: ApiExecutionRequest) => Promise<unknown>,
   fetch: typeof globalThis.fetch,
-  scopes: readonly string[],
   onInterrupt?: (listener: () => void) => () => void,
 ): RuntimePorts {
   return {
@@ -1516,7 +1493,6 @@ function createPorts(
         credential: {
           type: 'oauth',
           accessToken: 'secret',
-          scopes,
           expiresAt: '2030-01-01T00:00:00Z',
         },
       }),

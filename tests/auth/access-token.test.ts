@@ -28,7 +28,6 @@ describe('access-token authentication', () => {
       token: 'secret-token',
       user: { id: 'usr_1', name: 'Luna' },
     })
-    expect(store.value.credential).not.toHaveProperty('scopes')
   })
 
   it('keeps LUNA_TOKEN process-local and reports it as an environment override', async () => {
@@ -68,8 +67,6 @@ describe('access-token authentication', () => {
     expect(status.credential).toMatchObject({
       source: 'stored',
     })
-    expect(status).not.toHaveProperty('scopes')
-    expect(status.credential).not.toHaveProperty('scopes')
     expect(JSON.stringify(status)).not.toContain('stored-secret')
   })
 })

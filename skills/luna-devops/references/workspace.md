@@ -9,7 +9,7 @@
 
 执行具体工具前使用
 `luna help command path=<category.tool> output=json interactive=false agent=true`
-读取参数、Scope、风险和服务端支持状态。
+读取参数、风险和服务端支持状态。
 
 ## 工作流
 

@@ -67,7 +67,7 @@ export function rootHelpText(
     `${text(ports, 'help.input.title', 'Input syntax:')}`,
     `  ${text(ports, 'help.input.keyValue', 'Business parameters use key=value.')}`,
     `  ${text(ports, 'help.input.files', 'Use key=@file.json or key=@- for files, JSON, and multiline input.')}`,
-    `  ${text(ports, 'help.input.repeat', 'Repeat a key for array parameters: scope=read scope=write.')}`,
+    `  ${text(ports, 'help.input.repeat', 'Repeat a key for array parameters: key=first key=second.')}`,
     '',
     format(
       text(
@@ -112,9 +112,6 @@ export function commandHelpText(
   ]
   if (metadata.method && metadata.path)
     details.push(`${text(ports, 'help.details.endpoint', 'Endpoint')}: ${metadata.method} ${metadata.path}`)
-  if (metadata.scopes.length > 0)
-    details.push(`${text(ports, 'help.details.scopes', 'Required scopes')}: ${metadata.scopes.join(', ')}`)
-
   return [
     '',
     `${text(ports, 'help.details.title', 'Command details:')}`,

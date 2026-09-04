@@ -86,7 +86,6 @@ export class CommandRegistry {
     query?: string
     category?: string
     risk?: string
-    scope?: string
     transport?: string
     includeHidden?: boolean
   } = {}): readonly RegisteredCommand[] {
@@ -95,7 +94,6 @@ export class CommandRegistry {
       .filter(({ metadata }) => options.includeHidden || !metadata.hidden)
       .filter(({ metadata }) => !options.category || metadata.category === options.category)
       .filter(({ metadata }) => !options.risk || metadata.risk === options.risk)
-      .filter(({ metadata }) => !options.scope || metadata.scopes.includes(options.scope))
       .filter(({ metadata }) => !options.transport || metadata.transport === options.transport)
       .filter(({ metadata }) => {
         if (!query)
@@ -105,7 +103,6 @@ export class CommandRegistry {
           metadata.summary,
           metadata.description,
           metadata.operationId,
-          ...metadata.scopes,
         ].some(value => value?.toLocaleLowerCase().includes(query))
       })
       .sort((left, right) =>
@@ -165,7 +162,6 @@ export function normalizeMetadata(metadata: CommandMetadata): NormalizedCommandM
     aliases: Object.freeze([...(metadata.aliases ?? [])]),
     categoryAliases: Object.freeze([...(metadata.categoryAliases ?? [])]),
     parameters: Object.freeze([...(metadata.parameters ?? [])]),
-    scopes: Object.freeze([...(metadata.scopes ?? [])]),
     risk: metadata.risk ?? 'low',
     transport: metadata.transport ?? (metadata.source === 'local' ? 'local' : 'http'),
     projectContext: metadata.projectContext ?? 'none',

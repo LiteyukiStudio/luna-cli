@@ -2139,7 +2139,7 @@ export interface paths {
         };
         /**
          * List runtime cluster resources for the selected visibility
-         * @description Lists live resources in the selected cluster. Results default to resources related to the caller; platform administrators may explicitly request all visible resources. projectId, applicationId, and environmentId are stronger filters within the selected visibility.
+         * @description Lists live resources in the selected cluster. Results default to resources related to the caller; platform administrators may explicitly request all visible resources. projectId, applicationId, and deploymentTargetId are stronger filters within the selected visibility.
          */
         get: operations["listRuntimeClusterResources"];
         put?: never;
@@ -5891,8 +5891,6 @@ export interface components {
             /** @description Human-readable identifier that is immutable while the project space exists and unique among active project spaces. It may be reused after deletion cleanup; the internal project ID is generated independently and the identifier derives the Kubernetes Namespace. */
             identifier: string;
             description?: string;
-            /** @enum {string} */
-            namespaceStrategy?: "project";
             maxConcurrentBuilds?: number;
             /**
              * @description Project-space master switch for release Web Console and runtime exec access. Omission on create defaults to true; omission on update preserves the current value. When false, no deployment target can re-enable Web Console. Project roles still apply.
@@ -5906,8 +5904,6 @@ export interface components {
             identifier: string;
             kubernetesNamespace: string;
             description?: string;
-            /** @enum {string} */
-            namespaceStrategy: "project";
             maxConcurrentBuilds: number;
             /** @description Project-space master switch. A false value disables Web Console for every deployment target in the project space. */
             webConsoleEnabled: boolean;
@@ -5968,8 +5964,6 @@ export interface components {
         DeploymentTargetInput: {
             /** @description Display name. Defaults to the normalized stage. */
             name?: string;
-            /** @description Optional project environment reference. */
-            environmentId?: string;
             /**
              * @description Immutable stage identifier, unique among active deployment targets in the application. Public create requests accept dev, test, staging, or prod and normalize production to prod. Updates to platform-managed components echo their existing sys-* value. A portable bundle may contain a historical non-public value, but preview/import require a public override. It may be reused after deletion cleanup.
              * @default dev
@@ -6093,8 +6087,6 @@ export interface components {
             targetTag: string;
             /** @description Existing OCI image reference used when sourceType is image. */
             imageRef?: string;
-            /** @description Comma-separated build selector labels. */
-            buildLabels?: string;
             /** @description Project build variable set IDs. */
             buildVariableSetIds?: string[];
             /** @description Optional deployment-level values that override matching application, project, and global keys. */
@@ -6264,7 +6256,6 @@ export interface components {
             volumeMode?: string;
             storageClassName?: string;
             clusterName?: string;
-            clusterType?: string;
         };
         DeploymentBundleReference: {
             key: string;
@@ -6435,8 +6426,6 @@ export interface components {
             name?: string;
             identifier?: string;
             description?: string;
-            /** @enum {string} */
-            namespaceStrategy?: "project";
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -6795,8 +6784,6 @@ export interface components {
         /** @description Runtime cluster configuration. Resource percentages are 0-100; zero omits that Kubernetes field. When the corresponding limit is non-zero, request percent must not exceed limit percent. Policy changes apply only after a later workload render or redeploy. */
         RuntimeClusterInput: {
             name: string;
-            /** @enum {string} */
-            type: "kubernetes" | "k3s";
             endpoint: string;
             /** @enum {string} */
             scope: "global" | "project" | "user";
@@ -6825,10 +6812,13 @@ export interface components {
              * @default 100
              */
             memoryLimitPercent: number;
-            /** @enum {string} */
-            gatewayProvider?: "gateway-api";
-            gatewayRootDomain?: string;
-            gatewayDomainSuffixes?: string[];
+            /**
+             * @description Ordered domain suffixes available to routes on this cluster. Empty input uses apps.local; when no explicit wildcard certificate domain is set, the first suffix is used.
+             * @default [
+             *       "apps.local"
+             *     ]
+             */
+            gatewayDomainSuffixes: string[];
             /** @enum {string} */
             gatewayPublicScheme?: "http" | "https";
             gatewayPublicPort?: number;
@@ -6848,6 +6838,7 @@ export interface components {
             gatewayCertIssuerName?: string;
             gatewayCertificateNamespace?: string;
             gatewayWildcardCertEnabled?: boolean;
+            /** @description Domain covered by the managed wildcard certificate. Empty input uses the first gatewayDomainSuffixes value. */
             gatewayWildcardCertDomain?: string;
             gatewayWildcardCertSecretName?: string;
             /** @enum {string} */
@@ -7275,9 +7266,6 @@ export interface components {
             targetRepository?: string;
             targetTag?: string;
             imageRef?: string;
-            cacheConfig?: {
-                [key: string]: unknown;
-            };
         };
         AgentBuildRunResult: {
             id: string;
@@ -7310,7 +7298,6 @@ export interface components {
         };
         ReleaseInput: {
             applicationId: string;
-            environmentId?: string;
             deploymentTargetId: string;
             buildRunId?: string;
             imageRef?: string;
@@ -7324,7 +7311,6 @@ export interface components {
             id: string;
             projectId: string;
             applicationId: string;
-            environmentId: string;
             deploymentTargetId: string;
             buildRunId?: string;
             imageRef: string;
@@ -7363,7 +7349,6 @@ export interface components {
         };
         GatewayRouteInput: {
             applicationId: string;
-            environmentId?: string;
             deploymentTargetId: string;
             host?: string;
             domainSuffix?: string;
@@ -7490,6 +7475,15 @@ export interface components {
         };
         /** @description The requested resource was not found. */
         NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description A required storage or external provider dependency is temporarily unavailable. */
+        ServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
             };
@@ -8752,7 +8746,7 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 search?: components["parameters"]["Search"];
-                sortBy?: "name" | "type" | "scope" | "status" | "createdAt";
+                sortBy?: "name" | "scope" | "status" | "createdAt";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
@@ -11972,8 +11966,8 @@ export interface operations {
                 projectId?: string;
                 /** @description Stronger application filter applied within the selected visibility. */
                 applicationId?: string;
-                /** @description Stronger environment filter applied within the selected visibility. */
-                environmentId?: string;
+                /** @description Stronger deployment-target filter applied within the selected visibility. */
+                deploymentTargetId?: string;
                 page?: number;
                 pageSize?: components["parameters"]["PageSize"];
                 sortBy?: "kind" | "name" | "namespace" | "status" | "owner" | "summary" | "createdAt" | "updatedAt";
@@ -14416,7 +14410,7 @@ export interface operations {
     listReleases: {
         parameters: {
             query?: {
-                environmentId?: string;
+                stage?: string;
                 applicationId?: string;
                 deploymentTargetId?: string;
                 page?: components["parameters"]["Page"];
@@ -14698,6 +14692,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getGatewayRoute: {
@@ -14723,6 +14718,7 @@ export interface operations {
             };
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateGatewayRoute: {
@@ -14753,6 +14749,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     deleteGatewayRoute: {
@@ -14783,6 +14780,8 @@ export interface operations {
         parameters: {
             query: {
                 domainSuffix?: string;
+                /** @description Deployment target whose runtime cluster supplies the authoritative gateway domain suffixes. Required when routeId is omitted. */
+                deploymentTargetId?: string;
                 host: string;
                 routeId?: string;
             };
@@ -14806,6 +14805,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     reconfigureRepositoryWebhook: {

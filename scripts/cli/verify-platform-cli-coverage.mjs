@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultPlatformRoots = [
+  resolve(repositoryRoot, "../.."),
   resolve(repositoryRoot, "../luna-devops"),
   resolve(repositoryRoot, "../devops"),
 ];

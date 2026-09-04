@@ -61,18 +61,6 @@ export interface OpenApiRequestBodySnapshot {
   readonly schemaRefs: readonly string[];
 }
 
-export interface OpenApiResponseSnapshot {
-  readonly status: string;
-  readonly description?: string;
-  readonly contentTypes: readonly string[];
-  readonly schemaRefs: readonly string[];
-  readonly schema?: SchemaReferenceSummary;
-}
-
-export type OpenApiSecurityRequirement = Readonly<
-  Record<string, readonly string[]>
->;
-
 export type CommandClassification =
   | "business-command"
   | "protocol-adapter"
@@ -119,7 +107,6 @@ export interface LunaCliExtensionSnapshot {
   readonly classification?: CommandClassification;
   readonly risk?: CommandRisk;
   readonly transport?: CommandTransport;
-  readonly requiredScopes?: readonly string[];
   readonly mfaPurpose?: string;
   readonly projectContext?:
     | ProjectContextMode
@@ -140,13 +127,11 @@ export interface OpenApiOperationSnapshot {
   readonly description?: string;
   readonly operationId?: string;
   readonly deprecated: boolean;
-  readonly security: readonly OpenApiSecurityRequirement[];
   readonly parameters: readonly OpenApiParameterSnapshot[];
   readonly requestBody?: OpenApiRequestBodySnapshot;
   readonly inputSchema?: SchemaReferenceSummary;
   readonly outputSchema?: SchemaReferenceSummary;
   readonly errorSchema?: SchemaReferenceSummary;
-  readonly responses: readonly OpenApiResponseSnapshot[];
   readonly xLunaCli?: LunaCliExtensionSnapshot;
 }
 
@@ -162,7 +147,6 @@ export interface CommandMetadata {
   readonly classification: CommandClassification;
   readonly risk: CommandRisk;
   readonly transport: CommandTransport;
-  readonly requiredScopes: readonly string[];
   readonly mfaPurpose?: string;
   readonly projectContext: ProjectContextMode;
   readonly streaming: boolean;
@@ -212,7 +196,6 @@ export interface OperationCatalogFilter {
   readonly classification?: CommandClassification | readonly CommandClassification[];
   readonly risk?: CommandRisk | readonly CommandRisk[];
   readonly transport?: CommandTransport | readonly CommandTransport[];
-  readonly scope?: string | readonly string[];
   readonly operationIdSource?: MetadataSource;
   readonly commandSource?: MetadataSource;
   readonly includeDeprecated?: boolean;

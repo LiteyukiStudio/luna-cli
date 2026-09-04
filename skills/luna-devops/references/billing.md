@@ -6,7 +6,7 @@
 `luna help catalog category=billing limit=100 output=json interactive=false agent=true`
 读取当前 CLI 暴露的账单命令。执行具体工具前，再使用
 `luna help command path=<category.tool> output=json interactive=false agent=true`
-确认参数、Scope、风险和服务端支持状态。只使用目录实际返回的工具。
+确认参数、风险和服务端支持状态。只使用目录实际返回的工具。
 
 ## 工作流
 

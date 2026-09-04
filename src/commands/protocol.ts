@@ -53,7 +53,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         localParameter('maxEvents', { type: 'integer', minimum: 1, maximum: 10_000 }),
         localParameter('maxBytes', { type: 'integer', minimum: 1, maximum: 16 * 1024 * 1024 }),
       ],
-      scopes: ['build:read'],
       examples: [
         'luna build job-logs-follow jobId=bldj_example maxEvents=200',
         'luna build job-logs-follow jobId=bldj_example --agent',
@@ -94,7 +93,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         localParameter('pollIntervalMs', { type: 'integer', minimum: 1, maximum: 60_000 }),
         localParameter('waitTimeoutMs', { type: 'integer', minimum: 1, maximum: 86_400_000 }),
       ],
-      scopes: ['volume:import', 'volume:read'],
       examples: [
         'luna volume import file=backup.tar.gz displayName=data clusterId=cluster_example capacity=10Gi storageClassName=standard idempotencyKey=volume-import-001',
       ],
@@ -134,7 +132,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         localParameter('pollIntervalMs', { type: 'integer', minimum: 1, maximum: 60_000 }),
         localParameter('waitTimeoutMs', { type: 'integer', minimum: 1, maximum: 86_400_000 }),
       ],
-      scopes: ['volume:export', 'volume:read'],
       examples: [
         'luna volume export volumeId=pvol_example destination=backup.tar.gz consistency=auto idempotencyKey=volume-export-001',
         'luna volume export volumeId=pvol_block destination=block.raw.zst format=raw_zst consistency=snapshot idempotencyKey=volume-export-block-001',
@@ -169,7 +166,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
           }),
           localParameter('volumeMode', { type: 'string', enum: ['Filesystem', 'Block'] }),
         ],
-        scopes: ['volume:write'],
         examples: [
           'luna volume adopt displayName=shared-data clusterId=cluster_example claimName=shared-pvc ownershipMode=referenced idempotencyKey=volume-adopt-001',
         ],
@@ -196,7 +192,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
           localParameter('displayName', { type: 'string', minLength: 1, maxLength: 120 }),
           localParameter('capacity', { type: 'string', minLength: 1 }),
         ],
-        scopes: ['volume:write'],
         examples: [
           'luna volume update volumeId=pvol_example revision=3 capacity=20Gi',
         ],
@@ -223,7 +218,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
           localParameter('revision', { type: 'integer', minimum: 1 }, true),
           localParameter('dataAction', { type: 'string', enum: ['delete', 'detach'] }, true),
         ],
-        scopes: ['volume:delete'],
         examples: [
           'luna volume delete volumeId=pvol_example revision=3 dataAction=delete --yes',
         ],
@@ -248,7 +242,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
           pathParameter('volumeId'),
           localParameter('revision', { type: 'integer', minimum: 1 }, true),
         ],
-        scopes: ['volume:read'],
         examples: [
           'luna volume retry volumeId=pvol_example revision=3',
         ],
@@ -273,7 +266,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
           pathParameter('projectId'),
           pathParameter('transferId'),
         ],
-        scopes: ['volume:read'],
         examples: [
           'luna volume-transfer retry transferId=vtx_example idempotencyKey=volume-retry-001 --yes',
         ],
@@ -298,7 +290,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         localParameter('maxEvents', { type: 'integer', minimum: 1, maximum: 10_000 }),
         localParameter('maxBytes', { type: 'integer', minimum: 1, maximum: 16 * 1024 * 1024 }),
       ],
-      scopes: ['deployment:read'],
       examples: [
         'luna deployment metrics-follow applicationId=app_example targetId=dplt_example maxEvents=10',
       ],
@@ -318,7 +309,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
-      scopes: ['cluster:manage'],
     }),
     webSocketDefinition({
       category: 'release',
@@ -336,7 +326,6 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
-      scopes: ['deployment:exec'],
       summary: 'Open an interactive exec session for a release',
       description: 'Connect the local TTY to the release container until the remote shell exits.',
       examples: [
