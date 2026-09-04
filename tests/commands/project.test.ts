@@ -113,7 +113,6 @@ function oauthConfig(
       type: 'oauth' as const,
       accessToken: `access-${generation}`,
       refreshToken: `refresh-${generation}`,
-      scopes: ['project:read'],
       createdAt: generation === 'old'
         ? '2026-01-01T00:00:00.000Z'
         : '2026-02-01T00:00:00.000Z',

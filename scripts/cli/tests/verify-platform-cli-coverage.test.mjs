@@ -201,6 +201,82 @@ test("does not count a coincidental non-OpenAPI command registration", () => {
   );
 });
 
+test("counts a protocol wrapper only when it consumes the exact OpenAPI operation", () => {
+  const routes = extractGinRoutes(
+    `func register(router *gin.Engine) {
+      v1 := router.Group("/api/v1")
+      v1.GET("/projects", handlers.ListProjects)
+    }`,
+    "fixture/router-protocol-wrapper.go",
+  );
+  const wrapper = {
+    path: "project.list",
+    source: "protocol",
+    risk: "low",
+    consumedOperations: ["listProjects"],
+  };
+  const covered = evaluateCoverage({
+    routes,
+    openApiOperations,
+    cliCommands: [wrapper],
+    classifications: {},
+  });
+  assert.equal(covered.ok, true, covered.errors.join("\n"));
+  assert.equal(covered.totals.executable, 1);
+
+  const phantom = evaluateCoverage({
+    routes,
+    openApiOperations,
+    cliCommands: [{
+      ...wrapper,
+      consumedOperations: ["listProjects", "phantomOperation"],
+    }],
+    classifications: {},
+  });
+  assert.equal(phantom.ok, false);
+  assert.match(
+    phantom.errors.join("\n"),
+    /CLI protocol command "project\.list" consumes unknown OpenAPI operation "phantomOperation"/,
+  );
+
+  const mismatched = evaluateCoverage({
+    routes,
+    openApiOperations,
+    cliCommands: [{ ...wrapper, consumedOperations: ["anotherOperation"] }],
+    classifications: {},
+  });
+  assert.equal(mismatched.ok, false);
+  assert.match(
+    mismatched.errors.join("\n"),
+    /registered from "protocol", expected "openapi"/,
+  );
+});
+
+test("counts hidden byte protocol operations consumed by a visible wrapper", () => {
+  const routes = extractGinRoutes(
+    `func register(router *gin.Engine) {
+      v1 := router.Group("/api/v1")
+      v1.POST("/oauth/device/authorization", handlers.StartDeviceAuthorization)
+    }`,
+    "fixture/router-hidden-protocol-wrapper.go",
+  );
+  const result = evaluateCoverage({
+    routes,
+    openApiOperations,
+    cliCommands: [{
+      path: "auth.login",
+      source: "protocol",
+      risk: "low",
+      consumedOperations: ["startOAuthDeviceAuthorization"],
+    }],
+    classifications: {},
+  });
+
+  assert.equal(result.ok, true, result.errors.join("\n"));
+  assert.equal(result.totals.registered, 1);
+  assert.equal(result.totals.executable, 1);
+});
+
 test("distinguishes registered commands from server-supported commands", () => {
   const routes = extractGinRoutes(
     `func register(router *gin.Engine) {

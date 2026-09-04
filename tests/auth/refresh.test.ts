@@ -406,7 +406,6 @@ describe('stored OAuth refresh', () => {
         type: 'oauth',
         accessToken: 'access-from-new-login',
         refreshToken: 'refresh-from-new-login',
-        scopes: ['openid'],
         expiresAt: VALID_UNTIL,
       },
     })
@@ -439,7 +438,6 @@ describe('stored OAuth refresh', () => {
       server: 'https://devops.example.com',
       accessToken: 'access-from-new-login',
       refreshToken: 'refresh-from-new-login',
-      scopes: ['openid'],
       expiresAt: VALID_UNTIL,
     })
     pending.resolve(refreshedCredential())
@@ -507,7 +505,6 @@ function oauthConfig(expiresAt: string): StoredLunaConfig {
       accessToken: 'access-v1',
       refreshToken: 'refresh-v1',
       tokenType: 'Bearer',
-      scopes: ['openid', 'project:read'],
       expiresAt,
     },
     project: {
@@ -525,7 +522,6 @@ function refreshedCredential(): OAuthTokenCredential {
     accessToken: 'access-v2',
     refreshToken: 'refresh-v2',
     tokenType: 'Bearer',
-    scopes: ['openid', 'project:read'],
     expiresAt: REFRESHED_UNTIL,
   }
 }

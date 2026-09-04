@@ -36,6 +36,13 @@ luna help catalog query=deployment limit=20 output=json
 For agents, use canonical two-level commands together with
 `output=json interactive=false agent=true`.
 
+First-party `luna-cli` Device Code login does not accept, display, or persist
+user-selectable scopes. The server authorizes each CLI request from the user's
+current platform role, project membership, and resource policy; the CLI does not
+preflight a copied grant or generate a broader login command. Personal access
+tokens, third-party OAuth apps, and Agent service identities remain restricted by
+the endpoint scopes declared in OpenAPI, which are still shown in machine Help.
+
 Stored OAuth credentials are refreshed automatically by `auth status` and remote
 commands when the access token is within 30 seconds of expiry or already expired.
 Concurrent CLI processes coalesce the refresh so the refresh token is rotated only
@@ -157,3 +164,67 @@ LUNA_PLATFORM_ROOT=.. pnpm check:platform-coverage
 
 See the [CLI specification](./docs/cli-spec.md) and the
 [documentation site](https://luna-devops.liteyuki.org/en/guide/cli/).
+
+## Project volumes
+
+Volume CRUD, adoption, and transfer history use server-side pagination,
+authorization, and stable error codes:
+
+```bash
+luna volume list page=1 pageSize=20
+luna volume get volumeId=pvol_example
+luna volume create body=@volume.json idempotencyKey=volume-create-001
+luna volume adopt displayName=shared clusterId=cluster_example claimName=shared-pvc ownershipMode=referenced idempotencyKey=volume-adopt-001
+luna volume update volumeId=pvol_example revision=3 capacity=20Gi
+luna volume delete volumeId=pvol_example revision=3 dataAction=delete --yes
+luna volume-transfer list page=1 pageSize=20
+luna volume-transfer get transferId=vtx_example
+luna volume-transfer retry transferId=vtx_example idempotencyKey=volume-retry-001 --yes
+luna volume-transfer cancel transferId=vtx_example --yes
+```
+
+Local archive imports first create and verify an immutable private staging copy,
+wait for the transfer to become `ready`, and then upload the complete archive
+with one `PUT`. Exports wait for `ready`, exchange a one-time ticket, and download
+the complete archive with one `GET`. Neither flow supports resuming an interrupted
+stream:
+
+```bash
+luna volume import file=backup.tar.gz displayName=data clusterId=cluster_example capacity=10Gi storageClassName=standard idempotencyKey=volume-import-001
+luna volume export volumeId=pvol_example destination=backup.tar.gz consistency=auto idempotencyKey=volume-export-001
+luna volume export volumeId=pvol_block destination=block.raw.zst format=raw_zst consistency=snapshot idempotencyKey=volume-export-block-001
+luna volume export transferId=vtx_example destination=backup.tar.gz
+```
+
+Import staging needs additional local free space roughly equal to the archive
+size. After verification, the copy is detached from the filesystem namespace
+before any remote transfer is created and retained only through a read-only file
+handle; closing that handle releases the space on both success and failure. If
+the local filesystem cannot detach the staging file safely, the CLI stops before
+creating the remote resource. When the same idempotency key replays a
+`succeeded` transfer, the CLI converges only if its direction, lengths, and
+SHA-256 exactly match the current staging copy. It never replays the one-shot
+`PUT` for a `streaming` transfer.
+
+The CLI does not persist transfer state or one-time tickets. Exports stage the
+complete archive in a randomly named private transaction directory beside the
+destination. On systems that support POSIX modes, the directory and files use
+`0700` and `0600`, respectively. The CLI atomically commits only after verifying
+length, SHA-256, and file identity. If authoritative readback, the Block manifest,
+or commit fails, `recoveryPath` / `recoveryPaths` list only reverified private
+recovery files; identity conflicts that cannot be verified are reported as
+`preservedUnknownPaths`. The CLI never creates a public `<destination>.part`, but
+reserves that name and the Block sidecar's `.part` name as conflict guards. Any
+file already there or appearing during transfer is preserved, including with
+`overwrite=true`. Export stops before requesting a one-time ticket when the
+filesystem cannot provide reliable file identities or safe hard links.
+Safe recovery also assumes that the same operating-system account does not move
+or replace the destination's parent directory while the command runs. If that
+happens, the CLI stops and reports paths it cannot reverify as unknown rather
+than claiming that they are usable recovery files.
+
+Progress is emitted only for human table output, so JSON and Agent output remain
+stable. A Block-volume `raw_zst` export obtains a separate one-time ticket for the
+manifest, verifies it, and commits the archive together with the matching
+`<archive>.manifest.json` sidecar. Filesystem exports do not request a sidecar.
+Import and export require local-file access and are not available in Agent mode.

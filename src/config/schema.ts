@@ -21,7 +21,6 @@ const userSnapshotSchema = z
   .passthrough()
 
 const credentialBaseSchema = z.object({
-  scopes: z.array(z.string().min(1)).default([]),
   user: userSnapshotSchema.optional(),
   expiresAt: z.iso.datetime().optional(),
   createdAt: z.iso.datetime().optional(),
@@ -60,10 +59,15 @@ export const accessTokenCredentialSchema = credentialBaseSchema
   })
   .passthrough()
 
-export const credentialSchema = z.discriminatedUnion('type', [
+const credentialValueSchema = z.discriminatedUnion('type', [
   oauthCredentialSchema,
   accessTokenCredentialSchema,
 ])
+
+export const credentialSchema = z.preprocess(
+  stripLegacyCredentialScopes,
+  credentialValueSchema,
+)
 
 export const projectSnapshotSchema = z
   .object({
@@ -116,4 +120,11 @@ export function cloneConfigDocument(config: LunaConfigDocument): StoredLunaConfi
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function stripLegacyCredentialScopes(value: unknown): unknown {
+  if (!isRecord(value) || !Object.hasOwn(value, 'scopes'))
+    return value
+  const { scopes: _legacyScopes, ...credential } = value
+  return credential
 }

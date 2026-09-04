@@ -22,7 +22,6 @@ describe('auth commands', () => {
     expect(result.exitCode).toBe(0)
     expect(harness.oauthLogins).toEqual([{
       server: 'https://luna.example.com',
-      scopes: [],
       mode: 'device_code',
     }])
     expect(harness.config.server).toBe('https://luna.example.com')
@@ -51,7 +50,6 @@ describe('auth commands', () => {
         credential: {
           type: 'access_token',
           token: 'old-token',
-          scopes: [],
         },
         project: { id: 'prj_custom' },
         language: '',
@@ -68,12 +66,26 @@ describe('auth commands', () => {
     expect(result.exitCode).toBe(0)
     expect(harness.oauthLogins).toEqual([{
       server: 'https://devops.liteyuki.org',
-      scopes: [],
       mode: 'device_code',
     }])
     expect(harness.config.server).toBe('https://devops.liteyuki.org')
     expect(harness.config.project).toBeNull()
     expect(harness.config.credential?.type).toBe('oauth')
+  })
+
+  it('does not accept a user-selectable scope for first-party login', async () => {
+    const harness = createHarness()
+
+    const result = await runCli(harness.program, [
+      'node',
+      'luna',
+      'login',
+      'scope=project:read',
+    ], harness.ports.output)
+
+    expect(result.exitCode).not.toBe(0)
+    expect(harness.oauthLogins).toEqual([])
+    expect(harness.errors[0]).toMatchObject({ code: 'invalid_arguments' })
   })
 
   it('supports whoami and logout shortcuts through the canonical handlers', async () => {
@@ -299,7 +311,6 @@ function createHarness(options: {
   const validations: Array<{ server: string, token: string }> = []
   const oauthLogins: Array<{
     server: string
-    scopes: readonly string[]
     mode: string
   }> = []
   const revocations: Array<{ token: string, tokenTypeHint?: string }> = []
@@ -348,7 +359,6 @@ function createHarness(options: {
       async beginOAuthLogin(request) {
         oauthLogins.push({
           server: request.server,
-          scopes: request.scopes,
           mode: request.mode,
         })
         await request.onVerification?.({
@@ -363,7 +373,6 @@ function createHarness(options: {
           accessToken: 'oauth-access-secret',
           refreshToken: 'oauth-refresh-secret',
           tokenType: 'Bearer',
-          scopes: request.scopes,
           expiresAt: '2030-01-01T00:00:00.000Z',
           user: { id: 'user-1', name: 'Test User' },
           verification: {
@@ -387,7 +396,6 @@ function createHarness(options: {
           accessToken: 'oauth-access-refreshed',
           refreshToken: 'oauth-refresh-rotated',
           tokenType: 'Bearer',
-          scopes: ['project:read'],
           expiresAt: '2999-01-01T00:00:00.000Z',
         }
       },
@@ -425,7 +433,6 @@ function oauthConfig(expiresAt: string): LunaConfigDocument {
       type: 'oauth',
       accessToken: 'oauth-access-original',
       refreshToken: 'oauth-refresh-original',
-      scopes: ['project:read'],
       expiresAt,
     },
     project: null,

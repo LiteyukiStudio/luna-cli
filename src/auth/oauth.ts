@@ -42,7 +42,6 @@ export interface OAuthTokenCredential {
   readonly accessToken: string
   readonly refreshToken?: string
   readonly tokenType?: string
-  readonly scopes: readonly string[]
   readonly expiresAt?: string
   readonly user?: Readonly<Record<string, unknown>>
 }
@@ -54,7 +53,6 @@ export interface OAuthLoginResult extends OAuthTokenCredential {
 
 export interface OAuthLoginRequest {
   readonly server: string
-  readonly scopes: readonly string[]
   readonly mode: OAuthLoginMode
   readonly clientId?: string
   readonly fetch?: typeof globalThis.fetch
@@ -68,7 +66,6 @@ export interface OAuthRefreshRequest {
   readonly server: string
   readonly refreshToken: string
   readonly clientId?: string
-  readonly scopes?: readonly string[]
   readonly fetch?: typeof globalThis.fetch
   readonly timeoutMs?: number
   readonly now?: () => number
@@ -110,7 +107,6 @@ export async function beginOAuthLogin(
     endpoint(server, DEVICE_AUTHORIZATION_PATH),
     {
       client_id: clientId,
-      ...(request.scopes.length > 0 ? { scope: normalizeScopes(request.scopes).join(' ') } : {}),
     },
   )
   const deviceCode = requiredString(authorization, 'device_code')
@@ -154,7 +150,7 @@ export async function beginOAuthLogin(
       return {
         server,
         verification,
-        ...parseTokenCredential(body, request.scopes, now),
+        ...parseTokenCredential(body, now),
       }
     }
 
@@ -200,13 +196,10 @@ export async function refreshOAuthCredential(
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
           client_id: nonEmpty(request.clientId) ?? DEFAULT_OAUTH_CLIENT_ID,
-          ...(request.scopes?.length
-            ? { scope: normalizeScopes(request.scopes).join(' ') }
-            : {}),
         },
         signal,
       )
-      const credential = parseTokenCredential(body, request.scopes ?? [], request.now ?? Date.now)
+      const credential = parseTokenCredential(body, request.now ?? Date.now)
       return {
         ...credential,
         refreshToken: credential.refreshToken ?? refreshToken,
@@ -386,7 +379,6 @@ async function responseRecord(response: Response): Promise<Readonly<Record<strin
 
 function parseTokenCredential(
   body: Readonly<Record<string, unknown>>,
-  fallbackScopes: readonly string[],
   now: () => number,
 ): OAuthTokenCredential {
   const expiresIn = optionalPositiveNumber(body.expires_in)
@@ -395,7 +387,6 @@ function parseTokenCredential(
     accessToken: requiredString(body, 'access_token'),
     refreshToken: optionalString(body.refresh_token),
     tokenType: optionalString(body.token_type),
-    scopes: tokenScopes(body.scope, fallbackScopes),
     expiresAt: expiresIn === undefined
       ? undefined
       : new Date(now() + expiresIn * 1_000).toISOString(),
@@ -486,18 +477,6 @@ function optionalPositiveNumber(value: unknown): number | undefined {
       ? Number(value)
       : Number.NaN
   return Number.isFinite(normalized) && normalized > 0 ? normalized : undefined
-}
-
-function tokenScopes(value: unknown, fallback: readonly string[]): readonly string[] {
-  if (typeof value === 'string')
-    return normalizeScopes(value.split(/\s+/))
-  if (Array.isArray(value))
-    return normalizeScopes(value.filter((item): item is string => typeof item === 'string'))
-  return normalizeScopes(fallback)
-}
-
-function normalizeScopes(scopes: readonly string[]): string[] {
-  return [...new Set(scopes.map(scope => scope.trim()).filter(Boolean))]
 }
 
 function optionalString(value: unknown): string | undefined {

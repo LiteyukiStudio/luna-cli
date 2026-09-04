@@ -5,7 +5,7 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:da2771f948d90631fe66de9cb5aea08aa2c388d5bc763f9061fc6633cee47079",
+  "sourceDigest": "sha256:49f42f09f5926349586670309c2fb49c879c69bf9fadff3b63a581bcd3792f12",
   "operationCount": 302
 } as const satisfies OpenApiSnapshotMetadata;
 
@@ -429,11 +429,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "properties": {
             "client_id": {
               "type": "string"
-            },
-            "scope": {
-              "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -554,7 +552,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "required": [
             "application",
             "expiresAt",
-            "scope",
             "userCode"
           ],
           "properties": {
@@ -631,9 +628,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "expiresAt": {
               "type": "string",
               "format": "date-time"
-            },
-            "scope": {
-              "type": "string"
             },
             "userCode": {
               "type": "string"
@@ -741,7 +735,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "required": [
         "application",
         "expiresAt",
-        "scope",
         "userCode"
       ],
       "properties": {
@@ -818,9 +811,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "expiresAt": {
           "type": "string",
           "format": "date-time"
-        },
-        "scope": {
-          "type": "string"
         },
         "userCode": {
           "type": "string"
@@ -1165,7 +1155,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "object",
           "required": [
             "access_token",
-            "scope",
             "token_type"
           ],
           "properties": {
@@ -1313,7 +1302,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "required": [
         "access_token",
-        "scope",
         "token_type"
       ],
       "properties": {

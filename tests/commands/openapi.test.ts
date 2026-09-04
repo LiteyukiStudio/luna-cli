@@ -77,6 +77,38 @@ describe('openAPI command catalog normalization', () => {
     expect(catalog.entries[0]?.parameters?.[0]?.valueSources).toBeUndefined()
   })
 
+  it('maps Idempotency-Key to the existing global option', () => {
+    const catalog = extractCatalog({
+      OPERATION_CATALOG: [{
+        operationId: 'createProjectVolume',
+        method: 'post',
+        path: '/api/v1/projects/{projectId}/volumes',
+        command: { category: 'volume', tool: 'create' },
+        parameters: [
+          { name: 'projectId', in: 'path', required: true },
+          { name: 'Idempotency-Key', in: 'header', required: true },
+        ],
+        inputSchema: {
+          type: 'object',
+          properties: {
+            'projectId': { type: 'string' },
+            'Idempotency-Key': { type: 'string' },
+          },
+          required: ['projectId', 'Idempotency-Key'],
+          additionalProperties: false,
+        },
+      }],
+    })
+
+    expect(catalog.entries[0]?.parameters).toEqual([
+      expect.objectContaining({ name: 'projectId', location: 'path' }),
+    ])
+    expect(catalog.entries[0]?.inputSchema).toMatchObject({
+      properties: { projectId: { type: 'string' } },
+      required: ['projectId'],
+    })
+  })
+
   it('does not register hidden OpenAPI operations as canonical raw commands', () => {
     const registry = createRegistryFromContract({
       OPERATION_CATALOG: [
@@ -110,5 +142,33 @@ describe('openAPI command catalog normalization', () => {
         }),
       }),
     )
+  })
+
+  it('lets a typed protocol wrapper consume a colliding raw operation', () => {
+    const registry = createRegistryFromContract({
+      OPERATION_CATALOG: [
+        {
+          operationId: 'updateProjectVolume',
+          method: 'patch',
+          path: '/api/v1/projects/{projectId}/volumes/{volumeId}',
+          command: { category: 'volume', tool: 'update' },
+        },
+        {
+          operationId: 'createProjectVolume',
+          method: 'post',
+          path: '/api/v1/projects/{projectId}/volumes',
+          command: { category: 'volume', tool: 'create' },
+        },
+      ],
+    })
+
+    expect(registry.require('volume.update').metadata).toMatchObject({
+      source: 'protocol',
+      consumedOperations: ['updateProjectVolume'],
+    })
+    expect(registry.require('volume.create').metadata).toMatchObject({
+      source: 'openapi',
+      operationId: 'createProjectVolume',
+    })
   })
 })

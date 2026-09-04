@@ -20,7 +20,6 @@ describe('protocol request OAuth refresh', () => {
         type: 'oauth',
         accessToken: 'access-expired',
         refreshToken: 'refresh-original',
-        scopes: ['build:read'],
         expiresAt: '2020-01-01T00:00:00.000Z',
       },
       project: null,
@@ -30,7 +29,6 @@ describe('protocol request OAuth refresh', () => {
     const refresh = vi.fn(async () => ({
       accessToken: 'access-refreshed',
       refreshToken: 'refresh-rotated',
-      scopes: ['build:read'],
       expiresAt: '2999-01-01T00:00:00.000Z',
     }))
     const authorizations: string[] = []
@@ -103,7 +101,6 @@ describe('protocol request OAuth refresh', () => {
     const pending = deferred<{
       accessToken: string
       refreshToken: string
-      scopes: string[]
       expiresAt: string
     }>()
     const refresh = vi.fn(async () => pending.promise)
@@ -117,7 +114,6 @@ describe('protocol request OAuth refresh', () => {
     pending.resolve({
       accessToken: 'access-refreshed',
       refreshToken: 'refresh-rotated',
-      scopes: ['build:read'],
       expiresAt: '2999-01-01T00:00:00.000Z',
     })
 
@@ -174,7 +170,6 @@ function oauthConfig(
       type: 'oauth',
       accessToken,
       refreshToken,
-      scopes: ['build:read'],
       createdAt,
       expiresAt,
     },

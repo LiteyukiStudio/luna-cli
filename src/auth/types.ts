@@ -10,7 +10,6 @@ export interface AuthUserSnapshot {
 export interface StoreAccessTokenInput {
   readonly server: string
   readonly token: string
-  readonly scopes?: readonly string[]
   readonly user?: AuthUserSnapshot
   readonly expiresAt?: string
   readonly project?: ProjectContextSnapshot | null
@@ -21,7 +20,6 @@ export interface StoreOAuthCredentialInput {
   readonly accessToken: string
   readonly refreshToken?: string
   readonly tokenType?: string
-  readonly scopes?: readonly string[]
   readonly user?: AuthUserSnapshot
   readonly expiresAt?: string
   readonly project?: ProjectContextSnapshot | null
@@ -37,11 +35,9 @@ export interface AuthStatusEntry {
   readonly refreshInProgress: boolean
   readonly refreshable: boolean
   readonly source: 'stored' | 'environment' | 'none'
-  readonly scopes: readonly string[]
   readonly user?: AuthUserSnapshot
   readonly credential?: {
     readonly type: LunaCredential['type']
-    readonly scopes: readonly string[]
     readonly user?: AuthUserSnapshot
     readonly expiresAt?: string
     readonly expired: boolean

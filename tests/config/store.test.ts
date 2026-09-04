@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   emptyConfigDocument,
   FileConfigStore,
+  parseConfigDocument,
   resolveConfigPath,
 } from '../../src/config/index.js'
 
@@ -64,7 +65,6 @@ describe('fileConfigStore', () => {
     config.credential = {
       type: 'access_token',
       token: 'secret',
-      scopes: [],
     }
 
     await store.write(config)
@@ -75,6 +75,29 @@ describe('fileConfigStore', () => {
     expect(await readFile(configPath, 'utf8')).toContain(
       '"server": "https://devops.example.com"',
     )
+  })
+
+  it('discards legacy credential scope copies before persisting config', async () => {
+    const directory = await temporaryDirectory()
+    const configPath = path.join(directory, '.luna', 'auth.json')
+    const store = new FileConfigStore({ configPath })
+    const config = parseConfigDocument({
+      version: 2,
+      server: 'https://devops.example.com',
+      credential: {
+        type: 'oauth',
+        accessToken: 'access-secret',
+        refreshToken: 'refresh-secret',
+        scopes: ['project:read'],
+      },
+      project: null,
+      language: '',
+      output: '',
+    })
+
+    expect(config.credential).not.toHaveProperty('scopes')
+    await store.write(config)
+    expect(await readFile(configPath, 'utf8')).not.toContain('"scopes"')
   })
 
   it('serializes concurrent read-modify-write operations with a lock', async () => {

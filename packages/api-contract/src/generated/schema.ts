@@ -5129,11 +5129,10 @@ export interface components {
             token_type: "Bearer";
             expires_in?: number;
             readonly refresh_token?: string;
-            scope: string;
+            scope?: string;
         };
         OAuthDeviceAuthorizationInput: {
             client_id: string;
-            scope?: string;
         };
         OAuthTokenInput: {
             /** @enum {string} */
@@ -5184,7 +5183,6 @@ export interface components {
         OAuthDeviceVerification: {
             application: components["schemas"]["OAuthApplication"];
             userCode: string;
-            scope: string;
             /** Format: date-time */
             expiresAt: string;
         };

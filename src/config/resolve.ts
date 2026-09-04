@@ -62,7 +62,6 @@ export function resolveRuntimeContext(
     ? {
         type: 'access_token' as const,
         token: environmentToken,
-        scopes: [],
       }
     : sameOrigin
       ? config.credential ?? undefined

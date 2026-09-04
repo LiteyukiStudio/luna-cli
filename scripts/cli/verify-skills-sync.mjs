@@ -41,11 +41,12 @@ const categoryReferences = new Map([
   ["releases", "deployment.md"],
   ["retention", "system.md"],
   ["runtime", "runtime.md"],
+  ["settings", "system.md"],
   ["system", "system.md"],
   ["topology", "topology.md"],
   ["user", "security.md"],
-  ["volume", "runtime.md"],
-  ["volume-transfer", "runtime.md"],
+  ["volume", "volumes.md"],
+  ["volume-transfer", "volumes.md"],
 ]);
 const staleClaimPatterns = [
   {

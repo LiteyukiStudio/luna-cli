@@ -15,7 +15,6 @@ function configFixture() {
     type: 'oauth',
     accessToken: 'access-secret',
     refreshToken: 'refresh-secret',
-    scopes: ['project:read'],
   }
   config.project = { id: 'prj_config', name: 'Configured Project' }
   config.output = 'table'

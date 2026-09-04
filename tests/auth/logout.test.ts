@@ -85,7 +85,6 @@ describe('logoutLocal', () => {
     pending.resolve({
       accessToken: 'access-v2',
       refreshToken: 'refresh-v2',
-      scopes: [],
       expiresAt: '2030-01-02T00:00:00.000Z',
     })
 
@@ -106,7 +105,6 @@ describe('logoutLocal', () => {
         type: 'oauth',
         accessToken: 'access-v1',
         refreshToken: 'refresh-v1',
-        scopes: [],
         createdAt: '2029-01-01T00:00:00.000Z',
         expiresAt: '2029-01-01T00:00:00.000Z',
       },
@@ -143,7 +141,6 @@ describe('logoutLocal', () => {
     pending.resolve({
       accessToken: 'access-v2',
       refreshToken: 'refresh-v2',
-      scopes: [],
       expiresAt: '2030-01-02T00:00:00.000Z',
     })
 

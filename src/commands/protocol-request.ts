@@ -7,20 +7,24 @@ import type {
 } from './types.js'
 import {
   assertAuthenticationTransition,
-  assertOAuthScopes,
   authenticationContext,
   refreshStoredOAuthCredential,
-  withOAuthScopeRemediation,
 } from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/resolve.js'
 import { planOpenApiRequest } from './api.js'
 import { CliCommandError } from './errors.js'
 
 const LOCAL_PROTOCOL_PARAMETERS = new Set([
+  'checksum',
+  'consistency',
   'destination',
+  'file',
+  'format',
   'maxBytes',
   'maxEvents',
   'overwrite',
+  'pollIntervalMs',
+  'waitTimeoutMs',
 ])
 
 export interface ProtocolRequest {
@@ -29,11 +33,22 @@ export interface ProtocolRequest {
   readonly server: string
 }
 
+export interface ProtocolRequestOptions {
+  readonly accept: string
+  readonly body?: BodyInit | null
+  readonly contentLength?: number
+  readonly duplex?: true
+  readonly headers?: HeadersInit
+  readonly signal?: AbortSignal
+  readonly streaming?: boolean
+}
+
 export async function openProtocolRequest(
   invocation: CommandInvocation,
   ports: RuntimePorts,
-  accept: string,
+  options: string | ProtocolRequestOptions,
 ): Promise<ProtocolRequest> {
+  const requestOptions = typeof options === 'string' ? { accept: options } : options
   if (invocation.globals.insecureSkipTlsVerify) {
     throw new CliCommandError(
       'insecure_tls_unsupported',
@@ -88,11 +103,6 @@ export async function openProtocolRequest(
       refreshOutcome: refresh.outcome,
     },
   )
-  assertOAuthScopes(
-    runtime.credential,
-    runtime.sources.credential,
-    invocation.metadata.scopes,
-  )
   const token = runtime.credential?.type === 'oauth'
     ? runtime.credential.accessToken
     : runtime.credential?.type === 'access_token'
@@ -116,18 +126,35 @@ export async function openProtocolRequest(
   const url = new URL(planned.path, `${runtime.server}/`)
   appendQuery(url, planned.query)
   const headers = new Headers(planned.headers)
-  headers.set('accept', accept)
+  for (const [name, value] of new Headers(requestOptions.headers))
+    headers.set(name, value)
+  headers.set('accept', requestOptions.accept)
   headers.set('authorization', `Bearer ${token}`)
   if (invocation.globals.requestId)
     headers.set('x-request-id', invocation.globals.requestId)
   if (invocation.globals.idempotencyKey)
     headers.set('idempotency-key', invocation.globals.idempotencyKey)
+  if (requestOptions.contentLength !== undefined) {
+    if (!Number.isSafeInteger(requestOptions.contentLength) || requestOptions.contentLength < 0) {
+      throw new CliCommandError(
+        'invalid_arguments',
+        'The protocol request content length is invalid.',
+        { status: 400, exitCode: 2, details: { field: 'contentLength' } },
+      )
+    }
+    headers.set('content-length', String(requestOptions.contentLength))
+  }
 
-  const controller = new AbortController()
-  const connectionTimeout = setTimeout(
-    () => controller.abort('timeout'),
-    invocation.globals.timeoutMs,
-  )
+  const timeoutController = new AbortController()
+  const signal = requestOptions.signal
+    ? AbortSignal.any([timeoutController.signal, requestOptions.signal])
+    : timeoutController.signal
+  const connectionTimeout = requestOptions.streaming
+    ? undefined
+    : setTimeout(
+        () => timeoutController.abort('timeout'),
+        invocation.globals.timeoutMs,
+      )
   let response: Response
   const latestRuntime = resolveInvocationRuntime(
     await ports.config.read(),
@@ -144,15 +171,25 @@ export async function openProtocolRequest(
     },
   )
   try {
-    response = await (ports.protocol?.fetch ?? globalThis.fetch)(url, {
+    const requestInit: RequestInit & { duplex?: 'half' } = {
       method: planned.method,
       headers,
+      ...(requestOptions.body !== undefined ? { body: requestOptions.body } : {}),
+      ...(requestOptions.duplex ? { duplex: 'half' as const } : {}),
       redirect: 'manual',
-      signal: controller.signal,
-    })
+      signal,
+    }
+    response = await (ports.protocol?.fetch ?? globalThis.fetch)(url, requestInit)
   }
   catch (error) {
-    if (controller.signal.aborted) {
+    if (requestOptions.signal?.aborted) {
+      throw new CliCommandError('request_cancelled', 'The protocol request was cancelled.', {
+        status: 499,
+        exitCode: 130,
+        cause: error,
+      })
+    }
+    if (timeoutController.signal.aborted) {
       throw new CliCommandError('request_timeout', 'The protocol request timed out.', {
         status: 504,
         retryable: true,
@@ -169,7 +206,8 @@ export async function openProtocolRequest(
   finally {
     // --timeout bounds connection establishment and response headers only.
     // Long-lived streams and downloads enforce their own read limits.
-    clearTimeout(connectionTimeout)
+    if (connectionTimeout !== undefined)
+      clearTimeout(connectionTimeout)
   }
 
   if (response.status >= 300 && response.status < 400) {
@@ -186,13 +224,8 @@ export async function openProtocolRequest(
       },
     )
   }
-  if (!response.ok) {
-    throw withOAuthScopeRemediation(
-      await responseError(response),
-      runtime.credential,
-      runtime.sources.credential,
-    )
-  }
+  if (!response.ok)
+    throw await responseError(response)
 
   const requestId = response.headers.get('x-request-id') ?? undefined
   return {
@@ -278,6 +311,7 @@ async function responseError(response: Response): Promise<CliCommandError> {
   const purpose = stringValue(nested.purpose) ?? stringValue(root.purpose)
     ?? stringValue(asRecord(nested.details).purpose)
     ?? stringValue(asRecord(root.details).purpose)
+  const retryAfterSeconds = boundedRetryAfterSeconds(response.headers.get('retry-after'))
   return new CliCommandError(code, message, {
     status: response.status,
     retryable: response.status === 429 || response.status >= 500,
@@ -286,8 +320,16 @@ async function responseError(response: Response): Promise<CliCommandError> {
       ...asRecord(root.details),
       ...(requestId ? { requestId } : {}),
       ...(purpose ? { purpose } : {}),
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
     },
   })
+}
+
+function boundedRetryAfterSeconds(value: string | null): number | undefined {
+  const seconds = Number(value)
+  if (!Number.isSafeInteger(seconds) || seconds < 0)
+    return undefined
+  return Math.min(5, Math.max(1, seconds))
 }
 
 async function cancelBody(response: Response): Promise<void> {

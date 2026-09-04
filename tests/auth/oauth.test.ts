@@ -19,7 +19,6 @@ describe('oAuth authentication', () => {
       accessToken: 'access-secret',
       refreshToken: 'refresh-secret',
       tokenType: 'Bearer',
-      scopes: ['openid', 'project:read'],
       expiresAt: '2030-01-01T00:00:00.000Z',
       user: { id: 'usr_1', name: 'Luna' },
     })
@@ -30,14 +29,15 @@ describe('oAuth authentication', () => {
       accessToken: 'access-secret',
       refreshToken: 'refresh-secret',
       tokenType: 'Bearer',
-      scopes: ['openid', 'project:read'],
     })
+    expect(credential).not.toHaveProperty('scopes')
 
     const status = await getAuthStatus(store, { env: {} })
     expect(status.credential).toMatchObject({
       type: 'oauth',
-      scopes: ['openid', 'project:read'],
     })
+    expect(status).not.toHaveProperty('scopes')
+    expect(status.credential).not.toHaveProperty('scopes')
     expect(JSON.stringify(status)).not.toContain('access-secret')
     expect(JSON.stringify(status)).not.toContain('refresh-secret')
   })
@@ -107,8 +107,8 @@ describe('oAuth authentication', () => {
       authType: 'oauth',
       reauthenticationRequired: true,
       refreshable: false,
-      scopes: [],
     })
+    expect(safeStatus).not.toHaveProperty('scopes')
     expect(JSON.stringify(safeStatus)).not.toContain('blocked-access-secret')
     expect(JSON.stringify(safeStatus)).not.toContain('blocked-refresh-secret')
   })
@@ -147,7 +147,6 @@ describe('oAuth authentication', () => {
 
     const result = await beginOAuthLogin({
       server: 'https://devops.example.com/',
-      scopes: ['openid', 'project:read', 'openid'],
       mode: 'device_code',
       fetch,
       openBrowser: async (url) => {
@@ -170,7 +169,6 @@ describe('oAuth authentication', () => {
     ])
     expect(Object.fromEntries(calls[0]!.form)).toEqual({
       client_id: 'luna-cli',
-      scope: 'openid project:read',
     })
     expect(Object.fromEntries(calls[1]!.form)).toEqual({
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
@@ -187,13 +185,13 @@ describe('oAuth authentication', () => {
       accessToken: 'access-secret',
       refreshToken: 'refresh-secret',
       tokenType: 'Bearer',
-      scopes: ['openid', 'project:read'],
       expiresAt: '2030-01-01T01:00:00.000Z',
       verification: {
         userCode: 'LUNA-CODE',
         browserOpened: true,
       },
     })
+    expect(result).not.toHaveProperty('scopes')
   })
 
   it('refreshes an OAuth credential and preserves a rotated or existing refresh token', async () => {
@@ -201,7 +199,6 @@ describe('oAuth authentication', () => {
     const credential = await refreshOAuthCredential({
       server: 'https://devops.example.com',
       refreshToken: 'refresh-secret',
-      scopes: ['project:read'],
       fetch: async (_input, init) => {
         forms.push(new URLSearchParams(String(init?.body ?? '')))
         return jsonResponse({
@@ -217,13 +214,11 @@ describe('oAuth authentication', () => {
       grant_type: 'refresh_token',
       refresh_token: 'refresh-secret',
       client_id: 'luna-cli',
-      scope: 'project:read',
     })
     expect(credential).toEqual({
       accessToken: 'new-access-secret',
       refreshToken: 'refresh-secret',
       tokenType: 'Bearer',
-      scopes: ['project:read'],
       expiresAt: '2030-01-01T00:30:00.000Z',
       user: undefined,
     })

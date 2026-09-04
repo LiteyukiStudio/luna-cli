@@ -12,7 +12,6 @@ describe('authentication context', () => {
         type: 'oauth',
         accessToken: 'access-secret-value',
         refreshToken: 'refresh-secret-value',
-        scopes: [],
         createdAt: '2030-01-01T00:00:00.000Z',
       },
       project: null,

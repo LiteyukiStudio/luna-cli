@@ -35,15 +35,14 @@ Webhook、内部接收器和底层协议操作不会注册为 canonical raw comm
 下载和终端等能力只通过对应的专用协议命令提供。`high` 和 `critical` 风险操作
 在交互终端中必须逐次明确确认；非交互或 Agent 模式必须显式传入 `--yes`，
 否则以稳定的 `confirmation_required` 错误拒绝。CLI 的确认只表示调用意图，
-后端权限、Scope 与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
+后端权限、适用的接口 Scope 与 Step-up MFA 仍是最终安全裁决。通用 `api request` 仅保留为
 人类诊断逃生口，不参与业务能力伪装。终端要求 CLI OAuth 登录与对应 purpose
 的有效 Step-up；个人访问令牌不能满足或绕过这一协议授权。
-`luna login` 默认只请求当前角色适用的常用 Scope；敏感 Scope 需要用户明确
-重新授权。已知命令会在发请求前检查 OAuth Grant，缺少 Scope 时返回
-`oauth_scope_required` 和可直接执行的 `luna login scope=...` 提示。
-命令元数据尚未声明 Scope 时，CLI 会使用服务端拒绝响应中的 `requiredScope`
-生成同样的重新授权提示。
-Scope 只表达调用能力，不能替代项目空间角色和后端权限检查。
+第一方 `luna-cli` 的 Device Code 登录不接受、展示或保存用户可选 Scope，也不依据
+本地权限副本预检命令或生成扩大权限的重新登录命令。CLI 会话权限在每次请求时按
+当前用户的平台角色、项目空间成员关系和资源策略由服务端裁决。个人访问令牌、
+第三方 OAuth 应用和 Agent 服务身份仍按 OpenAPI 声明的接口 Scope 限权；机器 Help
+展示这些接口要求，但 Scope 不能替代项目空间角色和后端权限检查。
 本地存储的 OAuth 凭据会在 Access Token 到期前 30 秒或已经过期时，
 由 `auth status` 和远程命令自动刷新；多个 CLI 进程会合并同一轮刷新，
 避免重复旋转 Refresh Token。`luna auth refresh` 仅用于强制手动刷新或
@@ -184,6 +183,55 @@ Skills 与 CLI 使用相同版本并由同一个 `v*` GitHub Release 发布，�
 - [English CLI documentation](https://luna-devops.liteyuki.org/en/guide/cli/)
 - [完整设计规格](./docs/cli-spec.md)
 
+## 项目空间数据卷
+
+数据卷列表、详情、创建、更新、删除、纳管和传输记录均使用服务端分页与权限判断：
+
+```bash
+luna volume list page=1 pageSize=20
+luna volume get volumeId=pvol_example
+luna volume create body=@volume.json idempotencyKey=volume-create-001
+luna volume adopt displayName=shared clusterId=cluster_example claimName=shared-pvc ownershipMode=referenced idempotencyKey=volume-adopt-001
+luna volume update volumeId=pvol_example revision=3 capacity=20Gi
+luna volume delete volumeId=pvol_example revision=3 dataAction=delete --yes
+luna volume-transfer list page=1 pageSize=20
+luna volume-transfer get transferId=vtx_example
+luna volume-transfer retry transferId=vtx_example idempotencyKey=volume-retry-001 --yes
+luna volume-transfer cancel transferId=vtx_example --yes
+```
+
+本地归档导入会先创建并校验不可变的私有暂存副本，再等待 Transfer 进入 `ready`，最后用单次
+`PUT` 上传完整归档；导出会等待 Transfer 进入 `ready`，申请一次性票据后用单次 `GET` 下载
+完整归档。两种传输都不支持断点续传：
+
+```bash
+luna volume import file=backup.tar.gz displayName=data clusterId=cluster_example capacity=10Gi storageClassName=standard idempotencyKey=volume-import-001
+luna volume export volumeId=pvol_example destination=backup.tar.gz consistency=auto idempotencyKey=volume-export-001
+luna volume export volumeId=pvol_block destination=block.raw.zst format=raw_zst consistency=snapshot idempotencyKey=volume-export-block-001
+luna volume export transferId=vtx_example destination=backup.tar.gz
+```
+
+导入暂存需要约等于归档大小的额外本地可用空间。副本完成校验后会在创建远端 Transfer 之前从
+文件系统命名空间分离，只保留当前进程的只读句柄；成功或失败都会关闭句柄并释放空间。如果本地
+文件系统无法安全完成该步骤，CLI 会在创建远端资源前停止。对于同一幂等键返回的 `succeeded`
+Transfer，CLI 仅在方向、长度和 SHA-256 与当前暂存副本完全一致时收敛为成功；`streaming` 状态
+不会重放单次 `PUT`。
+
+CLI 不保存传输状态或一次性票据。导出使用目标目录内随机命名的私有事务目录暂存完整归档；在
+支持 POSIX mode 的系统上，目录和文件分别限制为 `0700` 与 `0600`。校验长度、SHA-256 和文件
+身份后才原子提交。若权威回读、Block manifest 或提交失败，错误中的 `recoveryPath` /
+`recoveryPaths` 只列出再次验证过的私有恢复文件；无法确认身份的冲突路径列在
+`preservedUnknownPaths`。CLI 不创建公共 `<destination>.part`，但会把它及 Block sidecar 的
+`.part` 名称保留为冲突保护：既有或传输期间出现的文件即使传入 `overwrite=true` 也不会被删除或
+覆盖。文件系统不能提供可靠文件身份或安全硬链接时，导出会在申请一次性票据前停止。
+安全恢复还要求当前操作期间同一操作系统账号不移动或替换目标父目录；发生这类外部目录变更时，
+CLI 会停止并把无法重新确认的路径报告为未知，而不会将其声称为可用恢复文件。
+
+传输进度只在人类表格输出中显示，JSON/Agent 输出保持稳定且不包含进度文本。Block 卷的
+`raw_zst` 导出会为 manifest 单独申请一次性票据，校验后将归档与同名
+`<archive>.manifest.json` sidecar 一并提交；Filesystem 导出不会请求 sidecar。导入和导出需要
+访问本地文件，因此不能在 Agent 模式中执行。
+
 ## 开发验证
 
 从仓库根目录执行：
@@ -241,11 +289,13 @@ confirmation, or `--yes` in non-interactive and agent mode. CLI confirmation
 records caller intent only: server permissions, scopes, and step-up MFA remain
 authoritative. Terminal protocols require a CLI OAuth login and a valid step-up
 assertion for the matching purpose; personal access tokens cannot
-satisfy or bypass that authorization. `luna login` requests only common scopes
-appropriate for the current role; sensitive scopes require explicit
-reauthorization. Known commands check the active OAuth grant before sending a
-request and return `oauth_scope_required` with a runnable login command when a
-scope is missing. Scopes never replace project roles or backend authorization.
+satisfy or bypass that authorization. First-party `luna-cli` Device Code login
+does not accept, display, or persist user-selectable scopes, and commands do not
+preflight a copied grant or synthesize a broader login request. The server
+authorizes every CLI request from the user's current platform role, project
+membership, and resource policy. Personal access tokens, third-party OAuth apps,
+and Agent service identities remain restricted by the endpoint scopes declared in
+OpenAPI; machine Help exposes those endpoint requirements without replacing RBAC.
 Generic `api request` remains a human-only diagnostic escape hatch.
 Stored OAuth credentials are refreshed automatically by `auth status` and remote
 commands when the access token is within 30 seconds of expiry or already expired.

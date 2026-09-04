@@ -11,7 +11,7 @@ import {
   updateConfig,
   withCredentialRefreshLock,
 } from '../config/store.js'
-import { assertIsoDate, normalizeScopes } from './validation.js'
+import { assertIsoDate } from './validation.js'
 
 export const OAUTH_REFRESH_SKEW_MS = 30_000
 export const DEFAULT_OAUTH_REFRESH_TIMEOUT_MS = 30_000
@@ -156,7 +156,6 @@ export async function refreshStoredOAuthCredential(
       const refreshed = await options.refresh({
         server: current.server,
         refreshToken: current.credential.refreshToken,
-        scopes: current.credential.scopes,
         timeoutMs: options.timeoutMs ?? DEFAULT_OAUTH_REFRESH_TIMEOUT_MS,
       })
       nextCredential = refreshedCredential(current.credential, refreshed)
@@ -294,9 +293,6 @@ function refreshedCredential(
     accessToken,
     refreshToken: refreshed.refreshToken?.trim() || current.refreshToken,
     tokenType: refreshed.tokenType?.trim() || current.tokenType,
-    scopes: refreshed.scopes.length > 0
-      ? normalizeScopes(refreshed.scopes)
-      : current.scopes,
     expiresAt: refreshed.expiresAt,
     refreshState: undefined,
   }

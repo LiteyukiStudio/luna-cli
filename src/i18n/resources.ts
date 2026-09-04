@@ -134,6 +134,8 @@ export const resources = {
         'runtime': 'Runtime resources, logs, and terminal operations',
         'user': 'Users and account settings',
         'version': 'CLI version and runtime information',
+        'volume': 'Project volumes and archive transfer',
+        'volume-transfer': 'Project volume transfer history',
       },
       parameters: {
         all: 'Apply to or include all matching items.',
@@ -200,6 +202,24 @@ export const resources = {
         version: {
           show: { summary: 'Show Luna CLI version and runtime information.' },
         },
+        volume: {
+          adopt: { summary: 'Reference or adopt an existing persistent volume claim.' },
+          delete: { summary: 'Delete a managed volume or detach a referenced volume.' },
+          export: { summary: 'Export a project volume to a local archive with one complete stream.' },
+          import: { summary: 'Import a local archive into a project volume.' },
+          retry: { summary: 'Retry the latest failed volume operation.' },
+          update: { summary: 'Rename or expand a project volume.' },
+        },
+        volumeTransfer: {
+          retry: { summary: 'Retry a failed volume transfer with direction-specific authorization.' },
+        },
+      },
+      volume: {
+        progress: {
+          upload: 'Uploading',
+          export: 'Exporting',
+          download: 'Downloading',
+        },
       },
       confirm: {
         execute: 'Run this command?',
@@ -237,7 +257,6 @@ export const resources = {
         oauth_response_invalid: 'The OAuth server returned an invalid response.',
         oauth_revoke_timeout: 'The OAuth credential revocation timed out. Local sign-out will still continue.',
         oauth_server_error: 'The OAuth server could not complete the request. Try again later.',
-        oauth_scope_required: 'The current OAuth authorization is missing permissions required by this command. Sign in again with the scopes shown in the error details.',
         oauth_temporarily_unavailable: 'The OAuth server is temporarily unavailable. Try again later.',
         oauth_unauthorized_client: 'This Luna CLI OAuth client is not authorized for the requested flow.',
         oauth_unsupported_grant_type: 'The OAuth server does not support this login or refresh flow.',
@@ -265,6 +284,13 @@ export const resources = {
         terminal_remote_exit: 'The remote shell exited with a non-zero status.',
         terminal_resize_failed: 'The terminal size could not be synchronized.',
         terminal_tty_required: 'This command requires an interactive TTY.',
+        volume_transfer: {
+          checksum_mismatch: 'The archive checksum does not match.',
+          download_unauthorized: 'The download authorization expired or is invalid.',
+          manifest_invalid: 'The block-volume export manifest is invalid.',
+          manifest_mismatch: 'The block-volume export manifest does not match the transfer.',
+          wait_timeout: 'Timed out waiting for the volume transfer to become ready.',
+        },
       },
       table: {
         name: 'Name',
@@ -410,6 +436,8 @@ export const resources = {
         'runtime': '运行资源、日志与终端操作',
         'user': '用户与账号设置',
         'version': 'CLI 版本与运行环境',
+        'volume': '项目空间数据卷与归档传输',
+        'volume-transfer': '数据卷传输记录',
       },
       parameters: {
         all: '对全部匹配项生效，或包含全部匹配项。',
@@ -476,6 +504,24 @@ export const resources = {
         version: {
           show: { summary: '查看 Luna CLI 版本和运行环境。' },
         },
+        volume: {
+          adopt: { summary: '引用或纳管已有的持久卷声明。' },
+          delete: { summary: '删除托管数据卷或解除外部数据卷引用。' },
+          export: { summary: '以单次完整流将项目空间数据卷导出到本地归档。' },
+          import: { summary: '以单次完整流将本地归档导入为项目空间数据卷。' },
+          retry: { summary: '重试最近一次失败的数据卷操作。' },
+          update: { summary: '重命名或扩容项目空间数据卷。' },
+        },
+        volumeTransfer: {
+          retry: { summary: '按传输方向重新校验权限并重试失败的数据卷传输。' },
+        },
+      },
+      volume: {
+        progress: {
+          upload: '正在上传',
+          export: '正在导出',
+          download: '正在下载',
+        },
       },
       confirm: {
         execute: '确认执行此命令吗？',
@@ -513,7 +559,6 @@ export const resources = {
         oauth_response_invalid: 'OAuth 服务返回了无效响应。',
         oauth_revoke_timeout: 'OAuth 凭据吊销超时，本地退出仍会继续。',
         oauth_server_error: 'OAuth 服务无法完成请求，请稍后重试。',
-        oauth_scope_required: '当前 OAuth 授权缺少此命令需要的权限，请按错误详情中的命令重新登录并授权。',
         oauth_temporarily_unavailable: 'OAuth 服务暂时不可用，请稍后重试。',
         oauth_unauthorized_client: '当前 Luna CLI OAuth 客户端无权使用所请求的流程。',
         oauth_unsupported_grant_type: 'OAuth 服务不支持当前登录或刷新流程。',
@@ -541,6 +586,13 @@ export const resources = {
         terminal_remote_exit: '远端 Shell 以非零状态退出。',
         terminal_resize_failed: '无法同步终端窗口尺寸。',
         terminal_tty_required: '此命令必须在交互式 TTY 中运行。',
+        volume_transfer: {
+          checksum_mismatch: '归档校验和不一致。',
+          download_unauthorized: '下载授权已过期或无效。',
+          manifest_invalid: '块卷导出 manifest 无效。',
+          manifest_mismatch: '块卷导出 manifest 与传输记录不匹配。',
+          wait_timeout: '等待数据卷传输就绪超时。',
+        },
       },
       table: {
         name: '名称',

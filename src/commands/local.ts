@@ -68,11 +68,10 @@ function registerAuth(registry: CommandRegistry): void {
         sensitive: true,
         valueSources: ['file', 'stdin'],
       }),
-      parameter('scope', { repeated: true }),
     ],
     examples: [
       'luna login',
-      'luna login server=https://luna.example.com scope=project:read',
+      'luna login server=https://luna.example.com',
       'printf \'%s\' "$LUNA_TOKEN" | luna auth login mode=access-token token=@-',
     ],
   }), async (invocation, ports) => {
@@ -105,7 +104,6 @@ function registerAuth(registry: CommandRegistry): void {
       }
       const result = await ports.api.beginOAuthLogin({
         server,
-        scopes: stringList(invocation.params.scope),
         mode: 'device_code',
         onVerification: async (verification) => {
           const codePrompt = translate(
@@ -140,7 +138,6 @@ function registerAuth(registry: CommandRegistry): void {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         tokenType: result.tokenType,
-        scopes: result.scopes,
         expiresAt: result.expiresAt,
         user: userId
           ? {
@@ -188,7 +185,6 @@ function registerAuth(registry: CommandRegistry): void {
     await storeValidatedAccessToken(ports.config, {
       server,
       token,
-      scopes: stringList(invocation.params.scope),
       user: userId
         ? {
             id: userId,
@@ -772,13 +768,6 @@ function requiredString(value: unknown, key: string): string {
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
-}
-
-function stringList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === 'string')
-  }
-  return typeof value === 'string' ? [value] : []
 }
 
 function invalidArguments(message: string, key?: string): CliCommandError {

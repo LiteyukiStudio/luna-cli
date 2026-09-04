@@ -43,12 +43,10 @@ export async function getAuthStatus(
       && Boolean(credential.refreshToken)
       && !reauthenticationRequired,
     source,
-    scopes: credential ? [...credential.scopes] : [],
     user: credential?.user,
     credential: credential
       ? {
           type: credential.type,
-          scopes: [...credential.scopes],
           user: credential.user,
           expiresAt: credential.expiresAt,
           expired,

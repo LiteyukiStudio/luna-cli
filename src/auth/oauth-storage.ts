@@ -7,10 +7,7 @@ import {
   updateConfig,
   withCredentialRefreshLock,
 } from '../config/store.js'
-import {
-  assertIsoDate,
-  normalizeScopes,
-} from './validation.js'
+import { assertIsoDate } from './validation.js'
 
 export async function storeValidatedOAuthCredential(
   store: ConfigPort,
@@ -34,7 +31,6 @@ export async function storeValidatedOAuthCredential(
         accessToken,
         refreshToken,
         tokenType: input.tokenType?.trim() || undefined,
-        scopes: normalizeScopes(input.scopes),
         user: input.user,
         expiresAt: input.expiresAt,
         createdAt: new Date().toISOString(),

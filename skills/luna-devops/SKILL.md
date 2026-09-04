@@ -20,7 +20,9 @@ operation ID。
 | 镜像站、OCI、Harbor、DockerHub、镜像凭据 | `registry` | [镜像站](references/registry.md) |
 | BuildKit、Dockerfile、构建环境、构建模板、构建运行 | `build` | [构建](references/build.md) |
 | 应用、部署配置、发布、回滚 | `application`、`deployment` | [应用与部署](references/deployment.md) |
-| Kubernetes、集群、工作负载、Pod、存储卷、日志、终端 | `runtime`、`volume`、`volume-transfer` | [运行时](references/runtime.md) |
+| Kubernetes、集群、工作负载、Pod、日志、终端 | `runtime` | [运行时](references/runtime.md) |
+| 项目空间数据卷、PVC、纳管、导入、导出 | `volume` | [数据卷](references/volumes.md) |
+| 数据卷传输记录、进度、取消与重试 | `volume-transfer` | [数据卷](references/volumes.md) |
 | 域名、Gateway、HTTPRoute、TLS、证书 | `gateway` | [网关](references/gateway.md) |
 | 服务依赖、资源图、ServiceBinding | `topology` | [拓扑](references/topology.md) |
 | 余额、账单、用量、费率、Credits | `billing` | [账单](references/billing.md) |
@@ -36,17 +38,26 @@ operation ID。
 
 ## 可用性门禁
 
+已安装环境使用 `luna`。若当前目录是独立 Luna CLI 源码根目录，使用
+`pnpm --silent exec tsx src/entry.ts`；若当前目录是包含 CLI 子仓库的平台源码根目录，使用
+`pnpm --silent --dir cli/luna-cli exec tsx src/entry.ts`。将下列命令中的 `luna` 替换为实际命令
+前缀。不要使用 `pnpm cli --` 执行 Agent 任务，避免包管理器输出破坏 stdout 的单 JSON
+Envelope 契约。
+
 1. 执行 `luna version show output=json interactive=false agent=true`。
-2. 远程操作前执行
+2. 排除上述源码环境后，若第 1 步因找不到 `luna` 可执行文件而失败，明确告知用户当前未检测到
+   Luna CLI，可能尚未安装或不在 `PATH` 中；提供
+   [官方安装文档](https://luna-devops.liteyuki.org/use/cli/installation.html)，并询问用户是否愿意安装。
+   只有取得明确同意后，才可执行或引导安装。安装的 CLI 必须与当前 Skill 所属 Release 版本完全一致；
+   无法确认版本时先请用户确认，不得默认安装 `latest`。安装方式依次优先 pnpm、npm 和 GitHub Release。
+   安装完成后重新执行第 1 步。
+3. 远程操作前执行
    `luna auth status output=json interactive=false agent=true`，确认活动实例、账号与认证状态。
    该命令会在存储的 OAuth Access Token 到期前 30 秒或已过期时自动刷新。
-3. OpenAPI 业务命令会自动校验服务端兼容性；需要查看详细能力、诊断失败或首次接入实例时执行
+4. OpenAPI 业务命令会自动校验服务端兼容性；需要查看详细能力、诊断失败或首次接入实例时执行
    `luna health doctor output=json interactive=false agent=true`。
-4. CLI 不可用时停止平台操作；不得改用 REST API、Kubernetes API 或第三方 Provider API。
-
-源码环境使用 `pnpm --silent --dir cli exec tsx src/entry.ts` 代替已安装的
-`luna`。不要使用 `pnpm cli --` 执行 Agent 任务，避免包管理器输出破坏 stdout
-的单 JSON Envelope 契约。
+5. 用户拒绝或尚未完成安装，或者 CLI 因其他原因不可用时，停止平台操作；不得改用 REST API、
+   Kubernetes API 或第三方 Provider API。
 
 ## 命令发现
 
@@ -57,7 +68,9 @@ operation ID。
   检索命令，再使用
   `luna help command path=<category.tool> output=json interactive=false agent=true`
   读取完整契约。
-- 机器 Help 是参数、输入 Schema、输出、Scope、风险和错误码的事实来源。
+- 机器 Help 是参数、输入 Schema、输出、接口所需 Scope、风险和错误码的事实来源。
+  其中 Scope 用于个人访问令牌、第三方 OAuth 应用和 Agent 服务身份等受限凭据，
+  不是 `luna login` 的可选参数。
 - `serverSupported=null` 表示尚未确认服务端能力，不代表已经支持。
 - 命令目录中不存在的工具不得推测，也不得用 `api request` 补成业务能力。
 - OAuth/OIDC 回调与 Webhook 接收端点不是 Agent 可直接调用的业务工具。
@@ -92,7 +105,7 @@ operation ID。
 5. Agent 或其他非交互调用执行需要确认的操作时，必须先取得用户对本次具体操作
    的明确授权，再显式传入 `--yes`；使用 `key=value` 形式时等价为
    `yes=true`。同时保留 `output=json interactive=false agent=true`，且只执行一次。
-6. `--yes` 只关闭 CLI 提示，不会绕过后端权限、Scope、Step-up MFA、资源版本或
+6. `--yes` 只关闭 CLI 提示，不会绕过后端权限、适用的接口 Scope、Step-up MFA、资源版本或
    其他服务端策略。
 7. 执行后重新读取资源，按后置条件判断结果。
 8. 发生冲突、目标漂移或不确定终态时重新读取，不盲目重试或追加 `force`。

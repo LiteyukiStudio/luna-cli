@@ -12,22 +12,6 @@ export function normalizeCredentialName(name: string): string {
   return normalized
 }
 
-export function normalizeScopes(scopes: readonly string[] | undefined): string[] {
-  const normalized = [...new Set(
-    (scopes ?? []).map(scope => scope.trim()).filter(Boolean),
-  )].sort()
-  for (const scope of normalized) {
-    if (/\s/.test(scope)) {
-      throw new CliCommandError(
-        'credential_scope_invalid',
-        `Credential scope "${scope}" must not contain whitespace.`,
-        { status: 422 },
-      )
-    }
-  }
-  return normalized
-}
-
 export function assertIsoDate(value: string | undefined): void {
   if (value === undefined)
     return

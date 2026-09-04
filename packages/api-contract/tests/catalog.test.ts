@@ -198,6 +198,36 @@ describe("OpenAPI operation catalog", () => {
     });
   });
 
+  it("accepts non-command browser workflows and idempotency metadata from the platform contract", () => {
+    const [browserWorkflow, idempotentAdapter] = buildOperationCatalog([
+      operation({
+        operationId: "getWidgetBrowserState",
+        xLunaCli: {
+          classification: "browser-workflow",
+          hidden: true,
+          agentAllowed: false,
+        },
+      }),
+      operation({
+        operationId: "postWidgetAdapter",
+        method: "post",
+        xLunaCli: {
+          classification: "protocol-adapter",
+          idempotent: true,
+          hidden: true,
+          agentAllowed: false,
+        },
+      }),
+    ])
+
+    expect(browserWorkflow?.command).toMatchObject({
+      classification: "browser-workflow",
+      hidden: true,
+      agentAllowed: false,
+    })
+    expect(idempotentAdapter?.xLunaCli?.idempotent).toBe(true)
+  });
+
   it("infers project context from project path parameters", () => {
     const [entry] = buildOperationCatalog([
       operation({

@@ -35,7 +35,6 @@ import {
 } from '@luna-devops/api-client'
 import {
   assertAuthenticationTransition,
-  assertOAuthScopes,
   authenticationContext,
   authenticationContextChanged,
   beginOAuthLogin,
@@ -43,7 +42,6 @@ import {
   refreshStoredOAuthCredential,
   revokeOAuthCredential,
   sameAuthenticationContext,
-  withOAuthScopeRemediation,
 } from '../auth/index.js'
 import { resolveRuntimeContext } from '../config/index.js'
 import {
@@ -153,7 +151,6 @@ export class LunaApiAdapter implements ApiPort {
     const result = await this.#send(
       planned,
       request.globals,
-      request.metadata.scopes,
       request.authentication,
     )
     const projectId = requestProjectId(request)
@@ -191,7 +188,6 @@ export class LunaApiAdapter implements ApiPort {
     const result = await this.#send(
       planned,
       request.globals,
-      [],
       request.authentication,
     )
     return {
@@ -271,7 +267,7 @@ export class LunaApiAdapter implements ApiPort {
         pageSize: 100,
         query: value,
       },
-    }, globals, [], expectedAuthentication)
+    }, globals, expectedAuthentication)
     if (!result.ok)
       throw apiFailure(result.error)
 
@@ -306,17 +302,15 @@ export class LunaApiAdapter implements ApiPort {
   async #send(
     planned: PlannedApiRequest,
     globals: CommandExecutionGlobals,
-    requiredScopes: readonly string[] = [],
     expectedAuthentication?: AuthenticationContext,
   ): Promise<{ data: unknown, requestId: string, correlationId?: string, status: number }> {
     const result = await this.#requestWithOAuthRecovery(
       planned,
       globals,
-      requiredScopes,
       expectedAuthentication,
     )
     if (!result.ok)
-      throw await this.#scopeAwareFailure(apiFailure(result.error), globals)
+      throw apiFailure(result.error)
     return {
       data: result.data,
       requestId: result.requestId,
@@ -328,7 +322,6 @@ export class LunaApiAdapter implements ApiPort {
   async #requestWithOAuthRecovery(
     planned: PlannedApiRequest,
     globals: CommandExecutionGlobals,
-    requiredScopes: readonly string[] = [],
     expectedAuthentication?: AuthenticationContext,
   ): Promise<LunaResult<unknown>> {
     const headers = new Headers(planned.headers)
@@ -358,7 +351,6 @@ export class LunaApiAdapter implements ApiPort {
 
     const initial = await this.#client(
       globals,
-      requiredScopes,
       expectedAuthentication,
     )
     const result = await send(initial, globals.requestId, 'initial_send')
@@ -396,11 +388,6 @@ export class LunaApiAdapter implements ApiPort {
         refreshOutcome: refresh.outcome,
       },
     )
-    assertOAuthScopes(
-      retryRuntime.credential,
-      retryRuntime.sources.credential,
-      requiredScopes,
-    )
     if (planned.method !== 'GET' && planned.method !== 'HEAD') {
       throw new CliCommandError(
         'oauth_request_replay_required',
@@ -422,25 +409,6 @@ export class LunaApiAdapter implements ApiPort {
       retry,
       globals.requestId ?? result.requestId,
       'oauth_retry',
-    )
-  }
-
-  async #scopeAwareFailure(
-    error: CliCommandError,
-    globals: CommandExecutionGlobals,
-  ): Promise<CliCommandError> {
-    const config = await this.#config.read()
-    const runtime = resolveRuntimeContext(config, {
-      server: globals.server,
-      project: globals.project,
-      output: globals.output,
-      language: globals.lang,
-      env: this.#env,
-    })
-    return withOAuthScopeRemediation(
-      error,
-      runtime.credential,
-      runtime.sources.credential,
     )
   }
 
@@ -481,7 +449,6 @@ export class LunaApiAdapter implements ApiPort {
 
   async #client(
     globals: CommandExecutionGlobals,
-    requiredScopes: readonly string[] = [],
     expectedAuthentication?: AuthenticationContext,
   ): Promise<ApiClientContext> {
     if (globals.insecureSkipTlsVerify) {
@@ -509,11 +476,6 @@ export class LunaApiAdapter implements ApiPort {
         },
       )
     }
-    assertOAuthScopes(
-      runtime.credential,
-      runtime.sources.credential,
-      requiredScopes,
-    )
     let issuedCredential: OAuthTokenCredential | undefined
     const refresh = await refreshStoredOAuthCredential(this.#config, {
       env: this.#env,
@@ -538,11 +500,6 @@ export class LunaApiAdapter implements ApiPort {
         stage: 'oauth_preflight',
         refreshOutcome: refresh.outcome,
       },
-    )
-    assertOAuthScopes(
-      runtime.credential,
-      runtime.sources.credential,
-      requiredScopes,
     )
     return this.#clientForRuntime(runtime, globals)
   }

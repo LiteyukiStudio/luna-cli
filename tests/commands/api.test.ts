@@ -212,7 +212,6 @@ describe('oAuth credential refresh', () => {
             accessToken: 'access-refreshed',
             refreshToken: 'refresh-rotated',
             tokenType: 'Bearer',
-            scopes: ['project:read'],
             expiresAt: '2026-07-27T11:00:00.000Z',
           }
         },
@@ -566,11 +565,16 @@ describe('oAuth credential refresh', () => {
   })
 })
 
-describe('oauth scope preflight', () => {
-  it('rejects a canonical command before sending when the stored grant lacks a required scope', async () => {
-    const request = vi.fn()
+describe('server-authoritative authorization', () => {
+  it('sends a canonical command without preflighting copied scope metadata', async () => {
+    const request = vi.fn(async () => ({
+      ok: true as const,
+      status: 200,
+      data: { id: 'project alpha' },
+      requestId: 'request-update',
+    }))
     const adapter = new LunaApiAdapter({
-      config: new MemoryConfigStore(oauthConfig()),
+      config: new MemoryConfigStore(activeOauthConfig()),
       clientFactory: () => ({ request }) as never,
     })
 
@@ -594,17 +598,11 @@ describe('oauth scope preflight', () => {
           { name: 'body', location: 'body', required: true },
         ],
       }),
-    })).rejects.toMatchObject({
-      code: 'oauth_scope_required',
-      status: 403,
-      details: expect.objectContaining({
-        missingScopes: ['project:write'],
-      }),
-    })
-    expect(request).not.toHaveBeenCalled()
+    })).resolves.toMatchObject({ data: { id: 'project alpha' } })
+    expect(request).toHaveBeenCalledOnce()
   })
 
-  it('uses the server-required scope when command metadata is incomplete', async () => {
+  it('preserves a server authorization failure without generating login guidance', async () => {
     const adapter = new LunaApiAdapter({
       config: new MemoryConfigStore(activeOauthConfig()),
       clientFactory: () => ({
@@ -644,10 +642,10 @@ describe('oauth scope preflight', () => {
         ],
       }),
     })).rejects.toMatchObject({
-      code: 'oauth_scope_required',
+      code: 'auth.token.scope_insufficient',
+      message: 'Insufficient scope.',
       details: expect.objectContaining({
-        missingScopes: ['application:update'],
-        remediation: 'luna login scope=application:update scope=project:read',
+        requiredScope: 'application:update',
       }),
     })
   })
@@ -718,7 +716,6 @@ function oauthConfig(): StoredLunaConfig {
       accessToken: 'access-expiring',
       refreshToken: 'refresh-original',
       tokenType: 'Bearer',
-      scopes: ['project:read'],
       expiresAt: '2026-07-27T10:00:10.000Z',
       createdAt: '2026-07-27T09:00:00.000Z',
     },
@@ -747,7 +744,6 @@ function switchedOauthConfig(
       accessToken: 'access-other-login',
       refreshToken: 'refresh-other-login',
       tokenType: 'Bearer',
-      scopes: ['project:read'],
       expiresAt: '2999-08-01T00:00:00.000Z',
       createdAt: '2999-07-31T23:00:00.000Z',
     },
@@ -771,7 +767,6 @@ function refreshedCredential() {
     accessToken: 'access-refreshed',
     refreshToken: 'refresh-rotated',
     tokenType: 'Bearer',
-    scopes: ['project:read'],
     expiresAt: '2999-07-27T11:00:00.000Z',
   }
 }

@@ -383,6 +383,7 @@ export function parseOpenApiSource(source, sourceName = "openapi.yaml") {
         key: routeKey(method, normalizedPath),
         method: method.toUpperCase(),
         path: normalizedPath,
+        operationId: operation.operationId,
         commandPath,
         operationId: operation.operationId?.trim() ?? "",
         classification: extension.classification ?? "unclassified",
@@ -437,6 +438,12 @@ function normalizeCliCommand(command) {
         : [],
     ),
   });
+}
+
+function consumesOperation(command, operation) {
+  return command?.source === "protocol"
+    && typeof operation?.operationId === "string"
+    && command.consumedOperations.includes(operation.operationId);
 }
 
 function extractFunctionBody(source, functionName, sourceName) {
@@ -560,9 +567,9 @@ export function evaluateCoverage({
   const errors = [];
   const routeMap = uniqueByKey(routes, "platform route", errors);
   const openApiMap = uniqueByKey(openApiOperations, "OpenAPI operation", errors);
+  const normalizedCliCommands = [...cliCommands].map(normalizeCliCommand);
   const cliCommandMap = uniqueByKey(
-    [...cliCommands]
-      .map(normalizeCliCommand)
+    normalizedCliCommands
       .filter((command) => {
         if (command.path) {
           return true;
@@ -574,6 +581,27 @@ export function evaluateCoverage({
     "CLI command",
     errors,
   );
+  const protocolCommandsByOperation = new Map();
+  const openApiOperationIds = new Set(
+    openApiOperations
+      .map(operation => operation.operationId)
+      .filter(Boolean),
+  );
+  for (const command of normalizedCliCommands) {
+    if (command.source !== "protocol") {
+      continue;
+    }
+    for (const operationId of command.consumedOperations) {
+      if (!openApiOperationIds.has(operationId)) {
+        errors.push(
+          `CLI protocol command "${command.path}" consumes unknown OpenAPI operation "${operationId}"`,
+        );
+      }
+      const commands = protocolCommandsByOperation.get(operationId) ?? [];
+      commands.push(command);
+      protocolCommandsByOperation.set(operationId, commands);
+    }
+  }
   const auditMap = new Map(classificationEntries(classifications));
   const blockedRisks = new Set(executionPolicy.blockedRisks ?? []);
 
@@ -627,6 +655,17 @@ export function evaluateCoverage({
   for (const route of routes) {
     const operation = openApiMap.get(route.key);
     const audit = auditMap.get(route.key);
+    const exactCommand = operation
+      ? cliCommandMap.get(operation.commandPath)
+      : undefined;
+    const protocolCandidates = operation?.operationId
+      ? protocolCommandsByOperation.get(operation.operationId) ?? []
+      : [];
+    const protocolCommand = consumesOperation(exactCommand, operation)
+      ? exactCommand
+      : protocolCandidates.length === 1
+        ? protocolCandidates[0]
+        : undefined;
     let classification;
     let covered = false;
     let registered = false;
@@ -640,6 +679,25 @@ export function evaluateCoverage({
     } else if (!operation) {
       classification = "unclassified";
       errors.push(`${route.key}: business route is missing from OpenAPI`);
+    } else if (protocolCommand) {
+      classification = "command";
+      registered = true;
+      if (protocolCommand.hidden) {
+        errors.push(
+          `${route.key}: protocol command "${protocolCommand.path}" is hidden and cannot satisfy business coverage`,
+        );
+      } else if (protocolCommand.serverSupported === false) {
+        errors.push(
+          `${route.key}: protocol command "${protocolCommand.path}" is registered but marked unsupported by the server`,
+        );
+      } else if (blockedRisks.has(protocolCommand.risk ?? operation.risk)) {
+        errors.push(
+          `${route.key}: protocol command "${protocolCommand.path}" is registered but globally blocked at risk "${protocolCommand.risk ?? operation.risk}"`,
+        );
+      } else {
+        executable = true;
+        covered = true;
+      }
     } else if (
       operation.hidden ||
       operation.classification === "protocol-adapter" ||
@@ -837,7 +895,37 @@ function loadCliCatalog() {
         seenCursors.add(cursor);
       }
     } while (cursor);
-    return items;
+    return items.map((item) => {
+      if (item?.source !== "protocol" || typeof item?.path !== "string") {
+        return item;
+      }
+      const runner = cliInvocation();
+      const result = spawnSync(runner.command, [
+        ...runner.prefix,
+        "help",
+        "command",
+        `path=${item.path}`,
+        "agent=true",
+      ], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          LUNA_HOME: lunaHome,
+          LUNA_LANG: "en-US",
+        },
+        timeout: 120_000,
+      });
+      if (result.error) {
+        throw result.error;
+      }
+      if (result.status !== 0) {
+        throw new Error(
+          result.stderr || result.stdout || `unable to inspect ${item.path}`,
+        );
+      }
+      return JSON.parse(result.stdout)?.data?.command ?? item;
+    });
   } finally {
     rmSync(lunaHome, { recursive: true, force: true });
   }

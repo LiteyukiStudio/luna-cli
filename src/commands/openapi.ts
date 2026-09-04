@@ -17,6 +17,8 @@ interface CatalogLike {
   readonly entries?: readonly unknown[]
 }
 
+const GLOBAL_HTTP_HEADERS = new Set(['idempotency-key'])
+
 export function createRegistryFromContract(contractModule: unknown): CommandRegistry {
   const catalog = extractCatalog(contractModule)
   const registry = new CommandRegistry(catalog.metadata)
@@ -77,6 +79,15 @@ export function registerOpenApiCommands(
     ) {
       continue
     }
+    const commandPath = entry.canonicalPath ?? `${entry.category}.${entry.tool}`
+    const existing = registry.get(commandPath)
+    if (
+      existing?.metadata.source === 'protocol'
+      && entry.operationId
+      && existing.metadata.consumedOperations?.includes(entry.operationId)
+    ) {
+      continue
+    }
     registry.register(entry, async (invocation, ports) => {
       if (!entry.operationId) {
         throw new CliCommandError(
@@ -104,6 +115,7 @@ function normalizeCatalogEntry(value: unknown): CommandCatalogEntry {
   const category = requiredString(entry.category ?? command.category ?? extension.category, 'category')
   const tool = requiredString(entry.tool ?? command.tool ?? extension.tool, 'tool')
   const parameters = parameterArray(entry.parameters)
+    .filter(parameter => !isGlobalHttpHeader(parameter))
   const requestBody = asRecord(entry.requestBody)
   if (Object.keys(requestBody).length > 0) {
     parameters.push({
@@ -136,7 +148,7 @@ function normalizeCatalogEntry(value: unknown): CommandCatalogEntry {
     description: stringValue(entry.description),
     descriptionKey: stringValue(entry.descriptionKey),
     parameters,
-    inputSchema: schemaValue(entry.inputSchema),
+    inputSchema: withoutGlobalHttpHeaders(schemaValue(entry.inputSchema)),
     outputSchema: schemaValue(entry.outputSchema),
     errorSchema: schemaValue(entry.errorSchema),
     schemaVersion: stringValue(entry.schemaVersion),
@@ -184,6 +196,37 @@ function parameterArray(value: unknown): CommandParameter[] {
       schema: schemaValue(parameter.schema),
     }
   })
+}
+
+function isGlobalHttpHeader(parameter: CommandParameter): boolean {
+  return parameter.location === 'header'
+    && GLOBAL_HTTP_HEADERS.has(parameter.name.toLocaleLowerCase())
+}
+
+function withoutGlobalHttpHeaders(schema: JsonSchema | undefined): JsonSchema | undefined {
+  if (!schema)
+    return undefined
+  const properties = asRecord(schema.properties)
+  const filteredProperties = Object.fromEntries(
+    Object.entries(properties).filter(([name]) =>
+      !GLOBAL_HTTP_HEADERS.has(name.toLocaleLowerCase())),
+  )
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter(name =>
+        typeof name !== 'string'
+        || !GLOBAL_HTTP_HEADERS.has(name.toLocaleLowerCase()))
+    : undefined
+  if (
+    Object.keys(filteredProperties).length === Object.keys(properties).length
+    && required === undefined
+  ) {
+    return schema
+  }
+  return {
+    ...schema,
+    properties: filteredProperties,
+    ...(required ? { required } : {}),
+  }
 }
 
 function valueSourceArray(

@@ -64,7 +64,6 @@ function createHarness() {
     credential: {
       type: 'access_token',
       token: 'test-token',
-      scopes: [],
     },
     project: null,
     language: '',

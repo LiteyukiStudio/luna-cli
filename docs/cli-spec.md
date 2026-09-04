@@ -69,8 +69,8 @@ CLI 与 Web 控制台共用后端能力和 API 契约，但不直接复用浏览
 - 当前 OAuth Token Endpoint 仅支持 `client_secret_basic` 与 `client_secret_post`，还不能安全支持没有 Client Secret 的原生 CLI 公共客户端；
 - 当前后端尚未实现 Device Authorization Grant；
 - Step-up MFA assertion 已支持绑定浏览器 Session 或内置 CLI OAuth Grant；个人访问令牌仍被明确拒绝。
-- 终端预授权和终端存活监控已使用统一认证上下文，可绑定浏览器 Session 或 CLI OAuth Grant。
-- OAuth 与个人访问令牌已使用不同的 Scope 策略：普通用户可明确授权项目空间和账号级 OAuth Scope，平台管理 Scope 仍只允许平台管理员；要求 Step-up 的敏感 Scope 不进入个人访问令牌目录，也不进入默认 OAuth 推荐集合。
+- 终端预授权、终端存活监控和数据卷导出一次性票据已使用统一认证上下文，可绑定浏览器 Session 或 CLI OAuth Grant。
+- 第一方 `luna-cli` Device Code 会话不接受用户选择 Scope，权限实时跟随当前用户的平台角色、项目空间成员关系和资源策略；个人访问令牌、第三方 OAuth 应用和 Agent 服务身份继续按各自 Scope 策略限权，要求 Step-up 的敏感 Scope 不进入个人访问令牌目录。
 - 当前 Bearer 鉴权通过 `RequiredAccessTokenScope` 维护独立的路由到 Scope 映射，未映射路由统一得到 `system:unmapped` 并被拒绝；通知、看板、数据保留、构建模板等现有路由仍有落入该分支的风险。只补 OpenAPI 和命令而不补 Scope 映射，CLI 仍会稳定返回 403。
 
 以上数字是设计审计快照，不作为长期硬编码基线。实现阶段必须由测试代码直接读取 Gin `router.Routes()` 和 OpenAPI 生成最新覆盖报告。
@@ -100,7 +100,7 @@ Phase 0 至 Phase 4 只是实施顺序，任何一个 Phase 未完成时都不�
 2. 所有公开 JSON 与协议握手错误收敛到稳定 Error Envelope，并从语言无关的错误目录生成或校验 Go、OpenAPI、Web 和 CLI 定义。
 3. OAuth consent、OpenAPI security、Bearer 路由鉴权和 CLI Help 使用同一份 Scope 目录；任何允许 Bearer 调用的路由不得落入 `system:unmapped`。
 4. 服务端提供不含 Client Secret 的内置第一方公共 CLI Client、PKCE、Device Code、Refresh 和 Revoke 完整流程。
-5. Step-up MFA、终端预授权和终端存活监控支持 OAuth Bearer 认证上下文，不再仅绑定浏览器 Session。
+5. Step-up MFA、终端预授权、终端存活监控和数据卷导出票据支持 OAuth Bearer 认证上下文，不再仅绑定浏览器 Session。
 6. Node.js npm 包与 Bun 单二进制通过同一 `HttpTransport` 契约，代理、自定义 CA、重定向、取消、SSE、WebSocket 和二进制下载行为一致。
 7. 每个路由完成 `business-command`、`protocol-adapter`、`client-entry`、`server-entry` 或 `internal-observability` 分类，并由 CI 拒绝未分类的新路由。
 
@@ -498,6 +498,8 @@ project=<value> / --project <value>
 | `hook` | `config-list`、`config-create`、`config-update`、`config-delete`、`run-list`、`run-logs` |
 | `application` | `list`、`get`、`create`、`update`、`delete`、`topology` |
 | `deployment` | `target-list`、`target-create`、`target-update`、`target-delete`、`target-restart`、`metrics-follow` |
+| `volume` | `list`、`get`、`create`、`update`、`delete`、`delete-preview`、`storage-classes`、`adopt`、`import`、`export`、`retry` |
+| `volume-transfer` | `list`、`get`、`cancel`、`retry` |
 | `release` | `list`、`create`、`image-candidate-list`、`logs`、`runtime-logs`、`exec`（`terminal` 人工别名）、`rollback` |
 | `gateway` | `route-list`、`route-create`、`route-update`、`route-delete`、`domain-check` |
 | `billing` | `summary`、`deployment-spend`、`ledger-list`、`usage-list`、`rate-list`、`rate-update`、`wallet-transaction-create`、`external-transaction-create`、`gateway-traffic-status` |
@@ -666,7 +668,7 @@ CLI 至少提供以下统一适配器：
 | `json` | 普通 REST API | 状态码、稳定错误、分页、Scope、请求 ID |
 | `sse` | 构建日志、部署指标 | 增量事件、断线重连、服务端游标、SIGINT、空闲超时 |
 | `websocket-terminal` | Pod 与发布终端 | 原始终端模式、stdin/stdout、resize、ping/pong、退出状态、信号恢复 |
-| `binary-download` | 专用文件传输适配器（当前未注册业务命令） | `Content-Disposition`、文件名净化、覆盖确认、临时文件原子重命名、stdout 模式 |
+| `binary-download` | 数据卷归档导出 | 一次性票据、单次完整流、动态字节上限、校验和、受限暂存文件和原子提交 |
 | `oauth-protocol` | authorize、token、revoke、Device Code | PKCE、state、轮询间隔、刷新旋转、吊销与错误码 |
 
 交互终端使用 WebSocket 子协议 `luna.devops.terminal.v1`。stdin 与 stdout 只使用
@@ -740,7 +742,7 @@ dryRun:
 concurrency: none | resource-version | etag
 ```
 
-`yes=true` 只表示调用方跳过本地提示，不能代替服务端审批。涉及删除、权限、Secret、凭据、运行时终端、数据导出、账单、用户管理和其他高风险操作时，必须使用“服务端计划 -> 精确批准 -> 单次执行”：
+`yes=true` 只表示调用方跳过本地提示，不能代替服务端审批。涉及删除、权限、Secret、凭据、kubeconfig、运行时终端、数据卷导出、账单、用户管理和其他高风险操作时，必须使用“服务端计划 -> 精确批准 -> 单次执行”：
 
 ```bash
 luna cluster update params=@change.json plan=true agent=true
@@ -868,7 +870,6 @@ context、实例列表或账号列表。切换实例或账号时重新执行 `lu
     "accessToken": "<secret>",
     "refreshToken": "<secret>",
     "expiresAt": "2026-07-24T12:00:00Z",
-    "scopes": ["project:read", "application:update"],
     "user": {
       "id": "usr_example",
       "name": "Platform Admin"
@@ -903,7 +904,7 @@ luna logout
   自定义实例。
 - `server=<url>` 可显式登录其他实例；登录成功后覆盖原活动实例、凭据和默认项目。
 - 切换账号同样重新执行登录，不提供 `context use` 或 `auth switch`。
-- `auth status` 默认隐藏 Token，只显示实例、凭据类型、到期时间、用户和 Scope；
+- `auth status` 默认隐藏 Token，只显示实例、凭据类型、到期时间和用户，不返回本地 Scope 副本；
   存储的 OAuth Access Token 在到期前 30 秒或已过期时，先自动刷新再返回状态。
 - 服务端 URL 规范化为 origin，不允许携带用户名、密码、fragment 或非根路径，除非未来明确支持子路径部署。
 - 读取旧版 version 1 多 context 配置时不选择或迁移任一凭据，直接初始化为空的
@@ -1002,7 +1003,7 @@ luna auth login server=https://devops.example.com
 1. CLI 生成 PKCE verifier、challenge 和 state。
 2. CLI 在 `127.0.0.1` 随机可用端口启动一次性 loopback callback。
 3. 打开系统浏览器进入 Luna DevOps 授权页。
-4. 用户登录、完成必要 MFA 并确认 Scope。
+4. 用户登录、完成必要 MFA 并确认第一方 CLI 登录请求。
 5. CLI 校验 state，使用 authorization code + verifier 换取 Token。
 6. CLI 获取当前用户信息并保存为活动登录。
 7. callback server 立即关闭。
@@ -1014,9 +1015,9 @@ luna auth login server=https://devops.example.com
 - 公共客户端使用 `token_endpoint_auth_method=none`，不能在二进制内嵌 client secret。
 - 必须强制 PKCE S256。
 - Token Endpoint 必须接受该内置公共客户端不带 Client Secret 的换码与刷新请求；现有只支持 `client_secret_basic/post` 的实现必须先扩展。
-- OAuth Scope 校验与个人访问令牌的可创建 Scope 策略已经分离：PAT 继续禁止要求 Step-up 的敏感 Scope，第一方 `luna-cli` OAuth Client 可以在用户明确同意、角色允许且后续强制 Step-up 的前提下申请这些 Scope。
-- 第一方 CLI Client 不自动获得 `*`；请求的每个 Scope 都必须进入授权确认页、Access Token、审计和服务端最终权限判断。
-- `luna login` 默认请求与当前角色匹配的推荐 Scope；敏感 Scope 需要重新执行授权。CLI 对已知命令会在发送请求前检查当前 OAuth Grant，缺少 Scope 时返回 `oauth_scope_required` 和可执行的重新登录命令；命令元数据尚未声明 Scope 时，服务端必须在 `auth.token.scope_insufficient` 的 `details.requiredScope` 中返回最终要求，CLI 将其转换为同样的重新授权提示。OAuth Scope 只表达调用能力，不能替代项目成员角色、资源归属和后端权限判断。
+- 第一方 `luna-cli` OAuth Client 使用平台内部授权范围，不接受、展示或持久化用户可选 Scope；CLI 会话权限在每次请求时按当前用户的平台角色、项目空间成员关系和资源策略重新判断。
+- 个人访问令牌、第三方 OAuth 应用和 Agent 服务身份继续按 OpenAPI Scope 限权；这些接口要求保留在 CLI Help 中，但不能替代项目成员角色、资源归属和后端权限判断。
+- `luna login` 不发送 Scope，CLI 不依据本地权限副本做命令预检，也不把服务端拒绝转换为扩大权限的重新登录命令。旧的第一方 CLI Grant、Access Token 与 Refresh Token 在升级时撤销，用户重新登录后进入当前权限模型。
 - 只为该内置公共客户端允许 `http://127.0.0.1:{random-port}/callback` 或 `http://[::1]:{random-port}/callback`；主机必须是 loopback IP 字面量，path 固定，不允许任意主机、域名、userinfo 或额外路径通配。
 - Authorization Code 必须单次使用、短时有效并绑定 Client ID、redirect URI 和 PKCE challenge；Token Endpoint 使用标准 form 编码处理授权码、刷新和 Device Code grant。
 
@@ -1030,7 +1031,7 @@ luna auth login deviceCode=true
 
 1. CLI 请求 `device_code`、`user_code`、`verification_uri`、`verification_uri_complete`、`expires_in` 和 `interval`。
 2. CLI 显示用户码和验证地址，可用时打开浏览器。
-3. 用户在另一设备登录并批准 Scope。
+3. 用户在另一设备登录并批准第一方 CLI 登录请求。
 4. CLI 按服务端 interval 轮询 Token Endpoint。
 5. 对 `authorization_pending` 继续等待，对 `slow_down` 增加轮询间隔。
 6. 到期、拒绝或终止后清理临时状态。
@@ -1047,7 +1048,7 @@ POST /api/v1/oauth/token
 其中：
 
 - `device/authorization` 由未登录的 CLI 调用，只创建短时设备授权请求；
-- `device/verification` 的 GET/POST 由已登录浏览器 Session 调用，GET 展示待确认的 Client、Scope 和设备信息，POST 带 CSRF 防护并明确批准或拒绝；
+- `device/verification` 的 GET/POST 由已登录浏览器 Session 调用，GET 展示待确认的 Client 和设备信息，POST 带 CSRF 防护并明确批准或拒绝；
 - Token Endpoint 仅由 CLI 轮询，不把浏览器 Session 与设备码混为同一认证上下文；
 - 用户码查询必须恒定时间比较或基于哈希索引，响应不得泄露 `device_code`；
 - 已批准请求只能兑换一次，拒绝、过期和成功兑换后均进入不可逆终态。
@@ -1077,7 +1078,7 @@ LUNA_TOKEN="$TOKEN" luna project list output=json interactive=false
 - `token=@-` 只从 stdin 读取。
 - `LUNA_TOKEN` 只覆盖当前进程，默认不写入 `auth.json`。
 - 如需保存环境变量中的 Token，必须显式设置 `store=true` 并在 TTY 中确认。
-- 登录时调用当前用户和 Scope 查询验证 Token，不接受无法验证的凭据。
+- 登录时调用当前用户查询验证 Token，不接受无法验证的凭据；个人访问令牌的 Scope 仍由服务端在每次 API 请求时校验。
 - `LUNA_TOKEN` 和个人访问令牌没有 CLI OAuth Refresh Token，不参与自动或手动 OAuth 刷新。
 
 ### 9.4 状态与登出
@@ -1184,7 +1185,7 @@ luna auth mfa-verify purpose=runtime_terminal
 
 ### 10.2 后端改造要求
 
-Step-up assertion 已统一绑定 Web Session 或内置 CLI OAuth Grant，终端也使用同一认证上下文。以下要求作为已实现行为和后续回归边界保留：
+Step-up assertion 已统一绑定 Web Session 或内置 CLI OAuth Grant，终端和数据卷导出也使用同一认证上下文。以下要求作为已实现行为和后续回归边界保留：
 
 - OAuth access token 可追溯到 OAuth grant 和授权会话；
 - `VerifyMFA` 同时支持浏览器 Session 与 OAuth Bearer 授权上下文；
@@ -1194,12 +1195,12 @@ Step-up assertion 已统一绑定 Web Session 或内置 CLI OAuth Grant，终端
 - assertion 有短有效期和无操作过期策略；
 - 验证成功、失败、恢复码使用和吊销写 AuditLog；
 - 原操作按幂等键最多自动重试一次。
-- 把终端授权和数据导出票据依赖的 `SessionID` 抽象成 `authentication context`；Web 继续绑定 Session ID，OAuth CLI 绑定 OAuth Grant 或 Token Family ID；
-- WebSocket 握手允许携带 OAuth Bearer，并在升级前完成 Scope、项目角色、Step-up 和目标资源校验；
-- 终端存活监控同时检查用户、OAuth Grant/Token Family、Scope、项目成员关系和 Step-up assertion；授权被吊销、Scope 被收回或用户失效时主动关闭连接；
-- 数据导出授权与一次性下载票据绑定同一个 OAuth authentication context，刷新 Access Token 后仍可在 Token Family 未吊销时消费，且不能被其他 grant、PAT 或浏览器 Session 使用；
+- 把终端授权和数据卷导出票据依赖的 `SessionID` 抽象成 `authentication context`；Web 继续绑定 Session ID，OAuth CLI 绑定 OAuth Grant 或 Token Family ID；
+- WebSocket 握手允许携带 OAuth Bearer，并在升级前完成凭据适用的 Scope、当前项目角色、Step-up 和目标资源校验；第一方 CLI OAuth 会话不依赖用户可选 Scope；
+- 终端存活监控同时检查用户、OAuth Grant/Token Family、当前项目成员关系和 Step-up assertion，并对个人访问令牌、第三方 OAuth 或 Agent 服务身份检查适用的 Scope；授权被吊销、成员关系变化、适用 Scope 被收回或用户失效时主动关闭连接；
+- 数据卷导出授权与一次性下载票据绑定同一个 OAuth authentication context，刷新 Access Token 后仍可在 Token Family 未吊销时消费，且不能被其他 grant、PAT 或浏览器 Session 使用；
 - `requireInteractiveSession` 不再作为“必须使用浏览器 Cookie”的通用能力判断；需要用户在场的接口改用明确的 `requireInteractiveAuthContext`，并分别声明允许的 Web Session、OAuth 与 PAT 模式。
-- Scope catalog 和 OAuth consent API 必须返回同一套稳定 Scope 定义；要求 Step-up 的 Scope 需带机器可读标记，CLI Help 可以提前说明该操作只支持 OAuth 登录并可能要求 OTP。
+- Scope catalog、OpenAPI 和第三方 OAuth consent API 必须使用同一套稳定 Scope 定义；要求 Step-up 的 Scope 需带机器可读标记，CLI Help 可以为受限凭据展示接口 Scope，并提前说明操作是否只支持 OAuth 登录及可能要求 OTP。第一方 `luna-cli` Device Code 页面不展示 Scope 选择。
 
 个人访问令牌第一版不能执行要求 Step-up MFA 的操作。此时 CLI 应提示改用 OAuth 登录，不能通过放宽服务端策略绕过 MFA。
 
@@ -1401,7 +1402,7 @@ HTTP API 可以采用 RFC 9457 `application/problem+json` 表达 `type`、`title
 - Token 刷新使用跨进程合并锁和凭据代际比较，多个并发命令不能同时旋转 Refresh Token。
 - 对普通 JSON `GET` / `HEAD` 的 401 最多自动刷新并重试一次；写请求和一次性协议不自动重放。
 - `insecureSkipTlsVerify=true` 必须显式设置并持续显示警告，不保存为隐式默认。
-- CLI 不允许自行扩大 Scope。增权必须重新走 OAuth 授权。
+- 第一方 `luna-cli` 登录不接受 Scope 参数，也不根据本地副本扩大权限；个人访问令牌、第三方 OAuth 应用和 Agent 服务身份只能通过各自受控流程变更 Scope。
 - 服务端仍是权限和 Scope 的最终判断者。
 - CLI 上报可选匿名使用统计前，必须另行设计并默认关闭。第一版不实现遥测。
 - 日志、构建输出、仓库文件、事件、Webhook 内容、第三方 API 响应和 Kubernetes 字段全部视为不可信数据；CLI 只把它们作为 `data` 返回，不执行其中的命令，也不从中派生 `nextActions`。
@@ -1475,7 +1476,7 @@ Skills 的标准变更流程固定为：
 - Git Provider 授权事务；
 - 构建 -> 发布 -> 部署 -> 状态验证；
 - MFA 挑战后的原操作重试；
-- 数据导出和安全下载；
+- 数据卷导入、导出和单次完整流传输；
 - Web Console 预授权、连接和关闭。
 
 每个工作流声明输入、前置条件、operationId 序列、步骤输出、成功条件、超时、批准点和失败后的补偿/恢复提示。Arazzo 是文档、测试和 Skills 生成的事实来源，不作为第一版运行时通用工作流解释器；业务逻辑仍由 CLI 命令和服务端实现。
@@ -1757,7 +1758,7 @@ LiteyukiAutoBot 创建；任一凭据缺失时工作流回退到短期 `GITHUB_T
 - npm 与 pnpm 从同一 tarball 全局安装后均可运行 `luna`；
 - npm 包、二进制、Git tag、Git SHA 和 OpenAPI 契约版本一致；
 - Token 脱敏和配置权限测试；
-- OAuth PKCE、Device Code、Refresh、Revoke、MFA、终端授权存活与数据导出票据绑定集成测试；
+- OAuth PKCE、Device Code、Refresh、Revoke、MFA、终端授权存活与数据卷导出票据绑定集成测试；
 - Agent 模式、`params=@file|@-`、Schema 拒绝未知字段、敏感字段脱敏和受限命令发现契约测试；
 - 服务端计划的 actor/authentication-context/target/params/version 绑定、过期、单次使用、重放和集合漂移安全测试；
 - JSONL 版本首帧、事件关联、恢复去重、资源上限与唯一终态摘要协议测试；
@@ -1879,7 +1880,7 @@ criticalJourneyPassed
 - 人类可用性与 AI 命令契约测试。
 - 为 CLI 配套 Skills 生成发布元数据并执行真实实例评估。
 
-验收：CLI 可执行 Web Console、数据导出、Secret、凭据等受保护操作，且不能绕过 MFA；全部公开能力成功主路径和关键旅程 100% 通过、其余完整操作场景矩阵通过率不低于 95%。完成此 Phase 后才允许发布 `v0.1.0`。
+验收：CLI 可执行 Web Console、数据卷导入导出、Secret、凭据、kubeconfig 等受保护操作，且不能绕过 MFA；全部公开能力成功主路径和关键旅程 100% 通过、其余完整操作场景矩阵通过率不低于 95%。完成此 Phase 后才允许发布 `v0.1.0`。
 
 ## 17. 验收场景
 
@@ -1910,7 +1911,7 @@ criticalJourneyPassed
 23. Gin 新增路由但没有路由分类时，CI 明确失败并列出路由；新增非内部可观测白名单路由但没有 OpenAPI、operationId 或对应命令、协议适配、服务端入口登记时同样失败。
 24. 构建日志 SSE 能正常跟随和被 SIGINT 终止；断线时根据服务端是否支持游标决定恢复或提示重新读取。
 25. Pod 与发布 WebSocket 终端支持 TTY resize、stdin、退出状态和异常后的本地终端恢复。
-26. 通用下载适配器默认拒绝覆盖已有文件并在成功后原子落盘；当前未注册对应业务命令，`destination=@-` 仍明确拒绝而不混入结构化输出。
+26. 数据卷导入先在本地创建、校验并从命名空间分离不可变私有副本，需要约一个归档大小的额外空间，再在 Transfer `ready` 后以单次 `PUT` 上传完整归档；`streaming` Transfer 不重放 PUT，幂等回放的 `succeeded` 仅在方向、长度和 SHA-256 完全一致时收敛。导出使用一次性票据和单次 `GET`，默认拒绝覆盖已有文件，在目标目录的私有事务目录中暂存并校验长度、SHA-256 与文件身份后原子提交，不创建公共 `.part`；既有或中途出现的 `.part` 即使传入 `overwrite=true` 也只作为冲突保留。错误只把再次验证过的私有文件列为 `recoveryPaths`，未知身份路径列为 `preservedUnknownPaths`；不支持可靠文件身份、打开文件安全分离或硬链接的文件系统在远端副作用前失败。同一 OS 账号在命令期间移动或替换目标父目录不属于可恢复保证，CLI 必须停止且不得把无法重新确认的路径声称为恢复文件。Block `raw_zst` 使用独立票据获取 manifest，校验后与归档整体提交，且不支持二进制 stdout。
 27. 创建构建或发布后，`wait=true` 能等待到终态，超时默认只停止本地等待，不误取消远端任务。
 28. 使用代理、自定义 CA 和 `NO_PROXY` 的企业网络环境可以登录并调用 API，跨源重定向不会携带 Authorization。
 29. CLI 连接不支持某项能力的旧实例时，根据 `/api/v1/meta` 返回 `unsupported_feature`，不会发送已知不兼容请求。

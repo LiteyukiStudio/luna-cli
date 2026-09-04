@@ -8,10 +8,7 @@ import {
   updateConfig,
   withCredentialRefreshLock,
 } from '../config/store.js'
-import {
-  assertIsoDate,
-  normalizeScopes,
-} from './validation.js'
+import { assertIsoDate } from './validation.js'
 
 export async function storeValidatedAccessToken(
   store: ConfigPort,
@@ -32,7 +29,6 @@ export async function storeValidatedAccessToken(
       const credential: AccessTokenCredential = {
         type: 'access_token',
         token,
-        scopes: normalizeScopes(input.scopes),
         user: input.user,
         expiresAt: input.expiresAt,
         createdAt: new Date().toISOString(),
@@ -52,6 +48,5 @@ export function accessTokenFromEnvironment(
   return {
     type: 'access_token',
     token,
-    scopes: [],
   }
 }
