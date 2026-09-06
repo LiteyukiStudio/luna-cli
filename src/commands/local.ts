@@ -29,6 +29,7 @@ import {
 import { generateCompletion } from './completion.js'
 import { CliCommandError, toCliCommandError } from './errors.js'
 import { catalogResult, commandHelpResult } from './help.js'
+import { isStableResourceId } from './resource-references.js'
 
 const stringSchema = { type: 'string' } as const
 const booleanSchema = { type: 'boolean' } as const
@@ -495,7 +496,7 @@ function registerHelp(registry: CommandRegistry): void {
     summary: 'Show the complete machine-readable contract for one command.',
     schemaVersion: 'help.command/v1',
     parameters: [parameter('path', { required: true })],
-    examples: ['luna help command path=project.get-projects output=json'],
+    examples: ['luna help command path=project.list output=json'],
   }), async invocation => commandHelpResult(registry, invocation.params))
 }
 
@@ -542,12 +543,28 @@ function registerProjectSelection(registry: CommandRegistry): void {
     summary: 'Set the active default project after server validation.',
     schemaVersion: 'project.use/v1',
     projectContext: 'optional',
-    examples: ['luna project use project=prj_example'],
+    examples: ['luna project use project=xnn-api'],
   }), async (invocation, ports) => {
     if (!invocation.explicitGlobalKeys.has('project')) {
       throw invalidArguments('project.use requires an explicit project=<id-or-identifier>.', 'project')
     }
     const value = requiredString(invocation.globals.project, 'project')
+    if (invocation.globals.agent && !isStableResourceId('project', value)) {
+      throw new CliCommandError(
+        'stable_resource_id_required',
+        'Agent mode requires a stable project ID for project.use.',
+        {
+          status: 400,
+          exitCode: 2,
+          details: {
+            command: invocation.metadata.canonicalPath,
+            parameter: 'project',
+            resource: 'project',
+            expectedPrefix: 'prj_',
+          },
+        },
+      )
+    }
     if (!ports.api.resolveProject) {
       throw new CliCommandError(
         'unsupported_feature',

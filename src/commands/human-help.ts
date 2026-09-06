@@ -101,7 +101,7 @@ export function commandHelpText(
   ports: RuntimePorts,
 ): string {
   const parameterLines = metadata.parameters.length > 0
-    ? metadata.parameters.map(parameter => parameterLine(parameter, ports))
+    ? metadata.parameters.map(parameter => parameterLine(parameter, metadata, ports))
     : [`  ${text(ports, 'help.parameters.none', 'No business parameters.')}`]
   const examples = commandExamples(metadata, ports)
   const details = [
@@ -112,6 +112,11 @@ export function commandHelpText(
   ]
   if (metadata.method && metadata.path)
     details.push(`${text(ports, 'help.details.endpoint', 'Endpoint')}: ${metadata.method} ${metadata.path}`)
+  if (metadata.requiredScopes && metadata.requiredScopes.length > 0) {
+    details.push(
+      `${text(ports, 'help.details.requiredScopes', 'Required scopes')}: ${metadata.requiredScopes.join(', ')}`,
+    )
+  }
   return [
     '',
     `${text(ports, 'help.details.title', 'Command details:')}`,
@@ -128,7 +133,11 @@ export function commandHelpText(
   ].join('\n')
 }
 
-function parameterLine(parameter: CommandParameter, ports: RuntimePorts): string {
+function parameterLine(
+  parameter: CommandParameter,
+  metadata: NormalizedCommandMetadata,
+  ports: RuntimePorts,
+): string {
   const requirement = parameter.required
     ? text(ports, 'help.parameters.required', 'required')
     : text(ports, 'help.parameters.optional', 'optional')
@@ -145,7 +154,11 @@ function parameterLine(parameter: CommandParameter, ports: RuntimePorts): string
     attributes.push(text(ports, 'help.parameters.sensitive', 'sensitive'))
   const description = text(
     ports,
-    parameter.descriptionKey ?? `parameters.${parameter.name}`,
+    parameter.descriptionKey
+    ?? (parameter.name === 'applicationId'
+      && metadata.operationId?.toLocaleLowerCase().includes('oauthapplication')
+      ? 'parameters.oauthApplicationId'
+      : `parameters.${parameter.name}`),
     parameter.description ?? '',
   )
   return `  ${parameter.name}=<value>  [${attributes.join(', ')}]${description ? `  ${description}` : ''}`
@@ -200,9 +213,21 @@ function sampleValue(
     return '@request.json'
   const lower = parameter.name.toLocaleLowerCase()
   if (metadata.canonicalPath === 'help.command' && lower === 'path')
-    return 'project.get-projects'
-  if (lower.includes('project'))
-    return 'prj_example'
+    return 'project.list'
+  if (
+    lower === 'applicationid'
+    && metadata.operationId?.toLocaleLowerCase().includes('oauthapplication')
+  ) {
+    return 'oapp_example'
+  }
+  if (lower === 'project' || lower === 'projectid')
+    return 'prj_111111111111111111111111'
+  if (lower === 'applicationid')
+    return 'app_222222222222222222222222'
+  if (lower === 'targetid' || lower === 'deploymenttargetid')
+    return 'dplt_333333333333333333333333'
+  if (lower === 'releaseid')
+    return 'rel_444444444444444444444444'
   if (lower === 'path')
     return '/api/v1/example'
   if (lower.endsWith('id'))

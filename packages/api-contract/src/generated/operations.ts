@@ -5,8 +5,8 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:56f015197e25f16ee9dc371220d6e143bcd1937c2e387f91c0770a1e91c19953",
-  "operationCount": 302
+  "sourceDigest": "sha256:9b9c18a224760f7e91557594c0fe53f781a6cfd9dcf85f52f142893f4bcb1917",
+  "operationCount": 304
 } as const satisfies OpenApiSnapshotMetadata;
 
 export const OPENAPI_OPERATION_SNAPSHOTS = [
@@ -8851,6 +8851,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         }
       },
       {
+        "name": "identifier",
+        "in": "query",
+        "description": "Exact active project-space identifier. Applied within the caller's selected visibility and may be combined with search.",
+        "schema": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 22,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+        }
+      },
+      {
         "name": "visibility",
         "in": "query",
         "required": false,
@@ -8912,6 +8923,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "search": {
           "type": "string",
           "maxLength": 200
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 22,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
         },
         "visibility": {
           "type": "string",
@@ -10258,6 +10275,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         }
       },
       {
+        "name": "identifier",
+        "in": "query",
+        "description": "Exact active application identifier within the selected project space. May be combined with search.",
+        "schema": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 22,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+        }
+      },
+      {
         "name": "sortBy",
         "in": "query",
         "schema": {
@@ -10314,6 +10342,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "search": {
           "type": "string"
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 22,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
         },
         "sortBy": {
           "type": "string",
@@ -17719,6 +17753,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         }
       },
       {
+        "name": "stage",
+        "in": "query",
+        "description": "Exact persisted deployment stage within the selected application. May be combined with search.",
+        "schema": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 12,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+        }
+      },
+      {
         "name": "sortBy",
         "in": "query",
         "schema": {
@@ -17770,6 +17815,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "search": {
           "type": "string",
           "maxLength": 200
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 12,
+          "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
         },
         "sortBy": {
           "type": "string",
@@ -21835,6 +21886,299 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "hidden": true,
       "agentAllowed": false,
       "exclusionReason": "Local JSON selection, interactive mappings, and Secret re-entry are handled by the Web console deployment bundle adapter."
+    }
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal/authorize",
+    "tags": [
+      "Deployments"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ProjectId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "applicationId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ApplicationId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "targetId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/TargetId",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "summary": "Authorize a deployment-target Web Console terminal connection",
+    "description": "Normal HTTP preflight used before opening the deployment-target terminal WebSocket. Browser callers use their current session cookie and Luna CLI uses its OAuth bearer token; personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, interactive subject, project, application, deployment target, cluster, and namespace. The WebSocket consumes the ticket atomically, repeats authorization checks before upgrading, and continuously revalidates identity, membership, role, resource state, and Web Console policy.",
+    "operationId": "authorizeDeploymentTargetRuntimeTerminal",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "applicationId": {
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "applicationId",
+        "projectId",
+        "targetId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/RuntimeTerminalAuthorization",
+      "type": "object",
+      "required": [
+        "expiresAt",
+        "ticket"
+      ],
+      "properties": {
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ticket": {
+          "type": "string",
+          "description": "Random short-lived one-time terminal ticket. Only its hash is stored by the backend."
+        }
+      }
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "xLunaCli": {
+      "classification": "protocol-adapter",
+      "hidden": true,
+      "exclusionReason": "Low-level terminal preflight consumed by the explicit CLI deployment-terminal protocol adapter."
+    }
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal",
+    "tags": [
+      "Deployments"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ProjectId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "applicationId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ApplicationId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "targetId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/TargetId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "container",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "summary": "Stream Deployment Target Runtime Terminal",
+    "description": "Opens the current deployment-target terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
+    "operationId": "streamDeploymentTargetRuntimeTerminal",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "applicationId": {
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "applicationId",
+        "projectId",
+        "targetId"
+      ],
+      "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "xLunaCli": {
+      "classification": "protocol-adapter",
+      "hidden": true,
+      "exclusionReason": "WebSocket terminal transport consumed by the explicit CLI deployment-terminal protocol adapter."
     }
   },
   {
@@ -28161,14 +28505,14 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "ticket",
         "in": "query",
         "required": false,
-        "description": "Short-lived one-time ticket returned by `authorizeRuntimeClusterPodTerminal`. Required for Luna CLI; omitted by the existing browser cookie flow.",
+        "description": "Legacy ticket transport retained for older CLI clients. New clients use the `X-Luna-Terminal-Ticket` header.",
         "schema": {
           "type": "string"
         }
       }
     ],
     "summary": "Stream Runtime Cluster Pod Terminal",
-    "description": "Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
+    "description": "Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
     "operationId": "streamRuntimeClusterPodTerminal",
     "inputSchema": {
       "type": "object",
@@ -28195,6 +28539,73 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "namespace"
       ],
       "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
     },
     "xLunaCli": {
       "classification": "protocol-adapter",
@@ -42078,14 +42489,14 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "ticket",
         "in": "query",
         "required": false,
-        "description": "Short-lived one-time ticket returned by `authorizeReleaseRuntimeTerminal`. Required for Luna CLI; omitted by the existing browser cookie flow.",
+        "description": "Legacy ticket transport retained for older CLI clients. New clients use the `X-Luna-Terminal-Ticket` header.",
         "schema": {
           "type": "string"
         }
       }
     ],
     "summary": "Stream Release Runtime Terminal",
-    "description": "Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
+    "description": "Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{\"type\":\"resize\",\"cols\":N,\"rows\":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{\"type\":\"exit\",\"code\":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.",
     "operationId": "streamReleaseRuntimeTerminal",
     "inputSchema": {
       "type": "object",
@@ -42108,6 +42519,73 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "releaseId"
       ],
       "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
     },
     "xLunaCli": {
       "classification": "protocol-adapter",

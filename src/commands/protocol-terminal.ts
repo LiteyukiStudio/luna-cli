@@ -19,6 +19,7 @@ const WEB_SOCKET_OPEN = 1
 const WEB_SOCKET_CLOSED = 3
 const WEB_SOCKET_NORMAL_CLOSE = 1000
 const TERMINAL_SUBPROTOCOL = 'luna.devops.terminal.v1'
+const TERMINAL_TICKET_HEADER = 'X-Luna-Terminal-Ticket'
 const MAX_TERMINAL_DIMENSION = 65_535
 const TERMINAL_FORCE_CLOSE_MS = 250
 
@@ -31,11 +32,11 @@ export async function executeWebSocketTerminal(
   const authorization = await authorizeProtocolTicket(invocation, ports, operationId)
   const stdin = ports.protocol?.stdin ?? asInputStream(process.stdin)
   const stdout = ports.protocol?.stdout ?? asOutputStream(process.stdout)
-  const webSocket = createWebSocket(terminalUrl(
-    authorization.server,
-    invocation,
+  const webSocket = createWebSocket(
+    terminalUrl(authorization.server, invocation),
     authorization.ticket,
-  ), ports)
+    ports,
+  )
 
   return runTerminalSession(invocation, webSocket, stdin, stdout, ports)
 }
@@ -367,16 +368,20 @@ function authorizationOperation(invocation: CommandInvocation): string {
   return operation
 }
 
-function createWebSocket(url: string, ports: RuntimePorts): ProtocolWebSocket {
+function createWebSocket(
+  url: string,
+  ticket: string,
+  ports: RuntimePorts,
+): ProtocolWebSocket {
+  const options = { headers: { [TERMINAL_TICKET_HEADER]: ticket } }
   if (ports.protocol?.createWebSocket)
-    return ports.protocol.createWebSocket(url, TERMINAL_SUBPROTOCOL)
-  return new WebSocket(url, TERMINAL_SUBPROTOCOL) as unknown as ProtocolWebSocket
+    return ports.protocol.createWebSocket(url, TERMINAL_SUBPROTOCOL, options)
+  return new WebSocket(url, TERMINAL_SUBPROTOCOL, options) as unknown as ProtocolWebSocket
 }
 
 function terminalUrl(
   server: string,
   invocation: CommandInvocation,
-  ticket: string,
 ): string {
   const url = new URL(interpolatePath(invocation.metadata.path ?? '', invocation.params), server)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -385,7 +390,6 @@ function terminalUrl(
       continue
     appendQueryValue(url, parameter.name, invocation.params[parameter.name])
   }
-  url.searchParams.set('ticket', ticket)
   return url.toString()
 }
 

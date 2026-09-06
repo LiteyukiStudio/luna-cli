@@ -1695,6 +1695,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authorize a deployment-target Web Console terminal connection
+         * @description Normal HTTP preflight used before opening the deployment-target terminal WebSocket. Browser callers use their current session cookie and Luna CLI uses its OAuth bearer token; personal access tokens are rejected. The response contains a short-lived random one-time ticket bound to the user, interactive subject, project, application, deployment target, cluster, and namespace. The WebSocket consumes the ticket atomically, repeats authorization checks before upgrading, and continuously revalidates identity, membership, role, resource state, and Web Console policy.
+         */
+        post: operations["authorizeDeploymentTargetRuntimeTerminal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Deployment Target Runtime Terminal
+         * @description Opens the current deployment-target terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
+         */
+        get: operations["streamDeploymentTargetRuntimeTerminal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/releases/{releaseId}/terminal/authorize": {
         parameters: {
             query?: never;
@@ -2194,7 +2234,7 @@ export interface paths {
         };
         /**
          * Stream Runtime Cluster Pod Terminal
-         * @description Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
+         * @description Opens the Pod terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
          */
         get: operations["streamRuntimeClusterPodTerminal"];
         put?: never;
@@ -3372,7 +3412,7 @@ export interface paths {
         };
         /**
          * Stream Release Runtime Terminal
-         * @description Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `ticket` query parameter; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
+         * @description Opens the release terminal WebSocket and requires negotiation of the `luna.devops.terminal.v1` subprotocol before Upgrade. Luna CLI passes the short-lived one-time ticket returned by the authorize endpoint in the `X-Luna-Terminal-Ticket` header; browser callers may omit it and continue using the existing session-cookie flow. Client binary frames are forwarded byte-for-byte to terminal stdin. Client text frames are reserved for `{"type":"resize","cols":N,"rows":N}` controls, where both dimensions are integers from 1 through 65535; other text frames close with WebSocket code 1002. Server stdout is always binary. When the remote shell exits, the server sends `{"type":"exit","code":N}` as a text control before closing with code 1000. Stream failures close with 1011, while expired or revoked authorization closes with 1008.
          */
         get: operations["streamReleaseRuntimeTerminal"];
         put?: never;
@@ -8683,6 +8723,8 @@ export interface operations {
             /** @description One-time terminal ticket issued. The WebSocket endpoint must still atomically consume it and repeat authorization checks. */
             200: {
                 headers: {
+                    /** @description Terminal authorization tickets must never be cached. */
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
@@ -9548,6 +9590,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 search?: components["parameters"]["Search"];
+                /** @description Exact active project-space identifier. Applied within the caller's selected visibility and may be combined with search. */
+                identifier?: string;
                 /** @description Controls cross-project discovery. Omitted or `related` returns resources related to the caller. `all` must be requested explicitly and is available only to platform administrators. Invalid values return `400`; an unauthorized `all` request returns `403`. When an operation also accepts `projectId` or another resource identifier, that identifier is applied as a stronger filter within the selected visibility. */
                 visibility?: components["parameters"]["Visibility"];
                 sortBy?: "createdAt" | "name" | "identifier";
@@ -9887,6 +9931,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 search?: string;
+                /** @description Exact active application identifier within the selected project space. May be combined with search. */
+                identifier?: string;
                 sortBy?: "createdAt" | "name" | "identifier";
                 sortOrder?: components["parameters"]["SortOrder"];
                 /** @description Include a point-in-time Kubernetes replica summary for each application. The response is marked no-store because the summary is read from the authoritative runtime. */
@@ -10686,6 +10732,8 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 pageSize?: components["parameters"]["PageSize"];
                 search?: components["parameters"]["Search"];
+                /** @description Exact persisted deployment stage within the selected application. May be combined with search. */
+                stage?: string;
                 sortBy?: "createdAt" | "name";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
@@ -11030,6 +11078,118 @@ export interface operations {
             };
         };
     };
+    authorizeDeploymentTargetRuntimeTerminal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+                targetId: components["parameters"]["TargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One-time terminal ticket issued. The WebSocket endpoint must still atomically consume it and repeat authorization checks. */
+            200: {
+                headers: {
+                    /** @description Terminal authorization tickets must never be cached. */
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeTerminalAuthorization"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project role is insufficient, Web Console is disabled (`runtime.web_console_disabled`), or a personal access token was used (`runtime.terminal_session_required`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, application, or deployment target was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Project, application, or deployment target is being deleted and cannot open Web Console. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The shared production terminal-ticket store is unavailable (`runtime_terminal.ticket_unavailable`). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    streamDeploymentTargetRuntimeTerminal: {
+        parameters: {
+            query?: {
+                container?: string;
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+                targetId: components["parameters"]["TargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebSocket protocol switch accepted with the `luna.devops.terminal.v1` subprotocol after the ticket or browser session is authorized. */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The shared terminal-ticket store is unavailable before Upgrade. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     authorizeReleaseRuntimeTerminal: {
         parameters: {
             query?: never;
@@ -11045,12 +11205,15 @@ export interface operations {
             /** @description One-time terminal ticket issued. The WebSocket endpoint must still atomically consume it and repeat authorization checks. */
             200: {
                 headers: {
+                    /** @description Terminal authorization tickets must never be cached. */
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["RuntimeTerminalAuthorization"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             /** @description Browser session or Luna CLI OAuth bearer is missing, invalid, expired, or revoked. */
             401: {
                 headers: {
@@ -11078,7 +11241,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Project or deployment target is being deleted and cannot open Web Console. */
+            /** @description Project, application, or deployment target is being deleted and cannot open Web Console. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -12090,7 +12253,10 @@ export interface operations {
                 namespace: string;
                 name: string;
                 container?: string;
-                /** @description Short-lived one-time ticket returned by `authorizeRuntimeClusterPodTerminal`. Required for Luna CLI; omitted by the existing browser cookie flow. */
+                /**
+                 * @deprecated
+                 * @description Legacy ticket transport retained for older CLI clients. New clients use the `X-Luna-Terminal-Ticket` header.
+                 */
                 ticket?: string;
             };
             header?: never;
@@ -12108,6 +12274,19 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The shared terminal-ticket store is unavailable before Upgrade. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -14584,7 +14763,10 @@ export interface operations {
         parameters: {
             query?: {
                 container?: string;
-                /** @description Short-lived one-time ticket returned by `authorizeReleaseRuntimeTerminal`. Required for Luna CLI; omitted by the existing browser cookie flow. */
+                /**
+                 * @deprecated
+                 * @description Legacy ticket transport retained for older CLI clients. New clients use the `X-Luna-Terminal-Ticket` header.
+                 */
                 ticket?: string;
             };
             header?: never;
@@ -14603,6 +14785,20 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The shared terminal-ticket store is unavailable before Upgrade. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

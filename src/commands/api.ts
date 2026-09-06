@@ -28,6 +28,8 @@ import type {
   LunaApiMeta,
   NormalizedCommandMetadata,
   ProjectContextSnapshot,
+  ResourceReferenceRequest,
+  ResourceReferenceSnapshot,
 } from './types.js'
 import process from 'node:process'
 import {
@@ -48,6 +50,7 @@ import {
   assertServerCompatibility,
 } from './compatibility.js'
 import { CliCommandError, toCliCommandError } from './errors.js'
+import { isStableResourceId } from './resource-references.js'
 
 const HTTP_METHODS = new Set<HttpMethod>([
   'DELETE',
@@ -259,44 +262,95 @@ export class LunaApiAdapter implements ApiPort {
     globals: CommandExecutionGlobals,
     expectedAuthentication?: AuthenticationContext,
   ): Promise<ProjectContextSnapshot> {
-    const result = await this.#requestWithOAuthRecovery({
-      method: 'GET',
-      path: '/api/v1/projects',
-      query: {
-        page: 1,
-        pageSize: 100,
-        query: value,
-      },
+    const project = await this.resolveResource({
+      kind: 'project',
+      parameter: 'project',
+      value,
+      scope: {},
     }, globals, expectedAuthentication)
-    if (!result.ok)
-      throw apiFailure(result.error)
-
-    const candidates = listItems(result.data)
-      .filter(project => [project.id, project.identifier, project.slug, project.name]
-        .includes(value))
-    if (candidates.length === 0) {
-      throw new CliCommandError('project_not_found', `Project "${value}" was not found.`, {
-        status: 404,
-        details: { value },
-      })
-    }
-    if (candidates.length > 1) {
-      throw new CliCommandError('project_ambiguous', `Project "${value}" is ambiguous.`, {
-        status: 409,
-        details: {
-          value,
-          candidates: candidates.map(project => project.id),
-        },
-      })
-    }
-    const project = candidates[0]!
     return {
       id: project.id,
       ...(project.name ? { name: project.name } : {}),
-      ...(project.identifier ?? project.slug
-        ? { identifier: project.identifier ?? project.slug }
-        : {}),
+      ...(project.identifier ? { identifier: project.identifier } : {}),
     }
+  }
+
+  async resolveResource(
+    request: ResourceReferenceRequest,
+    globals: CommandExecutionGlobals,
+    expectedAuthentication?: AuthenticationContext,
+  ): Promise<ResourceReferenceSnapshot> {
+    await this.#ensureServerCompatibility(globals)
+    if (request.kind === 'project' && isStableResourceId('project', request.value)) {
+      const result = await this.#requestWithOAuthRecovery({
+        method: 'GET',
+        path: `/api/v1/projects/${encodeURIComponent(request.value)}`,
+      }, globals, expectedAuthentication)
+      if (!result.ok)
+        throw apiFailure(result.error)
+      return resourceSnapshot(asRecord(result.data), request)
+    }
+
+    const lookup = resourceLookup(request)
+    const requestPage = (visibility?: 'all') => this.#requestWithOAuthRecovery({
+      method: 'GET',
+      path: lookup.path,
+      query: {
+        page: 1,
+        pageSize: 2,
+        [lookup.filter]: request.value,
+        ...(visibility ? { visibility } : {}),
+      },
+    }, globals, expectedAuthentication)
+    const result = await requestPage()
+    if (!result.ok)
+      throw apiFailure(result.error)
+
+    let candidates = listItems(result.data)
+      .filter(candidate => candidate[lookup.field] === request.value)
+    if (request.kind === 'project' && candidates.length === 0) {
+      const allProjects = await requestPage('all')
+      if (allProjects.ok) {
+        candidates = listItems(allProjects.data)
+          .filter(candidate => candidate[lookup.field] === request.value)
+      }
+      else if (allProjects.status !== 403) {
+        throw apiFailure(allProjects.error)
+      }
+    }
+    if (candidates.length === 0) {
+      throw new CliCommandError(
+        'resource_reference_not_found',
+        `No ${resourceLabel(request.kind)} matched "${request.value}".`,
+        {
+          status: 404,
+          details: {
+            parameter: request.parameter,
+            resource: request.kind,
+            value: request.value,
+            scope: request.scope,
+            remediation: resourceRemediation(request),
+          },
+        },
+      )
+    }
+    if (candidates.length > 1) {
+      throw new CliCommandError(
+        'resource_reference_ambiguous',
+        `More than one ${resourceLabel(request.kind)} matched "${request.value}".`,
+        {
+          status: 409,
+          details: {
+            parameter: request.parameter,
+            resource: request.kind,
+            value: request.value,
+            candidates: candidates.slice(0, 2).map(candidate => candidate.id),
+            remediation: 'Pass the immutable resource ID shown by the corresponding list command.',
+          },
+        },
+      )
+    }
+    return resourceSnapshot(candidates[0]!, request)
   }
 
   async #send(
@@ -828,11 +882,117 @@ function apiFailure(error: {
   })
 }
 
+function resourceLookup(request: ResourceReferenceRequest): {
+  readonly path: string
+  readonly filter: 'identifier' | 'stage'
+  readonly field: 'identifier' | 'stage'
+} {
+  switch (request.kind) {
+    case 'project':
+      return {
+        path: '/api/v1/projects',
+        filter: 'identifier',
+        field: 'identifier',
+      }
+    case 'application': {
+      const projectId = requiredScopeId(request, 'projectId', 'project')
+      return {
+        path: `/api/v1/projects/${encodeURIComponent(projectId)}/applications`,
+        filter: 'identifier',
+        field: 'identifier',
+      }
+    }
+    case 'deployment-target': {
+      const projectId = requiredScopeId(request, 'projectId', 'project')
+      const applicationId = requiredScopeId(request, 'applicationId', 'application')
+      return {
+        path: `/api/v1/projects/${encodeURIComponent(projectId)}/applications/${encodeURIComponent(applicationId)}/deployment-targets`,
+        filter: 'stage',
+        field: 'stage',
+      }
+    }
+    case 'release':
+      throw new CliCommandError(
+        'resource_resolution_unsupported',
+        'Release references must use an immutable release ID.',
+        { status: 400, exitCode: 2, details: { parameter: request.parameter } },
+      )
+  }
+}
+
+function requiredScopeId(
+  request: ResourceReferenceRequest,
+  name: string,
+  kind: 'project' | 'application',
+): string {
+  const value = request.scope[name]
+  if (!value || !isStableResourceId(kind, value)) {
+    throw new CliCommandError(
+      'resource_reference_scope_invalid',
+      `Resolving "${request.parameter}" requires a stable "${name}".`,
+      {
+        status: 400,
+        exitCode: 2,
+        details: {
+          parameter: request.parameter,
+          resource: request.kind,
+          invalidScope: name,
+        },
+      },
+    )
+  }
+  return value
+}
+
+function resourceSnapshot(
+  value: Readonly<Record<string, unknown>>,
+  request: ResourceReferenceRequest,
+): ResourceReferenceSnapshot {
+  if (typeof value.id !== 'string') {
+    throw new CliCommandError(
+      'api_response_invalid',
+      'The Luna server returned a resource without an immutable ID.',
+      {
+        status: 502,
+        details: { parameter: request.parameter, resource: request.kind },
+      },
+    )
+  }
+  const identifier = typeof value.identifier === 'string'
+    ? value.identifier
+    : typeof value.slug === 'string' ? value.slug : undefined
+  return {
+    id: value.id,
+    ...(typeof value.name === 'string' ? { name: value.name } : {}),
+    ...(identifier ? { identifier } : {}),
+    ...(typeof value.stage === 'string' ? { stage: value.stage } : {}),
+  }
+}
+
+function resourceLabel(kind: ResourceReferenceRequest['kind']): string {
+  switch (kind) {
+    case 'project': return 'project'
+    case 'application': return 'application'
+    case 'deployment-target': return 'deployment target'
+    case 'release': return 'release'
+  }
+}
+
+function resourceRemediation(request: ResourceReferenceRequest): string {
+  switch (request.kind) {
+    case 'project': return `Run "luna project list search=${request.value}" to find the project ID.`
+    case 'application': return `Run "luna application list projectId=${request.scope.projectId}" to find the application ID.`
+    case 'deployment-target': return `Run "luna deployment list projectId=${request.scope.projectId} applicationId=${request.scope.applicationId}" to find the deployment target ID.`
+    case 'release': return `Run "luna release list projectId=${request.scope.projectId}" to find the release ID.`
+  }
+}
+
 function listItems(value: unknown): Array<{
   id: string
   name?: string
   identifier?: string
   slug?: string
+  stage?: string
 }> {
   const array = Array.isArray(value)
     ? value
@@ -849,6 +1009,7 @@ function listItems(value: unknown): Array<{
         ...(typeof item.name === 'string' ? { name: item.name } : {}),
         ...(typeof item.identifier === 'string' ? { identifier: item.identifier } : {}),
         ...(typeof item.slug === 'string' ? { slug: item.slug } : {}),
+        ...(typeof item.stage === 'string' ? { stage: item.stage } : {}),
       }]
     })
 }

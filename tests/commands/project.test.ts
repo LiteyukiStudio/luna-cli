@@ -10,6 +10,29 @@ import {
 import { MemoryConfigStore } from '../config/memory-store.js'
 
 describe('project credential context', () => {
+  it('requires a stable project ID when agent mode changes the default project', async () => {
+    const store = new MemoryConfigStore(oauthConfig('old', null))
+    const errors: unknown[] = []
+    const resolveProject = async () => ({ id: 'project-resolved' })
+    const ports = runtimePorts(store, errors, { resolveProject })
+    const registry = new CommandRegistry()
+    registerLocalCommands(registry)
+
+    const result = await runCli(createCliProgram({ registry, ports }), [
+      'node',
+      'luna',
+      'project',
+      'use',
+      'project=xnn-api',
+      'agent=true',
+      'output=json',
+      'interactive=false',
+    ], ports.output)
+
+    expect(result.exitCode).toBe(2)
+    expect(errors[0]).toMatchObject({ code: 'stable_resource_id_required' })
+  })
+
   it('does not write a project resolved under an older login', async () => {
     const store = new MemoryConfigStore(oauthConfig('old', 'project-old'))
     const errors: unknown[] = []

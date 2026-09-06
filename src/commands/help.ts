@@ -54,12 +54,14 @@ function compactEntry(metadata: NormalizedCommandMetadata): Readonly<Record<stri
     category: metadata.category,
     tool: metadata.tool,
     source: metadata.source,
+    operationId: metadata.operationId ?? null,
     consumedOperations: metadata.consumedOperations ?? [],
     summary: metadata.summary ?? '',
     risk: metadata.risk,
     transport: metadata.transport,
     projectContext: metadata.projectContext,
     agentAllowed: metadata.agentAllowed,
+    requiredScopes: metadata.requiredScopes ?? [],
     mainParameters: metadata.parameters
       .filter(parameter => parameter.location === 'path' || parameter.location === 'query')
       .map(parameter => parameter.name)

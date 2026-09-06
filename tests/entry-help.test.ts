@@ -42,7 +42,7 @@ describe('cli startup and human help', () => {
     ].join('\n')
     expect(commandHelp).toContain('业务参数：')
     expect(commandHelp).toContain('path=<value>  [必填, string')
-    expect(commandHelp).toContain('luna help command path=project.get-projects output=json')
+    expect(commandHelp).toContain('luna help command path=project.list output=json')
 
     const login = cli.registry.get('auth.login')?.metadata
     const loginHelp = login ? commandHelpText(login, cli.ports) : ''
@@ -51,6 +51,16 @@ describe('cli startup and human help', () => {
       'printf \'%s\' "$LUNA_TOKEN" | luna auth login mode=access-token token=@-',
     )
     expect(loginHelp).not.toContain('luna printf')
+
+    const oauthApplication = cli.registry.list().find(command =>
+      command.metadata.operationId === 'deleteOAuthApplication')?.metadata
+    const oauthApplicationHelp = oauthApplication
+      ? commandHelpText(oauthApplication, cli.ports)
+      : ''
+    expect(oauthApplicationHelp).toContain('applicationId=oapp_example')
+    expect(oauthApplicationHelp).toContain('OAuth 应用 ID。')
+    expect(oauthApplicationHelp).not.toContain('项目空间内唯一标识符')
+    expect(oauthApplicationHelp).not.toContain('applicationId=app_222222222222222222222222')
   })
 
   it('shows localized root help when invoked without a command', async () => {

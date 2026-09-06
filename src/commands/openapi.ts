@@ -11,6 +11,7 @@ import type {
 } from './types.js'
 import { CliCommandError } from './errors.js'
 import { CommandRegistry } from './registry.js'
+import { resourceReferenceForParameter } from './resource-references.js'
 
 interface CanonicalContractModule {
   readonly OPERATION_CATALOG: readonly OperationCatalogEntry[]
@@ -109,6 +110,7 @@ function normalizeCatalogEntry(entry: OperationCatalogEntry): CommandCatalogEntr
     canonicalPath: command.canonicalPath,
     categoryAliases: command.categoryAliases,
     aliases: command.aliases,
+    compatibilityPaths: command.compatibilityPaths,
     source: 'openapi',
     operationId: entry.operationId,
     summary: entry.summary,
@@ -133,10 +135,21 @@ function normalizeCatalogEntry(entry: OperationCatalogEntry): CommandCatalogEntr
 function parameterArray(value: unknown): CommandParameter[] {
   if (!Array.isArray(value))
     return []
-  return value.map((item) => {
-    const parameter = asRecord(item)
+  const parameters = value.map(asRecord)
+  const parameterNames = new Set(parameters.map(parameter =>
+    requiredString(parameter.name, 'parameter name')))
+  return parameters.map((parameter) => {
+    const name = requiredString(parameter.name, 'parameter name')
+    const schema = schemaValue(parameter.schema)
+    const candidateReference = schema?.type === 'string'
+      ? resourceReferenceForParameter(name)
+      : undefined
+    const resourceReference = candidateReference?.scope?.every(scope =>
+      parameterNames.has(scope)) === false
+      ? undefined
+      : candidateReference
     return {
-      name: requiredString(parameter.name, 'parameter name'),
+      name,
       location: parameterLocation(parameter.in ?? parameter.location),
       description: stringValue(parameter.description),
       descriptionKey: stringValue(parameter.descriptionKey),
@@ -144,7 +157,8 @@ function parameterArray(value: unknown): CommandParameter[] {
       repeated: booleanValue(parameter.repeated),
       sensitive: booleanValue(parameter.sensitive),
       valueSources: valueSourceArray(parameter.valueSources),
-      schema: schemaValue(parameter.schema),
+      schema,
+      ...(resourceReference ? { resourceReference } : {}),
     }
   })
 }

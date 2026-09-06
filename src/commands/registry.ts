@@ -58,6 +58,8 @@ export class CommandRegistry {
         this.#registerAlias(`${categoryAlias}.${alias}`, path)
       }
     }
+    for (const compatibilityPath of normalized.compatibilityPaths)
+      this.#registerAlias(compatibilityPath, path)
 
     return registered
   }
@@ -161,6 +163,7 @@ export function normalizeMetadata(metadata: CommandMetadata): NormalizedCommandM
     canonicalPath,
     aliases: Object.freeze([...(metadata.aliases ?? [])]),
     categoryAliases: Object.freeze([...(metadata.categoryAliases ?? [])]),
+    compatibilityPaths: Object.freeze([...(metadata.compatibilityPaths ?? [])]),
     parameters: Object.freeze([...(metadata.parameters ?? [])]),
     risk: metadata.risk ?? 'low',
     transport: metadata.transport ?? (metadata.source === 'local' ? 'local' : 'http'),

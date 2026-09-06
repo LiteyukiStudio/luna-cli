@@ -1,5 +1,5 @@
 import type { CommandExecutionGlobals, CommandResult, LunaConfigDocument, NormalizedCommandMetadata, RuntimePorts } from '../../src/commands/index.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   CommandOutput,
   CommandRegistry,
@@ -19,6 +19,72 @@ const emptyConfig: LunaConfigDocument = {
 }
 
 describe('commander command execution', () => {
+  it('keeps protocol client dry-runs local and side-effect free', async () => {
+    const registry = new CommandRegistry()
+    const captures = capturePorts()
+    const streams = memoryOutputStreams()
+    const output = new CommandOutput({ streams: streams.streams, version: 'test' })
+    const fetch = vi.fn()
+    const createWebSocket = vi.fn()
+    const ports: RuntimePorts = {
+      ...captures.ports,
+      output,
+      protocol: { fetch, createWebSocket },
+    }
+    const program = createCliProgram({ registry, ports })
+    routeCommanderOutput(program, streams.streams)
+
+    const result = await runCli(program, [
+      'node',
+      'luna',
+      'deployment',
+      'exec',
+      'projectId=prj_111111111111111111111111',
+      'applicationId=app_222222222222222222222222',
+      'targetId=dplt_333333333333333333333333',
+      'dryRun=client',
+      'interactive=false',
+      'output=json',
+    ], output)
+
+    expect(result.exitCode).toBe(0)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(createWebSocket).not.toHaveBeenCalled()
+    expect(streams.stderr()).toBe('')
+    expect(streams.stdout()).toContain('dry-run/v1')
+    expect(streams.stdout()).toContain('deployment.exec')
+  })
+
+  it('rejects protocol server dry-runs before I/O', async () => {
+    const registry = new CommandRegistry()
+    const captures = capturePorts()
+    const fetch = vi.fn()
+    const createWebSocket = vi.fn()
+    const ports: RuntimePorts = {
+      ...captures.ports,
+      protocol: { fetch, createWebSocket },
+    }
+
+    const result = await runCli(createCliProgram({ registry, ports }), [
+      'node',
+      'luna',
+      'release',
+      'exec',
+      'projectId=prj_111111111111111111111111',
+      'releaseId=rel_444444444444444444444444',
+      'dryRun=server',
+      'interactive=false',
+      'output=json',
+    ], ports.output)
+
+    expect(result.exitCode).toBe(2)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(createWebSocket).not.toHaveBeenCalled()
+    expect(captures.errors[0]).toMatchObject({
+      code: 'server_dry_run_protocol_unsupported',
+    })
+  })
+
   it('forces machine-readable agent globals', async () => {
     const registry = new CommandRegistry()
     registry.register({

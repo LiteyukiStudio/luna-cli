@@ -30,6 +30,28 @@ const TAG_CATEGORY_OVERRIDES: Readonly<Record<string, string>> = Object.freeze({
   users: "user",
 });
 
+const CORE_COMMAND_OVERRIDES: Readonly<
+  Record<string, readonly [category: string, tool: string]>
+> = Object.freeze({
+  listProjects: ["project", "list"],
+  createProject: ["project", "create"],
+  getProject: ["project", "get"],
+  updateProject: ["project", "update"],
+  deleteProject: ["project", "delete"],
+  listApplications: ["application", "list"],
+  createApplication: ["application", "create"],
+  getApplication: ["application", "get"],
+  updateApplication: ["application", "update"],
+  deleteApplication: ["application", "delete"],
+  listDeploymentTargets: ["deployment", "list"],
+  createDeploymentTarget: ["deployment", "create"],
+  updateDeploymentTarget: ["deployment", "update"],
+  deleteDeploymentTarget: ["deployment", "delete"],
+  listReleases: ["release", "list"],
+  createRelease: ["release", "create"],
+  getRelease: ["release", "get"],
+});
+
 function splitWords(value: string): string[] {
   return value
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -157,6 +179,22 @@ function parseExplicitCommand(
   };
 }
 
+function coreCommandOverride(
+  operationId: string,
+): Pick<CommandMetadata, "canonicalPath" | "category" | "tool" | "source"> | undefined {
+  const override = CORE_COMMAND_OVERRIDES[operationId];
+  if (!override) {
+    return undefined;
+  }
+  const [category, tool] = override;
+  return {
+    canonicalPath: `${category}.${tool}`,
+    category,
+    tool,
+    source: "fallback",
+  };
+}
+
 function fallbackRisk(method: HttpMethod): CommandRisk {
   switch (method) {
     case "get":
@@ -203,11 +241,13 @@ function commandAliases(
   operation: OpenApiOperationSnapshot,
   operationId: string,
   command: Pick<CommandMetadata, "tool">,
+  legacyTool?: string,
 ): readonly string[] {
   const semanticAlias = toKebabCase(operationId);
   return uniqueStrings([
     ...(operation.xLunaCli?.aliases ?? []),
     ...(semanticAlias && semanticAlias !== command.tool ? [semanticAlias] : []),
+    ...(legacyTool && legacyTool !== command.tool ? [legacyTool] : []),
   ]);
 }
 
@@ -251,12 +291,29 @@ export function buildOperationCatalog(
       operation.method,
       normalizedPath,
     );
-    const commandBase = explicitCommand ?? fallbackCommand;
     const operationId = explicitOperationId ?? fallbackOperationId;
+    const inferredCoreCommand = coreCommandOverride(operationId);
+    const commandBase = explicitCommand ?? inferredCoreCommand ?? fallbackCommand;
+    const inferredCoreFallback = inferredCoreCommand && !explicitCommand
+      ? fallbackCommand
+      : undefined;
     const command: CommandMetadata = {
       ...commandBase,
-      categoryAliases: uniqueStrings(operation.xLunaCli?.categoryAliases),
-      aliases: commandAliases(operation, operationId, commandBase),
+      categoryAliases: uniqueStrings([
+        ...(operation.xLunaCli?.categoryAliases ?? []),
+        ...(inferredCoreFallback && inferredCoreFallback.category !== commandBase.category
+          ? [inferredCoreFallback.category]
+          : []),
+      ]),
+      aliases: commandAliases(
+        operation,
+        operationId,
+        commandBase,
+        inferredCoreFallback?.tool,
+      ),
+      compatibilityPaths: inferredCoreFallback
+        ? Object.freeze([inferredCoreFallback.canonicalPath])
+        : Object.freeze([]),
       classification:
         operation.xLunaCli?.classification ?? "unclassified",
       risk: operation.xLunaCli?.risk ?? fallbackRisk(operation.method),

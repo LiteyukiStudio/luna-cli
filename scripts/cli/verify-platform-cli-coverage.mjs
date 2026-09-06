@@ -421,6 +421,7 @@ function normalizeCliCommand(command) {
     return Object.freeze({
       path: command,
       source: undefined,
+      operationId: undefined,
       hidden: false,
       risk: "low",
       serverSupported: undefined,
@@ -430,6 +431,7 @@ function normalizeCliCommand(command) {
   return Object.freeze({
     path: command?.path,
     source: command?.source,
+    operationId: command?.operationId,
     hidden: command?.hidden === true,
     risk: command?.risk ?? "low",
     serverSupported: command?.serverSupported,
@@ -583,12 +585,22 @@ export function evaluateCoverage({
     errors,
   );
   const protocolCommandsByOperation = new Map();
+  const openApiCommandsByOperation = new Map();
   const openApiOperationIds = new Set(
     openApiOperations
       .map(operation => operation.operationId)
       .filter(Boolean),
   );
   for (const command of normalizedCliCommands) {
+    if (command.source === "openapi" && command.operationId) {
+      if (openApiCommandsByOperation.has(command.operationId)) {
+        errors.push(
+          `CLI catalog contains more than one command for OpenAPI operation "${command.operationId}"`,
+        );
+      } else {
+        openApiCommandsByOperation.set(command.operationId, command);
+      }
+    }
     if (command.source !== "protocol") {
       continue;
     }
@@ -658,6 +670,7 @@ export function evaluateCoverage({
     const audit = auditMap.get(route.key);
     const exactCommand = operation
       ? cliCommandMap.get(operation.commandPath)
+        ?? openApiCommandsByOperation.get(operation.operationId)
       : undefined;
     const protocolCandidates = operation?.operationId
       ? protocolCommandsByOperation.get(operation.operationId) ?? []
@@ -711,7 +724,8 @@ export function evaluateCoverage({
         `${route.key}: OpenAPI marks this as "${operation.classification}" but no exact audited classification exists`,
       );
     } else {
-      const command = cliCommandMap.get(operation.commandPath);
+      const command = cliCommandMap.get(operation.commandPath)
+        ?? openApiCommandsByOperation.get(operation.operationId);
       classification = "command";
       if (!command) {
         errors.push(

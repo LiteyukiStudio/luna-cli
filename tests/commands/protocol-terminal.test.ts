@@ -6,6 +6,7 @@ import type {
   ProtocolOutputStream,
   ProtocolWebSocket,
   ProtocolWebSocketEvent,
+  ProtocolWebSocketOptions,
   RuntimePorts,
 } from '../../src/commands/types.js'
 import { Buffer } from 'node:buffer'
@@ -28,6 +29,7 @@ describe('webSocket terminal protocol adapter', () => {
     const requests: Array<{ url: string, method: string }> = []
     let socketUrl = ''
     let socketProtocols: string | readonly string[] | undefined
+    let socketOptions: ProtocolWebSocketOptions | undefined
     const ports = createPorts({
       stdin,
       stdout,
@@ -38,9 +40,10 @@ describe('webSocket terminal protocol adapter', () => {
           expiresAt: '2026-07-27T10:00:00Z',
         })
       },
-      createWebSocket(url, protocols) {
+      createWebSocket(url, protocols, options) {
         socketUrl = url
         socketProtocols = protocols
+        socketOptions = options
         return socket
       },
     })
@@ -75,9 +78,12 @@ describe('webSocket terminal protocol adapter', () => {
       method: 'POST',
     }])
     expect(socketUrl).toBe(
-      'wss://luna.example.test/api/v1/runtime/clusters/cluster-a/pods/terminal?namespace=default&name=pod-a&container=app&ticket=pod-ticket',
+      'wss://luna.example.test/api/v1/runtime/clusters/cluster-a/pods/terminal?namespace=default&name=pod-a&container=app',
     )
     expect(socketProtocols).toBe('luna.devops.terminal.v1')
+    expect(socketOptions).toEqual({
+      headers: { 'X-Luna-Terminal-Ticket': 'pod-ticket' },
+    })
     expect(socket.sent).toEqual([
       JSON.stringify({ type: 'resize', cols: 120, rows: 40 }),
       Buffer.from('echo ok\n'),
@@ -96,13 +102,15 @@ describe('webSocket terminal protocol adapter', () => {
     const socket = new FakeWebSocket()
     let authorizeUrl = ''
     let socketUrl = ''
+    let socketOptions: ProtocolWebSocketOptions | undefined
     const ports = createPorts({
       fetch: async (input) => {
         authorizeUrl = String(input)
         return Response.json({ data: { ticket: 'release-ticket' } })
       },
-      createWebSocket(url) {
+      createWebSocket(url, _protocols, options) {
         socketUrl = url
+        socketOptions = options
         return socket
       },
     })
@@ -129,12 +137,60 @@ describe('webSocket terminal protocol adapter', () => {
       'https://luna.example.test/api/v1/projects/project-a/releases/release-a/terminal/authorize?container=api',
     )
     expect(socketUrl).toBe(
-      'wss://luna.example.test/api/v1/projects/project-a/releases/release-a/terminal?container=api&ticket=release-ticket',
+      'wss://luna.example.test/api/v1/projects/project-a/releases/release-a/terminal?container=api',
     )
+    expect(socketOptions).toEqual({
+      headers: { 'X-Luna-Terminal-Ticket': 'release-ticket' },
+    })
+  })
+
+  it('authorizes and connects the current deployment target terminal', async () => {
+    const registry = new CommandRegistry()
+    const command = registry.require('deployment.exec')
+    expect(registry.require('deployment.terminal', true)).toBe(command)
+    expect(command.metadata.requiredScopes).toEqual(['deployment:exec'])
+    const socket = new FakeWebSocket()
+    let authorizeUrl = ''
+    let socketUrl = ''
+    let socketOptions: ProtocolWebSocketOptions | undefined
+    const ports = createPorts({
+      fetch: async (input) => {
+        authorizeUrl = String(input)
+        return Response.json({ ticket: 'target-ticket' })
+      },
+      createWebSocket(url, _protocols, options) {
+        socketUrl = url
+        socketOptions = options
+        return socket
+      },
+    })
+    const resultPromise = command.handler(invocation(command.metadata, {
+      projectId: 'project-a',
+      applicationId: 'application-a',
+      targetId: 'target-a',
+      container: 'api',
+    }), ports)
+
+    await vi.waitFor(() => expect(socketUrl).not.toBe(''))
+    socket.open()
+    socket.message(JSON.stringify({ type: 'exit', code: 0 }))
+    socket.closeFromServer(1000, 'complete')
+
+    await expect(resultPromise).resolves.toMatchObject({ data: { exitCode: 0 } })
+    expect(authorizeUrl).toBe(
+      'https://luna.example.test/api/v1/projects/project-a/applications/application-a/deployment-targets/target-a/terminal/authorize?container=api',
+    )
+    expect(socketUrl).toBe(
+      'wss://luna.example.test/api/v1/projects/project-a/applications/application-a/deployment-targets/target-a/terminal?container=api',
+    )
+    expect(socketOptions).toEqual({
+      headers: { 'X-Luna-Terminal-Ticket': 'target-ticket' },
+    })
   })
 
   it('keeps UTF-8, ANSI, and control bytes binary and byte-exact', async () => {
     const command = new CommandRegistry().require('release.exec')
+    expect(command.metadata.requiredScopes).toEqual(['deployment:exec'])
     const stdin = new FakeInput()
     const stdout = new FakeOutput()
     const socket = new FakeWebSocket()
@@ -647,6 +703,7 @@ function createPorts(overrides: {
   createWebSocket?: (
     url: string,
     protocols?: string | readonly string[],
+    options?: ProtocolWebSocketOptions,
   ) => ProtocolWebSocket
   stdin?: ProtocolInputStream
   stdout?: ProtocolOutputStream

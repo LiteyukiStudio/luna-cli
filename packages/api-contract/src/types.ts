@@ -143,6 +143,7 @@ export interface CommandMetadata {
   readonly tool: string;
   readonly categoryAliases: readonly string[];
   readonly aliases: readonly string[];
+  readonly compatibilityPaths: readonly string[];
   readonly source: MetadataSource;
   readonly classification: CommandClassification;
   readonly risk: CommandRisk;

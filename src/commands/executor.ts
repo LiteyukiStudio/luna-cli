@@ -22,6 +22,7 @@ import {
   localizeHelp,
   rootHelpText,
 } from './human-help.js'
+import { resolveResourceReferences } from './resource-references.js'
 import { ROOT_COMMAND_SHORTCUTS } from './shortcuts.js'
 
 export interface CliProgramOptions {
@@ -73,7 +74,8 @@ export function createCliProgram(options: CliProgramOptions): Command {
   addGlobalOptions(program, options.ports)
   program.addHelpText('after', () => rootHelpText(options.registry, options.ports))
   registerRootShortcuts(program, options.registry, options.ports)
-  for (const category of options.registry.categories()) {
+  const categories = options.registry.categories()
+  for (const category of categories) {
     const categoryCommand = localizeHelp(program
       .command(category)
       .description(localizedCategoryDescription(category, options.ports))
@@ -84,7 +86,8 @@ export function createCliProgram(options: CliProgramOptions): Command {
       )
       .addHelpText('after', () => categoryHelpText(category, options.ports))
     for (const categoryAlias of options.registry.categoryAliases(category)) {
-      categoryCommand.alias(categoryAlias)
+      if (!categories.includes(categoryAlias))
+        categoryCommand.alias(categoryAlias)
     }
 
     const commands = options.registry.list({ category, includeHidden: true })
@@ -130,6 +133,53 @@ export function createCliProgram(options: CliProgramOptions): Command {
         )
         if (!canonicalOwner || canonicalOwner === registered)
           tool.alias(alias)
+      }
+    }
+
+    for (const registered of options.registry.list({ includeHidden: true })) {
+      for (const compatibilityPath of registered.metadata.compatibilityPaths) {
+        const [compatibilityCategory, compatibilityTool] = compatibilityPath.split('.')
+        if (
+          compatibilityCategory !== category
+          || registered.metadata.category === category
+          || !compatibilityTool
+        ) {
+          continue
+        }
+        localizeHelp(categoryCommand
+          .command(compatibilityTool, { hidden: true })
+          .description(localizedCommandSummary(registered.metadata, options.ports))
+          .argument(
+            '[arguments...]',
+            translate(
+              options.ports,
+              'help.businessArguments',
+              'Business parameters in key=value form',
+            ),
+          )
+          .addHelpCommand(false)
+          .allowUnknownOption(false)
+          .action(async (
+            tokens: string[] | undefined,
+            _localOptions: unknown,
+            command: Command,
+          ) => {
+            await executeRegistered(
+              registered,
+              tokens ?? [],
+              explicitCommanderOptions(command),
+              options.ports,
+              invokedCommandPath(command),
+            )
+          }), options.ports)
+          .helpOption(
+            '-h, --help',
+            translate(options.ports, 'help.options.help', 'Show command help'),
+          )
+          .addHelpText(
+            'after',
+            () => commandHelpText(registered.metadata, options.ports),
+          )
       }
     }
   }
@@ -295,14 +345,33 @@ async function executeRegistered(
 
   const inputMetadata = metadataWithResolvedProjectRequirement(registered, globals)
   const parsedParams = await ports.input.parse(parsed.businessTokens, inputMetadata)
-  const params = resolveProjectParameters(parsedParams, registered, globals)
+  const projectParams = resolveProjectParameters(parsedParams, registered, globals)
   enforceExecutionScope(
     registered,
     invokedPath,
     globals,
     parsed.explicitGlobalKeys,
     parsedParams,
-    params,
+    projectParams,
+  )
+  const runtimeOptions = {
+    server: globals.server,
+    project: globals.project,
+    output: globals.output,
+    language: globals.lang,
+    env: ports.env ?? process.env,
+  }
+  const authentication = authenticationContext(resolveRuntimeContext(config, runtimeOptions))
+  const storedAuthentication = authenticationContext(resolveRuntimeContext(config, {
+    server: config.server,
+    env: {},
+  }))
+  const params = await resolveResourceReferences(
+    registered.metadata,
+    projectParams,
+    globals,
+    ports,
+    authentication,
   )
   await enforceRiskPolicy(registered, invokedPath, globals, ports)
   const invocation: CommandInvocation = {
@@ -311,17 +380,8 @@ async function executeRegistered(
     globals,
     explicitGlobalKeys: parsed.explicitGlobalKeys,
     canonicalGlobalValues: parsed.canonicalGlobals,
-    authentication: authenticationContext(resolveRuntimeContext(config, {
-      server: globals.server,
-      project: globals.project,
-      output: globals.output,
-      language: globals.lang,
-      env: ports.env ?? process.env,
-    })),
-    storedAuthentication: authenticationContext(resolveRuntimeContext(config, {
-      server: config.server,
-      env: {},
-    })),
+    authentication,
+    storedAuthentication,
   }
   const result = normalizeResult(
     await registered.handler(invocation, ports),
@@ -440,7 +500,11 @@ function enforceAgentCommandPolicy(
   requestedPath: string,
   globals: CommandExecutionGlobals,
 ): void {
-  if (globals.agent && requestedPath !== registered.metadata.canonicalPath) {
+  if (
+    globals.agent
+    && requestedPath !== registered.metadata.canonicalPath
+    && !registered.metadata.compatibilityPaths.includes(requestedPath)
+  ) {
     throw new CliCommandError(
       'agent_alias_forbidden',
       `Agent mode requires the canonical command "${registered.metadata.canonicalPath}".`,
@@ -546,7 +610,7 @@ function normalizeResult(value: unknown, schemaVersion?: string): CommandResult 
 function addGlobalOptions(program: Command, ports: RuntimePorts): void {
   program
     .option('--server <url>', translate(ports, 'help.options.server', 'Override the Luna server origin'))
-    .option('--project <id>', translate(ports, 'help.options.project', 'Select a project for this command'))
+    .option('--project <ref>', translate(ports, 'help.options.project', 'Select a project for this command'))
     .addOption(new Option('-o, --output <format>', translate(ports, 'help.options.output', 'Output format'))
       .choices(['table', 'json', 'raw-json', 'yaml', 'jsonl', 'name']))
     .option('--lang <locale>', translate(ports, 'help.options.lang', 'Output and help language'))

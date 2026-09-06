@@ -8,6 +8,7 @@ import type {
 } from './types.js'
 import { CliCommandError } from './errors.js'
 import { executeWebSocketTerminal } from './protocol-terminal.js'
+import { resourceReferenceForParameter } from './resource-references.js'
 import { executeSseStream } from './stream.js'
 import {
   executeVolumeAdopt,
@@ -22,6 +23,8 @@ import {
 const BUILD_LOG_STREAM_PATH = '/api/v1/projects/{projectId}/build-jobs/{jobId}/logs/stream'
 const DEPLOYMENT_METRICS_STREAM_PATH
   = '/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/metrics/stream'
+const DEPLOYMENT_TERMINAL_PATH
+  = '/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal'
 const RUNTIME_TERMINAL_PATH = '/api/v1/runtime/clusters/{clusterId}/pods/terminal'
 const RELEASE_TERMINAL_PATH = '/api/v1/projects/{projectId}/releases/{releaseId}/terminal'
 const VOLUME_IMPORT_PATH = '/api/v1/projects/{projectId}/volume-imports'
@@ -311,6 +314,31 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
       mfaPurpose: 'runtime_terminal',
     }),
     webSocketDefinition({
+      category: 'deployment',
+      tool: 'exec',
+      aliases: ['terminal'],
+      path: DEPLOYMENT_TERMINAL_PATH,
+      consumedOperations: [
+        'authorizeDeploymentTargetRuntimeTerminal',
+        'streamDeploymentTargetRuntimeTerminal',
+      ],
+      projectContext: 'required',
+      parameters: [
+        pathParameter('projectId'),
+        pathParameter('applicationId'),
+        pathParameter('targetId'),
+        queryParameter('container', { type: 'string' }),
+      ],
+      mfaPurpose: 'runtime_terminal',
+      requiredScopes: ['deployment:exec'],
+      summary: 'Open an interactive exec session for a deployment target',
+      description: 'Connect the local TTY to the current deployment target container until the remote shell exits.',
+      examples: [
+        'luna deployment exec projectId=xnn-api applicationId=postgres-w8kt4h targetId=prod',
+        'luna deployment exec projectId=prj_111111111111111111111111 applicationId=app_222222222222222222222222 targetId=dplt_333333333333333333333333 container=app',
+      ],
+    }),
+    webSocketDefinition({
       category: 'release',
       tool: 'exec',
       aliases: ['terminal'],
@@ -326,11 +354,12 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
+      requiredScopes: ['deployment:exec'],
       summary: 'Open an interactive exec session for a release',
-      description: 'Connect the local TTY to the release container until the remote shell exits.',
+      description: 'Connect the local TTY to the current container for the release\'s deployment target until the remote shell exits.',
       examples: [
-        'luna release exec projectId=prj_example releaseId=rel_example',
-        'luna release exec projectId=prj_example releaseId=rel_example container=app',
+        'luna release exec projectId=prj_111111111111111111111111 releaseId=rel_444444444444444444444444',
+        'luna release exec projectId=prj_111111111111111111111111 releaseId=rel_444444444444444444444444 container=app',
       ],
     }),
   ]
@@ -352,6 +381,31 @@ async function protocolHandler(
   invocation: CommandInvocation,
   ports: RuntimePorts,
 ): Promise<CommandResult> {
+  if (invocation.globals.dryRun === 'client') {
+    return {
+      schemaVersion: 'dry-run/v1',
+      data: {
+        dryRun: 'client',
+        command: invocation.metadata.canonicalPath,
+        transport: invocation.metadata.transport,
+        consumedOperations: invocation.metadata.consumedOperations ?? [],
+      },
+    }
+  }
+  if (invocation.globals.dryRun === 'server') {
+    throw new CliCommandError(
+      'server_dry_run_protocol_unsupported',
+      'Server dry-run is not supported for protocol commands.',
+      {
+        status: 400,
+        exitCode: 2,
+        details: {
+          command: invocation.metadata.canonicalPath,
+          transport: invocation.metadata.transport,
+        },
+      },
+    )
+  }
   if (invocation.metadata.transport === 'sse')
     return executeSseStream(invocation, ports)
   if (
@@ -397,11 +451,13 @@ function isProtocolTransport(
 }
 
 function pathParameter(name: string): CommandParameter {
+  const resourceReference = resourceReferenceForParameter(name)
   return {
     name,
     location: 'path',
     required: true,
     schema: { type: 'string', minLength: 1 },
+    ...(resourceReference ? { resourceReference } : {}),
   }
 }
 

@@ -26,7 +26,7 @@ later.
 ```bash
 luna login
 luna whoami
-luna project get-projects
+luna project list
 luna help catalog query=deployment limit=20 output=json
 ```
 
@@ -55,20 +55,25 @@ The paired `luna-devops-<version>.skill` is published in the same GitHub Release
 and must use the exact CLI version. The CLI remains fully usable without the
 Skill.
 
-## Interactive release exec
+## Resource references and deployment-target exec
+
+The `projectId`, `applicationId`, and `targetId` parameters accept either stable IDs or exact immutable identifiers resolved one scope at a time: a project identifier, an application identifier, and a deployment stage. Stable IDs pass through directly; readable references are resolved through permission-scoped exact queries before confirmation and execution. Display names are never guessed.
+
+`releaseId` only identifies one `rel_...` release record. A Kubernetes workload name is not a release ID; use `deployment exec` to enter the deployment target's current container.
 
 After signing in with OAuth, connect the local TTY directly to a running
-release container:
+deployment target:
 
 ```bash
-luna release exec projectId=prj_example releaseId=rel_example
-luna release exec projectId=prj_example releaseId=rel_example container=api
+luna deployment exec projectId=xnn-api applicationId=postgres-api targetId=prod
+luna deployment exec projectId=prj_111111111111111111111111 applicationId=app_222222222222222222222222 targetId=dplt_333333333333333333333333 container=api
 ```
 
 The command keeps the interactive shell attached until `exit` or `Ctrl-D`, then
 restores the local terminal. Terminal payloads remain binary so UTF-8 text, ANSI
 control bytes, and window resize events are not reinterpreted by the CLI.
-`release terminal` is a human-facing alias. This command requires an interactive
+`deployment terminal` is a human-facing alias; `release exec` remains only as a
+compatibility entry point for existing calls. This command requires an interactive
 TTY, CLI OAuth login, and platform runtime-terminal authorization; it is
 unavailable in `agent=true` mode.
 

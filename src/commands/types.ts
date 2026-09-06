@@ -26,6 +26,29 @@ export interface CommandParameter {
   readonly sensitive?: boolean
   readonly valueSources?: readonly ('inline' | 'file' | 'stdin')[]
   readonly schema?: JsonSchema
+  readonly resourceReference?: ResourceReferenceSpec
+}
+
+export type ResourceReferenceKind = 'project' | 'application' | 'deployment-target' | 'release'
+
+export interface ResourceReferenceSpec {
+  readonly kind: ResourceReferenceKind
+  readonly scope?: readonly string[]
+  readonly stableOnly?: boolean
+}
+
+export interface ResourceReferenceRequest {
+  readonly kind: ResourceReferenceKind
+  readonly parameter: string
+  readonly value: string
+  readonly scope: Readonly<Record<string, string>>
+}
+
+export interface ResourceReferenceSnapshot {
+  readonly id: string
+  readonly name?: string
+  readonly identifier?: string
+  readonly stage?: string
 }
 
 export interface CommandMetadata {
@@ -34,6 +57,7 @@ export interface CommandMetadata {
   readonly canonicalPath?: string
   readonly categoryAliases?: readonly string[]
   readonly aliases?: readonly string[]
+  readonly compatibilityPaths?: readonly string[]
   readonly source: CommandSource
   readonly operationId?: string
   readonly method?: string
@@ -50,6 +74,7 @@ export interface CommandMetadata {
   readonly schemaVersion?: string
   readonly schemaDigest?: string
   readonly mfaPurpose?: string
+  readonly requiredScopes?: readonly string[]
   readonly risk?: CommandRisk
   readonly transport?: CommandTransport
   readonly projectContext?: 'required' | 'optional' | 'none'
@@ -69,6 +94,7 @@ export interface NormalizedCommandMetadata extends CommandMetadata {
   readonly parameters: readonly CommandParameter[]
   readonly aliases: readonly string[]
   readonly categoryAliases: readonly string[]
+  readonly compatibilityPaths: readonly string[]
 }
 
 export interface CommandCatalogMetadata {
@@ -206,6 +232,11 @@ export interface ApiPort {
     globals: CommandExecutionGlobals,
     authentication?: AuthenticationContext,
   ) => Promise<ProjectContextSnapshot>
+  resolveResource?: (
+    request: ResourceReferenceRequest,
+    globals: CommandExecutionGlobals,
+    authentication?: AuthenticationContext,
+  ) => Promise<ResourceReferenceSnapshot>
   getMeta?: (
     server: string | undefined,
     globals: CommandExecutionGlobals,
@@ -226,10 +257,15 @@ export interface ProtocolPort {
   readonly createWebSocket?: (
     url: string,
     protocols?: string | readonly string[],
+    options?: ProtocolWebSocketOptions,
   ) => ProtocolWebSocket
   readonly stdin?: ProtocolInputStream
   readonly stdout?: ProtocolOutputStream
   readonly onInterrupt?: (listener: (signal?: NodeJS.Signals) => void) => () => void
+}
+
+export interface ProtocolWebSocketOptions {
+  readonly headers?: Readonly<Record<string, string>>
 }
 
 export interface ProtocolInputStream {

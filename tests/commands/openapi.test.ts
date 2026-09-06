@@ -37,6 +37,44 @@ describe('openAPI command catalog normalization', () => {
     expect(page?.valueSources).toBeUndefined()
   })
 
+  it('declares scoped resource references for core path parameters', () => {
+    const entry = catalog.entries.find(item => item.operationId === 'updateDeploymentTarget')
+
+    expect(entry?.parameters).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'projectId',
+        resourceReference: { kind: 'project' },
+      }),
+      expect.objectContaining({
+        name: 'applicationId',
+        resourceReference: { kind: 'application', scope: ['projectId'] },
+      }),
+      expect.objectContaining({
+        name: 'targetId',
+        resourceReference: {
+          kind: 'deployment-target',
+          scope: ['projectId', 'applicationId'],
+        },
+      }),
+    ]))
+  })
+
+  it('does not infer Luna application references for OAuth applications or array filters', () => {
+    const oauthApplication = catalog.entries.find(item =>
+      item.operationId === 'deleteOAuthApplication')
+    const events = catalog.entries.find(item =>
+      item.operationId === 'listPlatformEvents')
+
+    expect(oauthApplication?.parameters?.find(parameter =>
+      parameter.name === 'applicationId')?.resourceReference).toBeUndefined()
+    expect(events?.parameters?.find(parameter =>
+      parameter.name === 'projectId')?.resourceReference).toBeUndefined()
+    expect(events?.parameters?.find(parameter =>
+      parameter.name === 'applicationId')?.resourceReference).toBeUndefined()
+    expect(events?.parameters?.find(parameter =>
+      parameter.name === 'deploymentTargetId')?.resourceReference).toBeUndefined()
+  })
+
   it('maps Idempotency-Key to the existing global option', () => {
     const entry = catalog.entries.find(item => item.operationId === 'createProjectVolume')
 

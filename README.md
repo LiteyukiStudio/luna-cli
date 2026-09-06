@@ -75,7 +75,7 @@ luna whoami
 luna doctor
 luna logout
 luna project --help
-luna project get-projects --help
+luna project list --help
 ```
 
 这些顶层短命令只面向人类交互，分别复用 `auth login`、`auth status`、
@@ -89,18 +89,22 @@ luna project get-projects --help
 `server=https://...`；再次登录会覆盖本地现有的实例、凭据和默认项目空间。
 CLI 不提供 context 切换机制，一个本地配置始终只表示一个活动登录。
 
-## Release 交互执行
+## 资源引用与部署目标交互执行
 
-使用 OAuth 登录后，可以把本地 TTY 直接连接到 Release 当前运行容器：
+`projectId`、`applicationId` 和 `targetId` 参数既接受稳定 ID，也接受逐层作用域内的精确不可变标识：项目标识符、应用标识符和部署阶段。稳定 ID 会直接使用；自然标识会通过受权限约束的精确查询解析为 ID，再进入确认和执行流程。CLI 不会用显示名称做模糊匹配。
+
+`releaseId` 只表示 `rel_...` 格式的单次发布记录。Kubernetes 工作负载名称不是 Release ID；进入部署目标当前容器应使用 `deployment exec`。
+
+使用 OAuth 登录后，可以把本地 TTY 直接连接到部署目标当前运行容器：
 
 ```bash
-luna release exec projectId=prj_example releaseId=rel_example
-luna release exec projectId=prj_example releaseId=rel_example container=api
+luna deployment exec projectId=xnn-api applicationId=postgres-api targetId=prod
+luna deployment exec projectId=prj_111111111111111111111111 applicationId=app_222222222222222222222222 targetId=dplt_333333333333333333333333 container=api
 ```
 
 命令进入远端交互式 Shell，输入输出、ANSI 控制字节和窗口尺寸以二进制终端流传输；
-执行 `exit` 或按 `Ctrl-D` 后结束远端会话并恢复本地终端。`release terminal` 保留为
-同一命令的人工别名。该命令要求真实交互式 TTY、CLI OAuth 登录和平台端运行终端授权，
+执行 `exit` 或按 `Ctrl-D` 后结束远端会话并恢复本地终端。`deployment terminal` 是
+同一命令的人工别名；`release exec` 只作为旧调用的兼容入口保留。该命令要求真实交互式 TTY、CLI OAuth 登录和平台端运行终端授权，
 不能在 `agent=true` 模式下使用。
 
 语言解析顺序为：`--lang`、`LUNA_LANG`、本地配置的 `language`、系统
@@ -108,7 +112,7 @@ luna release exec projectId=prj_example releaseId=rel_example container=api
 
 ```bash
 LUNA_LANG=zh-CN luna --help
-luna --lang zh-CN project get-projects --help
+luna --lang zh-CN project list --help
 ```
 
 ## Agent 可观测诊断

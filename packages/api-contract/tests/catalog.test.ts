@@ -146,6 +146,42 @@ describe("OpenAPI operation catalog", () => {
     expect(entry?.command.aliases).toContain("list-project-members");
   });
 
+  it("uses concise canonical paths for core project and deployment resources", () => {
+    const commands = new Map([
+      ["listProjects", "project.list"],
+      ["createProject", "project.create"],
+      ["getProject", "project.get"],
+      ["updateProject", "project.update"],
+      ["deleteProject", "project.delete"],
+      ["listApplications", "application.list"],
+      ["createApplication", "application.create"],
+      ["getApplication", "application.get"],
+      ["updateApplication", "application.update"],
+      ["deleteApplication", "application.delete"],
+      ["listDeploymentTargets", "deployment.list"],
+      ["createDeploymentTarget", "deployment.create"],
+      ["updateDeploymentTarget", "deployment.update"],
+      ["deleteDeploymentTarget", "deployment.delete"],
+      ["listReleases", "release.list"],
+      ["createRelease", "release.create"],
+      ["getRelease", "release.get"],
+    ]);
+
+    for (const [operationId, canonicalPath] of commands) {
+      const entry = OPERATION_CATALOG.find(operation =>
+        operation.operationId === operationId);
+      expect(entry?.command.canonicalPath).toBe(canonicalPath);
+      expect(entry?.command.compatibilityPaths).toHaveLength(1);
+    }
+
+    const releases = OPERATION_CATALOG.find(operation =>
+      operation.operationId === "listReleases");
+    expect(releases?.command.categoryAliases).toContain("releases");
+    expect(releases?.command.compatibilityPaths).toContain(
+      "releases.get-projects-by-project-id-releases",
+    );
+  });
+
   it("prefers explicit operation and command metadata when available", () => {
     const [entry] = buildOperationCatalog([
       operation({
