@@ -6016,7 +6016,10 @@ export interface components {
              * @enum {string}
              */
             workloadType: "Deployment" | "StatefulSet";
-            /** @default 1 */
+            /**
+             * @description Set to 0 to retain the deployment resources while stopping all Pods.
+             * @default 1
+             */
             replicas: number;
             /**
              * @description CPU quota for each replica; the selected runtime cluster policy derives Kubernetes requests and limits.
@@ -6070,7 +6073,7 @@ export interface components {
             serviceSessionAffinity?: "None" | "ClientIP";
             /** @default false */
             autoScalingEnabled: boolean;
-            /** @description Minimum desired replicas. Zero enables HPA scale-to-zero. */
+            /** @description Minimum desired replicas while autoscaling is enabled. The current CPU and memory resource metrics cannot wake a workload from zero replicas. */
             autoScalingMinReplicas?: number;
             autoScalingMaxReplicas?: number;
             autoScalingCpuPercent?: number;
@@ -10803,13 +10806,35 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Updated deployment target. */
+            /** @description Updated deployment target with a no-store point-in-time runtime observation. */
             200: {
                 headers: {
+                    "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DeploymentTarget"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The runtime cluster rejected or could not apply the replica change. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Applying the replica change to the runtime cluster timed out. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
