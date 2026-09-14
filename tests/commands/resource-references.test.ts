@@ -10,6 +10,7 @@ import {
   createCliProgram,
   createRegistryFromContract,
   DefaultInputPort,
+  isStableResourceId,
   LunaApiAdapter,
   resourceReferenceForParameter,
   runCli,
@@ -20,6 +21,33 @@ const APPLICATION_ID = 'app_222222222222222222222222'
 const TARGET_ID = 'dplt_333333333333333333333333'
 
 describe('resource reference resolution', () => {
+  it('recognizes current opaque IDs and historical stable IDs', () => {
+    expect(isStableResourceId('project', PROJECT_ID)).toBe(true)
+    expect(isStableResourceId('application', APPLICATION_ID)).toBe(true)
+    expect(isStableResourceId('deployment-target', TARGET_ID)).toBe(true)
+    expect(isStableResourceId('release', 'rel_444444444444444444444444')).toBe(true)
+
+    expect(isStableResourceId('project', 'prj_liteyuki')).toBe(true)
+    expect(isStableResourceId('application', 'app_liteyuki_logto')).toBe(true)
+    expect(isStableResourceId('deployment-target', 'dplt_liteyuki_logto_prod')).toBe(true)
+    expect(isStableResourceId(
+      'deployment-target',
+      'dplt_platform-system_gateway-traffic-probe_system_0123abcd',
+    )).toBe(true)
+  })
+
+  it('rejects malformed and fabricated historical IDs', () => {
+    expect(isStableResourceId('project', 'prj_')).toBe(false)
+    expect(isStableResourceId('application', 'app_')).toBe(false)
+    expect(isStableResourceId('deployment-target', 'dplt_')).toBe(false)
+    expect(isStableResourceId('release', 'rel_')).toBe(false)
+
+    expect(isStableResourceId('project', 'prj_!')).toBe(false)
+    expect(isStableResourceId('application', 'app_liteyuki')).toBe(false)
+    expect(isStableResourceId('deployment-target', 'dplt_liteyuki_logto')).toBe(false)
+    expect(isStableResourceId('release', 'rel_liteyuki_logto_prod')).toBe(false)
+  })
+
   it('keeps previous canonical core paths available to existing agents', async () => {
     const errors: unknown[] = []
     const ports = testPorts(errors)
@@ -123,6 +151,38 @@ describe('resource reference resolution', () => {
     expect(resolveResource).not.toHaveBeenCalled()
   })
 
+  it('accepts legacy stable IDs in agent mode without remote resolution', async () => {
+    const errors: unknown[] = []
+    const resolveResource = vi.fn()
+    const execute = vi.fn(async () => ({ data: {} }))
+    const registry = new CommandRegistry()
+    registry.register({ ...deploymentUpdateMetadata(), risk: 'low' }, execute)
+    const ports = testPorts(errors, { resolveResource })
+
+    const result = await runCli(createCliProgram({ registry, ports }), [
+      'node',
+      'luna',
+      'deployment',
+      'update',
+      'projectId=prj_liteyuki',
+      'applicationId=app_liteyuki_logto',
+      'targetId=dplt_liteyuki_logto_prod',
+      'agent=true',
+      'yes=true',
+    ], ports.output)
+
+    expect(result.exitCode).toBe(0)
+    expect(errors).toEqual([])
+    expect(resolveResource).not.toHaveBeenCalled()
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      params: expect.objectContaining({
+        projectId: 'prj_liteyuki',
+        applicationId: 'app_liteyuki_logto',
+        targetId: 'dplt_liteyuki_logto_prod',
+      }),
+    }), expect.anything())
+  })
+
   it('keeps client dry-run local by requiring stable IDs for readable references', async () => {
     const errors: unknown[] = []
     const resolveResource = vi.fn()
@@ -196,6 +256,34 @@ describe('resource reference resolution', () => {
         parameter: 'releaseId',
         resource: 'release',
         expectedPrefix: 'rel_',
+      },
+    })
+    expect(resolveResource).not.toHaveBeenCalled()
+  })
+
+  it('rejects a fabricated historical release ID locally', async () => {
+    const errors: unknown[] = []
+    const resolveResource = vi.fn()
+    const registry = new CommandRegistry()
+    const ports = testPorts(errors, { resolveResource })
+
+    const result = await runCli(createCliProgram({ registry, ports }), [
+      'node',
+      'luna',
+      'release',
+      'exec',
+      `projectId=${PROJECT_ID}`,
+      'releaseId=rel_liteyuki_logto_prod',
+    ], ports.output)
+
+    expect(result.exitCode).toBe(2)
+    expect(errors[0]).toMatchObject({
+      code: 'resource_id_invalid',
+      details: {
+        parameter: 'releaseId',
+        resource: 'release',
+        expectedPrefix: 'rel_',
+        actualPrefix: 'rel_',
       },
     })
     expect(resolveResource).not.toHaveBeenCalled()
