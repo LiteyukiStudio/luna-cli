@@ -5,7 +5,7 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:9b9c18a224760f7e91557594c0fe53f781a6cfd9dcf85f52f142893f4bcb1917",
+  "sourceDigest": "sha256:d0e262a7c9a80343d7a370e46dc917f6441efcd7f749d11d3ad7edfda7e532eb",
   "operationCount": 304
 } as const satisfies OpenApiSnapshotMetadata;
 
@@ -17984,8 +17984,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "autoScalingMinReplicas": {
               "type": "integer",
-              "description": "Minimum desired replicas. Zero enables HPA scale-to-zero.",
-              "minimum": 0
+              "description": "Minimum desired replicas while autoscaling is enabled. The current CPU and memory resource metrics cannot wake a workload from zero replicas.",
+              "minimum": 1
             },
             "branchPattern": {
               "type": "string"
@@ -18251,8 +18251,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "replicas": {
               "type": "integer",
+              "description": "Set to 0 to retain the deployment resources while stopping all Pods.",
               "default": 1,
-              "minimum": 1
+              "minimum": 0
             },
             "repositoryBindingId": {
               "type": "string",
@@ -18808,8 +18809,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "autoScalingMinReplicas": {
               "type": "integer",
-              "description": "Minimum desired replicas. Zero enables HPA scale-to-zero.",
-              "minimum": 0
+              "description": "Minimum desired replicas while autoscaling is enabled. The current CPU and memory resource metrics cannot wake a workload from zero replicas.",
+              "minimum": 1
             },
             "branchPattern": {
               "type": "string"
@@ -19075,8 +19076,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "replicas": {
               "type": "integer",
+              "description": "Set to 0 to retain the deployment resources while stopping all Pods.",
               "default": 1,
-              "minimum": 1
+              "minimum": 0
             },
             "repositoryBindingId": {
               "type": "string",
@@ -19467,6 +19469,73 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         }
       },
       "additionalProperties": true
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
     },
     "xLunaCli": {}
   },
@@ -20101,8 +20170,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 },
                 "autoScalingMinReplicas": {
                   "type": "integer",
-                  "description": "Minimum desired replicas. Zero enables HPA scale-to-zero.",
-                  "minimum": 0
+                  "description": "Minimum desired replicas while autoscaling is enabled. The current CPU and memory resource metrics cannot wake a workload from zero replicas.",
+                  "minimum": 1
                 },
                 "branchPattern": {
                   "type": "string"
@@ -20312,8 +20381,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 },
                 "replicas": {
                   "type": "integer",
+                  "description": "Set to 0 to retain the deployment resources while stopping all Pods.",
                   "default": 1,
-                  "minimum": 1
+                  "minimum": 0
                 },
                 "repositoryBindingId": {
                   "type": "string",
