@@ -327,15 +327,17 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
         pathParameter('projectId'),
         pathParameter('applicationId'),
         pathParameter('targetId'),
+        queryParameter('pod', { type: 'string' }),
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
       requiredScopes: ['deployment:exec'],
       summary: 'Open an interactive exec session for a deployment target',
-      description: 'Connect the local TTY to the current deployment target container until the remote shell exits.',
+      description: 'Connect the local TTY to a deployment target container until the remote shell exits. Pass pod to choose a replica; otherwise the platform selects one.',
       examples: [
         'luna deployment exec projectId=xnn-api applicationId=postgres-w8kt4h targetId=prod',
         'luna deployment exec projectId=prj_111111111111111111111111 applicationId=app_222222222222222222222222 targetId=dplt_333333333333333333333333 container=app',
+        'luna deployment exec projectId=prj_111111111111111111111111 applicationId=app_222222222222222222222222 targetId=dplt_333333333333333333333333 pod=api-7f9c4d8b6-x2k4p',
       ],
     }),
     webSocketDefinition({
@@ -351,15 +353,17 @@ export function protocolCommandDefinitions(): readonly ProtocolCommandDefinition
       parameters: [
         pathParameter('projectId'),
         pathParameter('releaseId'),
+        queryParameter('pod', { type: 'string' }),
         queryParameter('container', { type: 'string' }),
       ],
       mfaPurpose: 'runtime_terminal',
       requiredScopes: ['deployment:exec'],
       summary: 'Open an interactive exec session for a release',
-      description: 'Connect the local TTY to the current container for the release\'s deployment target until the remote shell exits.',
+      description: 'Connect the local TTY to a container of the release\'s deployment target until the remote shell exits. Pass pod to choose a replica; otherwise pods of this release are preferred.',
       examples: [
         'luna release exec projectId=prj_111111111111111111111111 releaseId=rel_444444444444444444444444',
         'luna release exec projectId=prj_111111111111111111111111 releaseId=rel_444444444444444444444444 container=app',
+        'luna release exec projectId=prj_111111111111111111111111 releaseId=rel_444444444444444444444444 pod=api-7f9c4d8b6-x2k4p',
       ],
     }),
   ]
