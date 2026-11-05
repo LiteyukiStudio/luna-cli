@@ -5,8 +5,8 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:d0e262a7c9a80343d7a370e46dc917f6441efcd7f749d11d3ad7edfda7e532eb",
-  "operationCount": 304
+  "sourceDigest": "sha256:ddd0bf93cbdce94b925987825d38674ca6b9a6748417996e86940a983a2075dd",
+  "operationCount": 306
 } as const satisfies OpenApiSnapshotMetadata;
 
 export const OPENAPI_OPERATION_SNAPSHOTS = [
@@ -18158,30 +18158,65 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "environmentVariables": {
               "type": "array",
-              "description": "Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values; it stores these values in the deployment-managed ConfigMap and injects them into the workload. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required.",
+              "description": "Unified runtime environment table. Public items are the complete desired set of plaintext values stored in the deployment-managed ConfigMap; the platform does not infer sensitivity from names or values. Secret items carry an explicit secretOperation and are applied in the same transaction as the rest of the save. Existing secrets that are not listed stay unchanged; remove one with secretOperation clear. After the save, a name must be either public or secret, never both; violations return 400 deployment.runtime_environment_key_conflict. Converting a secret to public requires a clear item plus a public item with a newly supplied value.",
               "items": {
-                "ref": "#/components/schemas/RuntimeEnvironmentVariableInput",
+                "ref": "#/components/schemas/DeploymentRuntimeEnvironmentVariableInput",
                 "type": "object",
+                "description": "One row of the unified runtime environment table. Public rows require value. Secret rows require secretOperation; set requires a non-empty value, generate accepts generation, and clear removes the stored secret.",
                 "required": [
                   "key",
-                  "value",
                   "valueMode"
                 ],
                 "properties": {
+                  "generation": {
+                    "type": "object",
+                    "description": "Used only by secretOperation generate.",
+                    "properties": {
+                      "encoding": {
+                        "type": "string",
+                        "enum": [
+                          "base64",
+                          "hex",
+                          "alphanumeric",
+                          "numeric"
+                        ],
+                        "default": "base64"
+                      },
+                      "length": {
+                        "type": "integer",
+                        "default": 32,
+                        "minimum": 8,
+                        "maximum": 256
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "key": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                   },
+                  "secretOperation": {
+                    "type": "string",
+                    "description": "Required for secret rows and forbidden for public rows.",
+                    "enum": [
+                      "set",
+                      "generate",
+                      "clear"
+                    ]
+                  },
                   "value": {
                     "type": "string",
+                    "description": "Plaintext for public rows, or the new secret value for secretOperation set. Secret values are encrypted and never returned.",
+                    "writeOnly": true,
                     "maxLength": 8192
                   },
                   "valueMode": {
                     "type": "string",
                     "enum": [
-                      "public"
+                      "public",
+                      "secret"
                     ]
                   }
                 },
@@ -18512,7 +18547,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -18983,30 +19018,65 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "environmentVariables": {
               "type": "array",
-              "description": "Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values; it stores these values in the deployment-managed ConfigMap and injects them into the workload. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required.",
+              "description": "Unified runtime environment table. Public items are the complete desired set of plaintext values stored in the deployment-managed ConfigMap; the platform does not infer sensitivity from names or values. Secret items carry an explicit secretOperation and are applied in the same transaction as the rest of the save. Existing secrets that are not listed stay unchanged; remove one with secretOperation clear. After the save, a name must be either public or secret, never both; violations return 400 deployment.runtime_environment_key_conflict. Converting a secret to public requires a clear item plus a public item with a newly supplied value.",
               "items": {
-                "ref": "#/components/schemas/RuntimeEnvironmentVariableInput",
+                "ref": "#/components/schemas/DeploymentRuntimeEnvironmentVariableInput",
                 "type": "object",
+                "description": "One row of the unified runtime environment table. Public rows require value. Secret rows require secretOperation; set requires a non-empty value, generate accepts generation, and clear removes the stored secret.",
                 "required": [
                   "key",
-                  "value",
                   "valueMode"
                 ],
                 "properties": {
+                  "generation": {
+                    "type": "object",
+                    "description": "Used only by secretOperation generate.",
+                    "properties": {
+                      "encoding": {
+                        "type": "string",
+                        "enum": [
+                          "base64",
+                          "hex",
+                          "alphanumeric",
+                          "numeric"
+                        ],
+                        "default": "base64"
+                      },
+                      "length": {
+                        "type": "integer",
+                        "default": 32,
+                        "minimum": 8,
+                        "maximum": 256
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "key": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
                     "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
                   },
+                  "secretOperation": {
+                    "type": "string",
+                    "description": "Required for secret rows and forbidden for public rows.",
+                    "enum": [
+                      "set",
+                      "generate",
+                      "clear"
+                    ]
+                  },
                   "value": {
                     "type": "string",
+                    "description": "Plaintext for public rows, or the new secret value for secretOperation set. Secret values are encrypted and never returned.",
+                    "writeOnly": true,
                     "maxLength": 8192
                   },
                   "valueMode": {
                     "type": "string",
                     "enum": [
-                      "public"
+                      "public",
+                      "secret"
                     ]
                   }
                 },
@@ -19338,7 +19408,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -19669,7 +19739,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -19814,6 +19884,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Securely update deployment target runtime secrets",
+    "description": "Applies secret operations immediately, outside the deployment target save. A secret name must not match a public runtime variable of the same deployment target; violations return 400 deployment.runtime_environment_key_conflict.",
     "operationId": "updateDeploymentTargetRuntimeSecrets",
     "requestBody": {
       "required": true,
@@ -19947,7 +20018,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -20312,9 +20383,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 },
                 "environmentVariables": {
                   "type": "array",
-                  "description": "Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values; it stores these values in the deployment-managed ConfigMap and injects them into the workload. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required.",
+                  "description": "Unified runtime environment table. Public items are the complete desired set of plaintext values stored in the deployment-managed ConfigMap; the platform does not infer sensitivity from names or values. Secret items carry an explicit secretOperation and are applied in the same transaction as the rest of the save. Existing secrets that are not listed stay unchanged; remove one with secretOperation clear. After the save, a name must be either public or secret, never both; violations return 400 deployment.runtime_environment_key_conflict. Converting a secret to public requires a clear item plus a public item with a newly supplied value.",
                   "items": {
-                    "ref": "#/components/schemas/RuntimeEnvironmentVariableInput",
+                    "ref": "#/components/schemas/DeploymentRuntimeEnvironmentVariableInput",
                     "truncated": true
                   },
                   "maxItems": 128
@@ -21752,7 +21823,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -21959,6 +22030,356 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     }
   },
   {
+    "method": "get",
+    "path": "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/pods",
+    "tags": [
+      "Deployments"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ProjectId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "applicationId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ApplicationId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "targetId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/TargetId",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "releaseId",
+        "in": "query",
+        "required": false,
+        "description": "Ranks pods of this release first in the recommended order.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "page",
+        "in": "query",
+        "ref": "#/components/parameters/Page",
+        "schema": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        }
+      },
+      {
+        "name": "pageSize",
+        "in": "query",
+        "ref": "#/components/parameters/PageSize",
+        "schema": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      {
+        "name": "search",
+        "in": "query",
+        "required": false,
+        "ref": "#/components/parameters/Search",
+        "schema": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      {
+        "name": "sortBy",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "recommended",
+            "name",
+            "createdAt"
+          ],
+          "default": "recommended"
+        }
+      },
+      {
+        "name": "sortOrder",
+        "in": "query",
+        "ref": "#/components/parameters/SortOrder",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        }
+      }
+    ],
+    "summary": "List runtime pods of a deployment target",
+    "description": "Returns a no-store point-in-time Kubernetes observation of the runtime replicas (build pods excluded). The default `recommended` order matches the replica the platform selects automatically for logs, exec, and terminals: pods of `releaseId` first, then ready, running, and newest. When the cluster cannot be read the response has `status=unavailable`, a stable `observationCode`, and no items.",
+    "operationId": "listDeploymentTargetRuntimePods",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "applicationId": {
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        },
+        "releaseId": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1
+        },
+        "pageSize": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 1,
+          "maximum": 100
+        },
+        "search": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "sortBy": {
+          "type": "string",
+          "enum": [
+            "recommended",
+            "name",
+            "createdAt"
+          ],
+          "default": "recommended"
+        },
+        "sortOrder": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "default": "desc"
+        }
+      },
+      "required": [
+        "applicationId",
+        "projectId",
+        "targetId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/DeploymentTargetRuntimePodPage",
+      "type": "object",
+      "required": [
+        "items",
+        "observationCode",
+        "observedAt",
+        "page",
+        "pageSize",
+        "sortBy",
+        "sortOrder",
+        "status",
+        "total",
+        "totalPages"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "ref": "#/components/schemas/DeploymentTargetRuntimePod",
+            "type": "object",
+            "required": [
+              "containers",
+              "createdAt",
+              "name",
+              "phase",
+              "ready",
+              "releaseId",
+              "restartCount",
+              "terminating"
+            ],
+            "properties": {
+              "containers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string",
+                "description": "Kubernetes pod phase."
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "releaseId": {
+                "type": "string",
+                "description": "Release that created this pod; empty when unknown."
+              },
+              "restartCount": {
+                "type": "integer",
+                "description": "Sum of container restarts.",
+                "minimum": 0
+              },
+              "terminating": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "observationCode": {
+          "type": "string",
+          "enum": [
+            "deployment_target.runtime_pods_ready",
+            "deployment_target.runtime_pods_unavailable"
+          ]
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "sortBy": {
+          "type": "string",
+          "enum": [
+            "recommended",
+            "name",
+            "createdAt"
+          ]
+        },
+        "sortOrder": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "unavailable"
+          ]
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalPages": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "xLunaCli": {}
+  },
+  {
     "method": "post",
     "path": "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/terminal/authorize",
     "tags": [
@@ -21992,6 +22413,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "pod",
+        "in": "query",
+        "required": false,
+        "description": "Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back.",
+        "schema": {
+          "type": "string"
+        }
       }
     ],
     "summary": "Authorize a deployment-target Web Console terminal connection",
@@ -22007,6 +22437,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string"
         },
         "targetId": {
+          "type": "string"
+        },
+        "pod": {
           "type": "string"
         }
       },
@@ -22150,6 +22583,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "pod",
+        "in": "query",
+        "required": false,
+        "description": "Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back.",
+        "schema": {
+          "type": "string"
+        }
       }
     ],
     "summary": "Stream Deployment Target Runtime Terminal",
@@ -22168,6 +22610,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string"
         },
         "container": {
+          "type": "string"
+        },
+        "pod": {
           "type": "string"
         }
       },
@@ -22276,6 +22721,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "pod",
+        "in": "query",
+        "required": false,
+        "description": "Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back.",
+        "schema": {
+          "type": "string"
+        }
       }
     ],
     "summary": "Authorize a release Web Console terminal connection",
@@ -22288,6 +22742,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string"
         },
         "releaseId": {
+          "type": "string"
+        },
+        "pod": {
           "type": "string"
         }
       },
@@ -27665,8 +28122,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "integer",
           "default": 1,
-          "minimum": 1,
-          "maximum": 1
+          "minimum": 1
         }
       },
       {
@@ -27754,8 +28210,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "page": {
           "type": "integer",
           "default": 1,
-          "minimum": 1,
-          "maximum": 1
+          "minimum": 1
         },
         "pageSize": {
           "type": "integer",
@@ -35221,6 +35676,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "type": "object",
         "required": [
           "category",
+          "components",
           "dataVolumes",
           "defaultCPU",
           "defaultMemory",
@@ -35244,6 +35700,55 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "properties": {
           "category": {
             "type": "string"
+          },
+          "components": {
+            "type": "array",
+            "description": "Components installed together by a multi-component template; empty for single-workload templates, whose runtime fields are the template-level image, servicePort, defaults, and dataVolumes.",
+            "items": {
+              "ref": "#/components/schemas/AppTemplateComponent",
+              "type": "object",
+              "required": [
+                "dataVolumes",
+                "defaultCPU",
+                "defaultMemory",
+                "defaultReplicas",
+                "image",
+                "key",
+                "name",
+                "servicePort"
+              ],
+              "properties": {
+                "dataVolumes": {
+                  "type": "array",
+                  "truncated": true
+                },
+                "defaultCPU": {
+                  "type": "string"
+                },
+                "defaultMemory": {
+                  "type": "string"
+                },
+                "defaultReplicas": {
+                  "type": "integer"
+                },
+                "image": {
+                  "type": "string"
+                },
+                "key": {
+                  "type": "string",
+                  "description": "Stable component key; the installed application identifier is applicationIdentifier-key.",
+                  "pattern": "^[a-z][a-z0-9]*$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "servicePort": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "maxItems": 16
           },
           "dataVolumes": {
             "type": "array",
@@ -35431,6 +35936,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "required": [
         "category",
+        "components",
         "dataVolumes",
         "defaultCPU",
         "defaultMemory",
@@ -35453,6 +35959,59 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "properties": {
         "category": {
           "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "description": "Components installed together by a multi-component template; empty for single-workload templates, whose runtime fields are the template-level image, servicePort, defaults, and dataVolumes.",
+          "items": {
+            "ref": "#/components/schemas/AppTemplateComponent",
+            "type": "object",
+            "required": [
+              "dataVolumes",
+              "defaultCPU",
+              "defaultMemory",
+              "defaultReplicas",
+              "image",
+              "key",
+              "name",
+              "servicePort"
+            ],
+            "properties": {
+              "dataVolumes": {
+                "type": "array",
+                "items": {
+                  "ref": "#/components/schemas/AppTemplateDataVolume",
+                  "truncated": true
+                },
+                "maxItems": 32
+              },
+              "defaultCPU": {
+                "type": "string"
+              },
+              "defaultMemory": {
+                "type": "string"
+              },
+              "defaultReplicas": {
+                "type": "integer"
+              },
+              "image": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string",
+                "description": "Stable component key; the installed application identifier is applicationIdentifier-key.",
+                "pattern": "^[a-z][a-z0-9]*$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "servicePort": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 16
         },
         "dataVolumes": {
           "type": "array",
@@ -36246,6 +36805,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Update Project Runtime Config Set",
+    "description": "Public runtime variable names must not match a secret already stored on the config set; violations return 400 deployment.runtime_environment_key_conflict.",
     "operationId": "updateProjectRuntimeConfigSet",
     "requestBody": {
       "required": true,
@@ -36515,6 +37075,165 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "xLunaCli": {}
   },
   {
+    "method": "get",
+    "path": "/api/v1/projects/{projectId}/runtime-config-sets/{setId}/runtime-secrets",
+    "tags": [
+      "Projects"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "setId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "summary": "Get project runtime config set secret summary",
+    "description": "Returns configured key names and value modes only. Plaintext values and Secret Store references are never returned.",
+    "operationId": "getProjectRuntimeConfigSetRuntimeSecretsSummary",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "setId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectId",
+        "setId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/DeploymentTargetRuntimeSecretsSummary",
+      "type": "object",
+      "required": [
+        "environmentVariables"
+      ],
+      "properties": {
+        "environmentVariables": {
+          "type": "array",
+          "items": {
+            "ref": "#/components/schemas/RuntimeEnvironmentVariable",
+            "type": "object",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
+            "required": [
+              "configured",
+              "key",
+              "valueMode"
+            ],
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "key": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "value": {
+                "type": "string",
+                "description": "Present only for public variables. Secret values and storage references are never returned."
+              },
+              "valueMode": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "secret"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "xLunaCli": {}
+  },
+  {
     "method": "put",
     "path": "/api/v1/projects/{projectId}/runtime-config-sets/{setId}/runtime-secrets",
     "tags": [
@@ -36540,6 +37259,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Securely update project runtime config set secrets",
+    "description": "A secret name must not match a public runtime variable of the same config set; violations return 400 deployment.runtime_environment_key_conflict.",
     "operationId": "updateProjectRuntimeConfigSetRuntimeSecrets",
     "requestBody": {
       "required": true,
@@ -36669,7 +37389,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "items": {
             "ref": "#/components/schemas/RuntimeEnvironmentVariable",
             "type": "object",
-            "description": "One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads.",
+            "description": "One stored runtime environment entry. A name is either public or secret within one owner.",
             "required": [
               "configured",
               "key",
@@ -39262,7 +39982,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Install an app template into a project",
-    "description": "Creates an application and deployment target from the selected template. When installNow is true, the response also contains the first Release; read that Release back to verify its terminal state.",
+    "description": "Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. When installNow is true, read every returned Release back to verify its terminal state.",
     "operationId": "installAppTemplate",
     "requestBody": {
       "required": true,
@@ -39302,27 +40022,38 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "clusterId": {
               "type": "string"
             },
+            "componentProjectVolumeIds": {
+              "type": "object",
+              "description": "Multi-component templates only. Maps each component key whose dataVolumes contains projectVolume to a distinct attachable project-volume ID, using the same attachability rules as projectVolumeId. Unknown keys, missing required volumes, and one volume selected for several components are rejected.",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
             "cpuRequest": {
-              "type": "string"
+              "type": "string",
+              "description": "Single-workload templates only; multi-component templates use component defaults."
             },
             "deploymentName": {
               "type": "string"
             },
             "imageRef": {
-              "type": "string"
+              "type": "string",
+              "description": "Single-workload templates only; multi-component templates reject this override with app_template.component_override_unsupported."
             },
             "installNow": {
               "type": "boolean"
             },
             "memoryRequest": {
-              "type": "string"
+              "type": "string",
+              "description": "Single-workload templates only; multi-component templates use component defaults."
             },
             "projectVolumeId": {
               "type": "string",
-              "description": "Existing project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. A volume is attachable when lifecycleState=ready, or when lifecycleState=provisioning and (pendingOperation=provision or pendingOperation=expand); pendingOperation=import and all other lifecycle/pending-operation combinations are rejected. Required when dataVolumes contains projectVolume; rejected otherwise."
+              "description": "Existing project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. A volume is attachable when lifecycleState=ready, or when lifecycleState=provisioning and (pendingOperation=provision or pendingOperation=expand); pendingOperation=import and all other lifecycle/pending-operation combinations are rejected. Required when dataVolumes contains projectVolume; rejected otherwise and for multi-component templates."
             },
             "replicas": {
               "type": "integer",
+              "description": "Single-workload templates only; multi-component templates use component defaults.",
               "minimum": 0
             },
             "stage": {
@@ -39430,7 +40161,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "command": "app-template.install",
       "classification": "business-command",
       "risk": "medium",
-      "agentAllowed": true
+      "agentAllowed": true,
+      "examples": [
+        "luna app-template install projectId=prj_111111111111111111111111 templateId=postgresql body=@postgresql-install.json output=json interactive=false",
+        "luna app-template install projectId=prj_111111111111111111111111 templateId=neo-blog body=@neo-blog-install.json output=json interactive=false",
+        "# Multi-component templates: set componentProjectVolumeIds by component key, for example {\"api\":\"pvol_...\",\"postgres\":\"pvol_...\"}; omit imageRef, replicas, cpuRequest, memoryRequest and projectVolumeId."
+      ]
     }
   },
   {
@@ -40097,6 +40833,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "deprecated": false,
     "parameters": [
       {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "ref": "#/components/parameters/DeliveryIdempotencyKey",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      },
+      {
         "name": "projectId",
         "in": "path",
         "required": true,
@@ -40119,6 +40866,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "inputSchema": {
       "type": "object",
       "properties": {
+        "Idempotency-Key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "projectId": {
           "type": "string"
         },
@@ -40613,6 +41365,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "deprecated": false,
     "parameters": [
       {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "ref": "#/components/parameters/DeliveryIdempotencyKey",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      },
+      {
         "name": "projectId",
         "in": "path",
         "required": true,
@@ -40634,6 +41397,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "inputSchema": {
       "type": "object",
       "properties": {
+        "Idempotency-Key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "projectId": {
           "type": "string"
         },
@@ -41650,6 +42418,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "deprecated": false,
     "parameters": [
       {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "ref": "#/components/parameters/DeliveryIdempotencyKey",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      },
+      {
         "name": "projectId",
         "in": "path",
         "required": true,
@@ -41672,6 +42451,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "inputSchema": {
       "type": "object",
       "properties": {
+        "Idempotency-Key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "projectId": {
           "type": "string"
         },
@@ -42238,6 +43022,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "pod",
+        "in": "query",
+        "required": false,
+        "description": "Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back.",
+        "schema": {
+          "type": "string"
+        }
       }
     ],
     "summary": "Get Release Runtime Logs",
@@ -42256,6 +43049,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "format": "int32"
         },
         "container": {
+          "type": "string"
+        },
+        "pod": {
           "type": "string"
         }
       },
@@ -42400,6 +43196,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             },
             "container": {
               "type": "string"
+            },
+            "pod": {
+              "type": "string",
+              "description": "Runtime pod of this deployment target. Omit to let the platform select one; an unknown pod is rejected instead of falling back."
             }
           },
           "additionalProperties": false
@@ -42563,6 +43363,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "pod",
+        "in": "query",
+        "required": false,
+        "description": "Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back.",
+        "schema": {
+          "type": "string"
+        }
       }
     ],
     "summary": "Stream Release Runtime Terminal",
@@ -42581,6 +43390,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string"
         },
         "ticket": {
+          "type": "string"
+        },
+        "pod": {
           "type": "string"
         }
       },
@@ -42672,6 +43484,17 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "deprecated": false,
     "parameters": [
       {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "ref": "#/components/parameters/DeliveryIdempotencyKey",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      },
+      {
         "name": "projectId",
         "in": "path",
         "required": true,
@@ -42693,6 +43516,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "inputSchema": {
       "type": "object",
       "properties": {
+        "Idempotency-Key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
         "projectId": {
           "type": "string"
         },
@@ -50114,6 +50942,18 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "category": {
                 "type": "string"
               },
+              "effect": {
+                "type": "string",
+                "enum": [
+                  "discovery",
+                  "read",
+                  "write",
+                  "async",
+                  "execute",
+                  "interactive",
+                  "presentation"
+                ]
+              },
               "idempotent": {
                 "type": "boolean"
               },
@@ -50179,6 +51019,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "requiresApproval": {
                 "type": "boolean"
               },
+              "retryOnUnknown": {
+                "type": "boolean",
+                "default": false
+              },
               "sensitivePaths": {
                 "type": "array",
                 "items": {
@@ -50198,6 +51042,19 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "items": {
                   "type": "string"
                 }
+              },
+              "verification": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "truncated": true
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
+              "verificationOnly": {
+                "type": "boolean",
+                "default": false
               }
             },
             "additionalProperties": false

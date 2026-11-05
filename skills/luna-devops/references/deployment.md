@@ -21,6 +21,14 @@
 5. 对发布、重启、回滚、日志、等待终态和终端授权，只调用目录存在的工具。
 6. 异步操作返回后按 Help 指示轮询，最终重新读取发布或工作负载状态。
 
+## 应用模板安装
+
+1. 先读取模板详情；`components` 非空即为多组件模板，每个组件会创建独立的应用、部署配置和可选首个 Release。
+2. 多组件模板按组件 `key` 在请求体 `componentProjectVolumeIds` 中为每个声明了项目数据卷的组件选择不同的项目数据卷，
+   不发送 `imageRef`、`replicas`、`cpuRequest`、`memoryRequest` 和 `projectVolumeId`。
+3. 单组件模板仍使用 `projectVolumeId` 及可选的镜像、副本与资源覆盖。
+4. 安装结果中的 `components` 列出每个组件的应用、部署配置和 Release；`installNow` 为 `true` 时逐个回读 Release 终态。
+
 ## 风险与验证
 
 - 应用、部署配置、发布和运行资源删除是关键操作。

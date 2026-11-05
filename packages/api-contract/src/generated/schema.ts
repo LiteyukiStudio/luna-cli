@@ -1606,7 +1606,10 @@ export interface paths {
         };
         /** Get configured runtime secret keys without values */
         get: operations["getDeploymentTargetRuntimeSecretsSummary"];
-        /** Securely update deployment target runtime secrets */
+        /**
+         * Securely update deployment target runtime secrets
+         * @description Applies secret operations immediately, outside the deployment target save. A secret name must not match a public runtime variable of the same deployment target; violations return 400 deployment.runtime_environment_key_conflict.
+         */
         put: operations["updateDeploymentTargetRuntimeSecrets"];
         post?: never;
         delete?: never;
@@ -1689,6 +1692,26 @@ export interface paths {
          * @description Revalidates the bundle digest, destination mappings, permissions, billing gate, public stage invariant, dependency visibility, and Secret requirements. Creates one new deployment target transactionally and does not start a build, release, or deployment. A commit that is not ready, including one with an invalid stage, creates no target, Secret, build environment, or volume mount.
          */
         post: operations["importDeploymentTargetBundle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/applications/{applicationId}/deployment-targets/{targetId}/pods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List runtime pods of a deployment target
+         * @description Returns a no-store point-in-time Kubernetes observation of the runtime replicas (build pods excluded). The default `recommended` order matches the replica the platform selects automatically for logs, exec, and terminals: pods of `releaseId` first, then ready, running, and newest. When the cluster cannot be read the response has `status=unavailable`, a stable `observationCode`, and no items.
+         */
+        get: operations["listDeploymentTargetRuntimePods"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2883,7 +2906,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Update Project Runtime Config Set */
+        /**
+         * Update Project Runtime Config Set
+         * @description Public runtime variable names must not match a secret already stored on the config set; violations return 400 deployment.runtime_environment_key_conflict.
+         */
         put: operations["updateProjectRuntimeConfigSet"];
         post?: never;
         /** Delete Project Runtime Config Set */
@@ -2900,8 +2926,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Securely update project runtime config set secrets */
+        /**
+         * Get project runtime config set secret summary
+         * @description Returns configured key names and value modes only. Plaintext values and Secret Store references are never returned.
+         */
+        get: operations["getProjectRuntimeConfigSetRuntimeSecretsSummary"];
+        /**
+         * Securely update project runtime config set secrets
+         * @description A secret name must not match a public runtime variable of the same config set; violations return 400 deployment.runtime_environment_key_conflict.
+         */
         put: operations["updateProjectRuntimeConfigSetRuntimeSecrets"];
         post?: never;
         delete?: never;
@@ -3097,7 +3130,7 @@ export interface paths {
         put?: never;
         /**
          * Install an app template into a project
-         * @description Creates an application and deployment target from the selected template. When installNow is true, the response also contains the first Release; read that Release back to verify its terminal state.
+         * @description Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. When installNow is true, read every returned Release back to verify its terminal state.
          */
         post: operations["installAppTemplate"];
         delete?: never;
@@ -4632,6 +4665,29 @@ export interface components {
             outputSchema: {
                 [key: string]: unknown;
             };
+            /** @enum {string} */
+            effect?: "discovery" | "read" | "write" | "async" | "execute" | "interactive" | "presentation";
+            /** @default false */
+            retryOnUnknown: boolean;
+            /** @default false */
+            verificationOnly: boolean;
+            verification?: {
+                operationId: string;
+                /** @enum {string} */
+                family: "build_run" | "release" | "gateway_route" | "application" | "deployment_target" | "runtime_secrets" | "runtime_config_secrets" | "project_order" | "billing_rate_rules" | "resource";
+                /** @enum {string} */
+                expect?: "present" | "absent" | "canceled";
+                whenResultHas?: string;
+                idFrom?: string;
+                readIdArgument?: string;
+                singleton?: boolean;
+                collection?: boolean;
+                targetField?: string;
+                statusField?: string;
+                pendingStatuses?: string[];
+                successStatuses?: string[];
+                failureStatuses?: string[];
+            }[];
             sensitivePaths?: string[];
             parameters: {
                 inputName: string;
@@ -4852,7 +4908,7 @@ export interface components {
             id: string;
             timelineIndex: number;
             /** @enum {string} */
-            type: "reasoning_summary" | "assistant_message" | "tool_call";
+            type: "reasoning_summary" | "progress" | "assistant_message" | "tool_call";
             status: string;
             text: string;
             toolCall?: components["schemas"]["AgentObservabilityConversationToolCall"];
@@ -6164,8 +6220,8 @@ export interface components {
                  */
                 mode: "live" | "snapshot";
             }[];
-            /** @description Caller-selected public runtime environment variables. The platform does not infer sensitivity from key names or values; it stores these values in the deployment-managed ConfigMap and injects them into the workload. A key may also have a separately managed secret; the secret takes precedence in deployed workloads while both modes remain visible in API state. Choose the dedicated runtime secret action when encrypted storage and non-disclosure are required. */
-            environmentVariables?: components["schemas"]["RuntimeEnvironmentVariableInput"][];
+            /** @description Unified runtime environment table. Public items are the complete desired set of plaintext values stored in the deployment-managed ConfigMap; the platform does not infer sensitivity from names or values. Secret items carry an explicit secretOperation and are applied in the same transaction as the rest of the save. Existing secrets that are not listed stay unchanged; remove one with secretOperation clear. After the save, a name must be either public or secret, never both; violations return 400 deployment.runtime_environment_key_conflict. Converting a secret to public requires a clear item plus a public item with a newly supplied value. */
+            environmentVariables?: components["schemas"]["DeploymentRuntimeEnvironmentVariableInput"][];
             /** @description JSON array of runtime configuration file mounts. */
             configFiles?: string;
             /** @description JSON array of runtime secret file inputs. Existing plaintext values are never returned. */
@@ -6240,7 +6296,30 @@ export interface components {
             valueMode: "public";
             value: string;
         };
-        /** @description One stored runtime environment value mode. Responses may contain public and secret entries with the same key; the secret entry takes precedence in deployed workloads. */
+        /** @description One row of the unified runtime environment table. Public rows require value. Secret rows require secretOperation; set requires a non-empty value, generate accepts generation, and clear removes the stored secret. */
+        DeploymentRuntimeEnvironmentVariableInput: {
+            key: string;
+            /** @enum {string} */
+            valueMode: "public" | "secret";
+            /** @description Plaintext for public rows, or the new secret value for secretOperation set. Secret values are encrypted and never returned. */
+            value?: string;
+            /**
+             * @description Required for secret rows and forbidden for public rows.
+             * @enum {string}
+             */
+            secretOperation?: "set" | "generate" | "clear";
+            /** @description Used only by secretOperation generate. */
+            generation?: {
+                /** @default 32 */
+                length: number;
+                /**
+                 * @default base64
+                 * @enum {string}
+                 */
+                encoding: "base64" | "hex" | "alphanumeric" | "numeric";
+            };
+        };
+        /** @description One stored runtime environment entry. A name is either public or secret within one owner. */
         RuntimeEnvironmentVariable: {
             key: string;
             /** @enum {string} */
@@ -7220,6 +7299,17 @@ export interface components {
             secret: boolean;
             autoGenerate: boolean;
         };
+        AppTemplateComponent: {
+            /** @description Stable component key; the installed application identifier is applicationIdentifier-key. */
+            key: string;
+            name: string;
+            image: string;
+            servicePort: number;
+            defaultReplicas: number;
+            defaultCPU: string;
+            defaultMemory: string;
+            dataVolumes: components["schemas"]["AppTemplateDataVolume"][];
+        };
         AppTemplateSummary: {
             id: string;
             slug: string;
@@ -7239,6 +7329,8 @@ export interface components {
             defaultCPU: string;
             defaultMemory: string;
             dataVolumes: components["schemas"]["AppTemplateDataVolume"][];
+            /** @description Components installed together by a multi-component template; empty for single-workload templates, whose runtime fields are the template-level image, servicePort, defaults, and dataVolumes. */
+            components: components["schemas"]["AppTemplateComponent"][];
             valueCount: number;
             requiredValueCount: number;
         };
@@ -7261,6 +7353,8 @@ export interface components {
             defaultCPU: string;
             defaultMemory: string;
             dataVolumes: components["schemas"]["AppTemplateDataVolume"][];
+            /** @description Components installed together by a multi-component template; empty for single-workload templates, whose runtime fields are the template-level image, servicePort, defaults, and dataVolumes. */
+            components: components["schemas"]["AppTemplateComponent"][];
             values: components["schemas"]["AppTemplateValueDefinition"][];
         };
         AppTemplateInstallInput: {
@@ -7273,12 +7367,20 @@ export interface components {
              */
             stage: "dev" | "test" | "staging" | "prod";
             clusterId: string;
+            /** @description Single-workload templates only; multi-component templates reject this override with app_template.component_override_unsupported. */
             imageRef?: string;
+            /** @description Single-workload templates only; multi-component templates use component defaults. */
             replicas?: number;
+            /** @description Single-workload templates only; multi-component templates use component defaults. */
             cpuRequest?: string;
+            /** @description Single-workload templates only; multi-component templates use component defaults. */
             memoryRequest?: string;
-            /** @description Existing project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. A volume is attachable when lifecycleState=ready, or when lifecycleState=provisioning and (pendingOperation=provision or pendingOperation=expand); pendingOperation=import and all other lifecycle/pending-operation combinations are rejected. Required when dataVolumes contains projectVolume; rejected otherwise. */
+            /** @description Existing project-volume ID matching the template declaration, project space, cluster, namespace, and volume mode. A volume is attachable when lifecycleState=ready, or when lifecycleState=provisioning and (pendingOperation=provision or pendingOperation=expand); pendingOperation=import and all other lifecycle/pending-operation combinations are rejected. Required when dataVolumes contains projectVolume; rejected otherwise and for multi-component templates. */
             projectVolumeId?: string;
+            /** @description Multi-component templates only. Maps each component key whose dataVolumes contains projectVolume to a distinct attachable project-volume ID, using the same attachability rules as projectVolumeId. Unknown keys, missing required volumes, and one volume selected for several components are rejected. */
+            componentProjectVolumeIds?: {
+                [key: string]: string;
+            };
             installNow?: boolean;
             /** @description Dynamic template values. The whole map is treated as sensitive because individual templates may define Secret parameters. */
             values?: {
@@ -7376,8 +7478,41 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        DeploymentTargetRuntimePod: {
+            name: string;
+            /** @description Kubernetes pod phase. */
+            phase: string;
+            ready: boolean;
+            terminating: boolean;
+            /** @description Sum of container restarts. */
+            restartCount: number;
+            /** @description Release that created this pod; empty when unknown. */
+            releaseId: string;
+            containers: string[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DeploymentTargetRuntimePodPage: {
+            items: components["schemas"]["DeploymentTargetRuntimePod"][];
+            page: number;
+            pageSize: number;
+            /** @enum {string} */
+            sortBy: "recommended" | "name" | "createdAt";
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
+            /** @enum {string} */
+            status: "ready" | "unavailable";
+            /** @enum {string} */
+            observationCode: "deployment_target.runtime_pods_ready" | "deployment_target.runtime_pods_unavailable";
+            /** Format: date-time */
+            observedAt: string;
+        };
         ReleaseRuntimeExecInput: {
             command: string;
+            /** @description Runtime pod of this deployment target. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+            pod?: string;
             container?: string;
         };
         RuntimeExecResult: {
@@ -7544,6 +7679,7 @@ export interface components {
         CredentialId: string;
         IdentityId: string;
         IdempotencyKey: string;
+        DeliveryIdempotencyKey: string;
         InboxMessageId: string;
         InboxRequestId: string;
         MemberId: string;
@@ -11103,9 +11239,47 @@ export interface operations {
             };
         };
     };
+    listDeploymentTargetRuntimePods: {
+        parameters: {
+            query?: {
+                /** @description Ranks pods of this release first in the recommended order. */
+                releaseId?: string;
+                page?: components["parameters"]["Page"];
+                pageSize?: components["parameters"]["PageSize"];
+                search?: components["parameters"]["Search"];
+                sortBy?: "recommended" | "name" | "createdAt";
+                sortOrder?: components["parameters"]["SortOrder"];
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                applicationId: components["parameters"]["ApplicationId"];
+                targetId: components["parameters"]["TargetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated live runtime pod observation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetRuntimePodPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     authorizeDeploymentTargetRuntimeTerminal: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+                pod?: string;
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -11179,6 +11353,8 @@ export interface operations {
         parameters: {
             query?: {
                 container?: string;
+                /** @description Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+                pod?: string;
             };
             header?: never;
             path: {
@@ -11217,7 +11393,10 @@ export interface operations {
     };
     authorizeReleaseRuntimeTerminal: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+                pod?: string;
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -12169,7 +12348,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description First bounded, globally sorted resource page. Kubernetes resource categories span independent cursors, so page values above 1 return `pagination.cursor_required`. */
+            /** @description Globally sorted resource page after the selected Kubernetes resource category has been fully enumerated and visibility-filtered. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13718,6 +13897,32 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getProjectRuntimeConfigSetRuntimeSecretsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                setId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Configured secret key summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentTargetRuntimeSecretsSummary"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     updateProjectRuntimeConfigSetRuntimeSecrets: {
         parameters: {
             query?: never;
@@ -14344,7 +14549,9 @@ export interface operations {
     triggerBuildRun: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["DeliveryIdempotencyKey"];
+            };
             path: {
                 projectId: string;
             };
@@ -14368,7 +14575,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description The selected target registry has no push-capable credential visible to the current user or project. The BuildRun is not created and the stable error code is `build.registry_push_credential_required`. */
+            /** @description The target registry lacks a push-capable credential, or the Idempotency-Key was reused with different parameters. Stable codes are `build.registry_push_credential_required` and `request.idempotency_conflict`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14439,7 +14646,9 @@ export interface operations {
     retryBuildRun: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["DeliveryIdempotencyKey"];
+            };
             path: {
                 projectId: string;
                 runId: string;
@@ -14460,7 +14669,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description The target registry used by the original BuildRun has no push-capable credential visible to the current user or project. The retry BuildRun is not created and the stable error code is `build.registry_push_credential_required`. */
+            /** @description The target registry lacks a push-capable credential, or the Idempotency-Key was reused with different parameters. Stable codes are `build.registry_push_credential_required` and `request.idempotency_conflict`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14647,7 +14856,9 @@ export interface operations {
     createRelease: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["DeliveryIdempotencyKey"];
+            };
             path: {
                 projectId: string;
             };
@@ -14671,6 +14882,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getRelease: {
@@ -14730,6 +14942,8 @@ export interface operations {
             query?: {
                 tailLines?: number;
                 container?: string;
+                /** @description Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+                pod?: string;
             };
             header?: never;
             path: {
@@ -14793,6 +15007,8 @@ export interface operations {
                  * @description Legacy ticket transport retained for older CLI clients. New clients use the `X-Luna-Terminal-Ticket` header.
                  */
                 ticket?: string;
+                /** @description Runtime pod of this deployment target to connect. Omit to let the platform select one; an unknown pod is rejected instead of falling back. */
+                pod?: string;
             };
             header?: never;
             path: {
@@ -14831,7 +15047,9 @@ export interface operations {
     rollbackRelease: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: components["parameters"]["DeliveryIdempotencyKey"];
+            };
             path: {
                 projectId: string;
                 releaseId: string;
@@ -14852,6 +15070,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listGatewayRoutes: {
