@@ -16,17 +16,17 @@ const RESOURCE_IDS: Readonly<Record<ResourceReferenceKind, {
 }>> = Object.freeze({
   'project': {
     label: 'project',
-    pattern: /^prj_[0-9a-f]{24}$/,
+    pattern: /^prj_(?:[0-9a-f]{24}|[a-z0-9][a-z0-9-]{0,20}[a-z0-9])$/,
     prefix: 'prj_',
   },
   'application': {
     label: 'application',
-    pattern: /^app_[0-9a-f]{24}$/,
+    pattern: /^app_(?:[0-9a-f]{24}|[a-z0-9][a-z0-9-]{0,20}[a-z0-9]_[a-z0-9][a-z0-9-]{0,20}[a-z0-9])$/,
     prefix: 'app_',
   },
   'deployment-target': {
     label: 'deployment target',
-    pattern: /^dplt_[0-9a-f]{24}$/,
+    pattern: /^dplt_(?:[0-9a-f]{24}|[a-z0-9][a-z0-9-]{0,20}[a-z0-9]_[a-z0-9][a-z0-9-]{0,20}[a-z0-9]_(?:[a-z0-9][a-z0-9-]{0,10}[a-z0-9]|system_[0-9a-f]{8}))$/,
     prefix: 'dplt_',
   },
   'release': {

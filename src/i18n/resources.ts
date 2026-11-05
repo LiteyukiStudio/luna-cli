@@ -292,7 +292,7 @@ export const resources = {
         resource: {
           not_found: 'The requested resource was not found. Check its parent scope, then use luna project list, luna application list, luna deployment list, or luna release list to find the immutable ID.',
         },
-        resource_id_invalid: 'The resource ID is invalid. Expected prj_, app_, dplt_, or rel_ followed by 24 lowercase hexadecimal characters.',
+        resource_id_invalid: 'The resource ID is invalid. Use the current opaque ID or a historical stable ID supported for that resource type.',
         resource_id_required: 'releaseId must be an immutable rel_ ID. Run luna release list with the projectId to find it; use luna deployment exec for the deployment target\'s current container.',
         resource_reference_ambiguous: 'The resource reference matched more than one item. Pass an immutable ID.',
         resource_reference_invalid: 'The resource reference is invalid. Use a project/application identifier, deployment stage, or an ID beginning with prj_, app_, dplt_, or rel_.',
@@ -636,7 +636,7 @@ export const resources = {
         resource: {
           not_found: '未找到请求的资源。请先检查父级范围，再通过 luna project list、luna application list、luna deployment list 或 luna release list 查找不可变 ID。',
         },
-        resource_id_invalid: '资源 ID 格式无效；应为 prj_、app_、dplt_ 或 rel_ 前缀，加 24 位小写十六进制字符。',
+        resource_id_invalid: '资源 ID 格式无效；请使用当前的不透明 ID，或该资源类型支持的历史稳定 ID。',
         resource_id_required: 'releaseId 必须是 rel_ 开头的不可变 ID；请携带 projectId 执行 luna release list 查找。若要进入部署目标的当前容器，请使用 luna deployment exec。',
         resource_reference_ambiguous: '资源引用匹配到多个结果，请改用不可变 ID。',
         resource_reference_invalid: '资源引用无效；请使用项目/应用标识符、部署环境 stage，或 prj_、app_、dplt_、rel_ 开头的 ID。',
