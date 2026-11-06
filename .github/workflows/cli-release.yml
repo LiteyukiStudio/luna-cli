@@ -122,7 +122,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             target: bun-linux-arm64
             asset: luna-linux-arm64
-          - runner: macos-14
+          - runner: macos-15
             target: bun-darwin-arm64
             asset: luna-darwin-arm64-unsigned
           - runner: macos-15-intel
