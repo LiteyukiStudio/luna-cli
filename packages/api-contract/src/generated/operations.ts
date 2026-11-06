@@ -5,7 +5,7 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:ddd0bf93cbdce94b925987825d38674ca6b9a6748417996e86940a983a2075dd",
+  "sourceDigest": "sha256:a6d9051457b8ae34504b889efa0f5baf79d75d59a45c7fe15adac4fd1b5a9bf4",
   "operationCount": 306
 } as const satisfies OpenApiSnapshotMetadata;
 
@@ -2694,7 +2694,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "brandColorPreset",
         "email",
         "id",
-        "interfaceStyle",
         "language",
         "name",
         "passwordSet",
@@ -2710,22 +2709,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "description": "Empty follows the platform color theme; otherwise contains a preset from the current curated catalog.",
           "enum": [
             "",
-            "aurora",
-            "harbor",
-            "sunset",
-            "botanical",
-            "meadow",
-            "citrus",
-            "gold",
-            "orange",
-            "red",
-            "pink",
-            "violet",
             "blue",
-            "cyan",
+            "violet",
             "teal",
             "green",
-            "lime"
+            "orange",
+            "pink"
           ]
         },
         "email": {
@@ -2734,15 +2723,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "id": {
           "type": "string"
-        },
-        "interfaceStyle": {
-          "type": "string",
-          "description": "Empty follows the platform default; minimal uses a neutral canvas and themed uses the brand-tinted canvas.",
-          "enum": [
-            "",
-            "minimal",
-            "themed"
-          ]
         },
         "language": {
           "type": "string",
@@ -2809,31 +2789,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "description": "Empty follows the platform color theme; otherwise stores a preset from the current curated catalog.",
               "enum": [
                 "",
-                "aurora",
-                "harbor",
-                "sunset",
-                "botanical",
-                "meadow",
-                "citrus",
-                "gold",
-                "orange",
-                "red",
-                "pink",
-                "violet",
                 "blue",
-                "cyan",
+                "violet",
                 "teal",
                 "green",
-                "lime"
-              ]
-            },
-            "interfaceStyle": {
-              "type": "string",
-              "description": "Empty follows the platform default; otherwise overrides the interface style.",
-              "enum": [
-                "",
-                "minimal",
-                "themed"
+                "orange",
+                "pink"
               ]
             },
             "language": {
@@ -2862,7 +2823,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "brandColorPreset",
         "email",
         "id",
-        "interfaceStyle",
         "language",
         "name",
         "passwordSet",
@@ -2878,22 +2838,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "description": "Empty follows the platform color theme; otherwise contains a preset from the current curated catalog.",
           "enum": [
             "",
-            "aurora",
-            "harbor",
-            "sunset",
-            "botanical",
-            "meadow",
-            "citrus",
-            "gold",
-            "orange",
-            "red",
-            "pink",
-            "violet",
             "blue",
-            "cyan",
+            "violet",
             "teal",
             "green",
-            "lime"
+            "orange",
+            "pink"
           ]
         },
         "email": {
@@ -2902,15 +2852,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "id": {
           "type": "string"
-        },
-        "interfaceStyle": {
-          "type": "string",
-          "description": "Empty follows the platform default; minimal uses a neutral canvas and themed uses the brand-tinted canvas.",
-          "enum": [
-            "",
-            "minimal",
-            "themed"
-          ]
         },
         "language": {
           "type": "string",
@@ -10314,7 +10255,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       {
         "name": "includeRuntime",
         "in": "query",
-        "description": "Include a point-in-time Kubernetes replica summary for each application. The response is marked no-store because the summary is read from the authoritative runtime.",
+        "description": "Include a point-in-time Kubernetes replica summary, the primary configured access URL, and the most recent succeeded release for each application. The response is marked no-store because the summary is read from the authoritative runtime.",
         "schema": {
           "type": "boolean",
           "default": false
@@ -10410,6 +10351,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "string",
                 "format": "date-time"
               },
+              "currentRelease": {
+                "ref": "#/components/schemas/ApplicationCurrentRelease",
+                "type": "object",
+                "truncated": true
+              },
               "deleteFinishedAt": {
                 "type": "string",
                 "format": "date-time",
@@ -10442,6 +10388,11 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               },
               "name": {
                 "type": "string"
+              },
+              "primaryAccessUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "Configured access URL of the application's primary enabled gateway route (default route first, then production stage). Returned only when includeRuntime=true and a route exists; it is derived from configuration and does not prove reachability."
               },
               "projectId": {
                 "type": "string"
@@ -35682,6 +35633,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "defaultMemory",
           "defaultReplicas",
           "description",
+          "featured",
           "icon",
           "id",
           "image",
@@ -35778,6 +35730,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           },
           "description": {
             "type": "string"
+          },
+          "featured": {
+            "type": "boolean",
+            "description": "Whether the template is shown in the app store recommended section."
           },
           "icon": {
             "type": "string"
@@ -35942,6 +35898,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "defaultMemory",
         "defaultReplicas",
         "description",
+        "featured",
         "icon",
         "id",
         "image",
@@ -36102,6 +36059,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "description": {
           "type": "string"
+        },
+        "featured": {
+          "type": "boolean",
+          "description": "Whether the template is shown in the app store recommended section."
         },
         "icon": {
           "type": "string"

@@ -5555,6 +5555,20 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             deploymentSummary?: components["schemas"]["ApplicationDeploymentSummary"];
+            /**
+             * Format: uri
+             * @description Configured access URL of the application's primary enabled gateway route (default route first, then production stage). Returned only when includeRuntime=true and a route exists; it is derived from configuration and does not prove reachability.
+             */
+            primaryAccessUrl?: string;
+            currentRelease?: components["schemas"]["ApplicationCurrentRelease"];
+        };
+        /** @description Most recent succeeded release on an existing deployment target. It is a workflow result returned only when includeRuntime=true, not the live Kubernetes image. */
+        ApplicationCurrentRelease: {
+            id: string;
+            deploymentTargetId: string;
+            imageRef: string;
+            /** Format: date-time */
+            deployedAt: string;
         };
         PaginatedApplications: {
             items: components["schemas"]["ApplicationListItem"][];
@@ -6647,12 +6661,7 @@ export interface components {
              * @description Empty follows the platform color theme; otherwise contains a preset from the current curated catalog.
              * @enum {string}
              */
-            brandColorPreset: "" | "aurora" | "harbor" | "sunset" | "botanical" | "meadow" | "citrus" | "gold" | "orange" | "red" | "pink" | "violet" | "blue" | "cyan" | "teal" | "green" | "lime";
-            /**
-             * @description Empty follows the platform default; minimal uses a neutral canvas and themed uses the brand-tinted canvas.
-             * @enum {string}
-             */
-            interfaceStyle: "" | "minimal" | "themed";
+            brandColorPreset: "" | "blue" | "violet" | "teal" | "green" | "orange" | "pink";
             permissions: string[];
         };
         AuthRegistrationStatus: {
@@ -6739,12 +6748,7 @@ export interface components {
              * @description Empty follows the platform color theme; otherwise stores a preset from the current curated catalog.
              * @enum {string}
              */
-            brandColorPreset?: "" | "aurora" | "harbor" | "sunset" | "botanical" | "meadow" | "citrus" | "gold" | "orange" | "red" | "pink" | "violet" | "blue" | "cyan" | "teal" | "green" | "lime";
-            /**
-             * @description Empty follows the platform default; otherwise overrides the interface style.
-             * @enum {string}
-             */
-            interfaceStyle?: "" | "minimal" | "themed";
+            brandColorPreset?: "" | "blue" | "violet" | "teal" | "green" | "orange" | "pink";
         };
         UserInput: {
             email: string;
@@ -7322,6 +7326,8 @@ export interface components {
             officialWebsite: string;
             officialRepository: string;
             popularityWeight: number;
+            /** @description Whether the template is shown in the app store recommended section. */
+            featured: boolean;
             image: string;
             version: string;
             servicePort: number;
@@ -7346,6 +7352,8 @@ export interface components {
             officialWebsite: string;
             officialRepository: string;
             popularityWeight: number;
+            /** @description Whether the template is shown in the app store recommended section. */
+            featured: boolean;
             image: string;
             version: string;
             servicePort: number;
@@ -10074,7 +10082,7 @@ export interface operations {
                 identifier?: string;
                 sortBy?: "createdAt" | "name" | "identifier";
                 sortOrder?: components["parameters"]["SortOrder"];
-                /** @description Include a point-in-time Kubernetes replica summary for each application. The response is marked no-store because the summary is read from the authoritative runtime. */
+                /** @description Include a point-in-time Kubernetes replica summary, the primary configured access URL, and the most recent succeeded release for each application. The response is marked no-store because the summary is read from the authoritative runtime. */
                 includeRuntime?: boolean;
             };
             header?: never;
