@@ -5,8 +5,8 @@ export const OPENAPI_SNAPSHOT_METADATA = {
   "source": "openapi/openapi.yaml",
   "openapiVersion": "3.1.0",
   "apiVersion": "0.1.0",
-  "sourceDigest": "sha256:a6d9051457b8ae34504b889efa0f5baf79d75d59a45c7fe15adac4fd1b5a9bf4",
-  "operationCount": 306
+  "sourceDigest": "sha256:481c3658bedd93a84277a58f6d452da0d13d4d654f70a7981c5c2b8aaab90c17",
+  "operationCount": 308
 } as const satisfies OpenApiSnapshotMetadata;
 
 export const OPENAPI_OPERATION_SNAPSHOTS = [
@@ -8372,6 +8372,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "required": [
         "activities",
+        "applicationActivities",
         "attention",
         "generatedAt",
         "projects",
@@ -8450,6 +8451,77 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           },
           "maxItems": 20
         },
+        "applicationActivities": {
+          "type": "array",
+          "description": "Latest event of each application in the returned project shortcuts, newest first. Unlike activities it is not limited to the most recent events, so quiet applications keep their own latest activity. Applications that are being deleted or were deleted are excluded.",
+          "items": {
+            "ref": "#/components/schemas/DashboardActivity",
+            "type": "object",
+            "required": [
+              "category",
+              "id",
+              "links",
+              "message",
+              "occurredAt",
+              "resourceId",
+              "resourceType",
+              "severity",
+              "status",
+              "type"
+            ],
+            "properties": {
+              "application": {
+                "ref": "#/components/schemas/DashboardEntityRef",
+                "type": "object",
+                "truncated": true
+              },
+              "category": {
+                "type": "string"
+              },
+              "deploymentTarget": {
+                "ref": "#/components/schemas/DashboardEntityRef",
+                "type": "object",
+                "truncated": true
+              },
+              "id": {
+                "type": "string"
+              },
+              "links": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "message": {
+                "type": "string"
+              },
+              "occurredAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "project": {
+                "ref": "#/components/schemas/DashboardEntityRef",
+                "type": "object",
+                "truncated": true
+              },
+              "resourceId": {
+                "type": "string"
+              },
+              "resourceType": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "attention": {
           "type": "array",
           "items": {
@@ -8518,6 +8590,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "string"
               },
               "latestActivity": {
+                "description": "Latest event of this project space, queried per project and independent of the global recent activity window; null when the project space has no events.",
                 "oneOf": [
                   {
                     "ref": "#/components/schemas/DashboardActivity",
@@ -8656,6 +8729,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "applications": {
               "type": "integer",
               "format": "int64",
+              "description": "Applications in visible project spaces, excluding applications that are being deleted or were deleted.",
               "minimum": 0
             },
             "attentionItems": {
@@ -8930,6 +9004,13 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "createdAt": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "currentUserActions": {
+                "type": "array",
+                "description": "Project actions (internal/authz policy keys such as project:write or volume:export) the current user's platform and project roles allow right now; returned by getProject only. It does not reflect access-token scope restrictions, and the server still authorizes every request.",
+                "items": {
+                  "type": "string"
+                }
               },
               "currentUserRole": {
                 "description": "Role of the current authenticated user in this project space. Omitted for platform administrators.",
@@ -9477,6 +9558,192 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "projectId"
       ],
       "additionalProperties": false
+    },
+    "xLunaCli": {}
+  },
+  {
+    "method": "get",
+    "path": "/api/v1/projects/{projectId}/overview",
+    "tags": [
+      "Projects"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "ref": "#/components/parameters/ProjectId",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "summary": "Get project space overview counts",
+    "description": "Counts computed by the database for the project-space overview. Applications that are being deleted or were deleted are excluded; failed releases only count releases that failed within the last failedReleaseWindowDays days. accessRoutes is a live gateway observation returned with Cache-Control no-store; when any enabled route cannot be observed it reports unavailable without a ready count.",
+    "operationId": "getProjectOverview",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/ProjectOverview",
+      "type": "object",
+      "required": [
+        "accessRoutes",
+        "activeReleases",
+        "applications",
+        "failedReleaseWindowDays",
+        "failedReleases"
+      ],
+      "properties": {
+        "accessRoutes": {
+          "ref": "#/components/schemas/ProjectOverviewAccessRoutes",
+          "type": "object",
+          "description": "Live readiness of the project space's enabled access routes, observed from the gateway on every request. Disabled routes and routes being deleted are excluded.",
+          "required": [
+            "observedAt",
+            "status",
+            "total"
+          ],
+          "properties": {
+            "observationCode": {
+              "type": "string",
+              "description": "Stable reason when status is not ready.",
+              "enum": [
+                "project_overview.access_routes_not_configured",
+                "project_overview.access_routes_not_ready",
+                "project_overview.access_routes_unavailable"
+              ]
+            },
+            "observedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "ready": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Enabled routes observed as ready. Omitted when status is unavailable; clients must not treat a missing value as zero.",
+              "minimum": 0
+            },
+            "status": {
+              "type": "string",
+              "description": "ready when every enabled route is ready; degraded when some are not ready; not-configured when there are no enabled routes; unavailable when at least one route could not be observed.",
+              "enum": [
+                "ready",
+                "degraded",
+                "not-configured",
+                "unavailable"
+              ]
+            },
+            "total": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Enabled routes in the project space, read from the desired configuration.",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "activeReleases": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Releases that are pending or running.",
+          "minimum": 0
+        },
+        "applications": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Applications in the project space, excluding applications that are being deleted or were deleted.",
+          "minimum": 0
+        },
+        "failedReleases": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Releases that failed within the last failedReleaseWindowDays days.",
+          "minimum": 0
+        },
+        "failedReleaseWindowDays": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
     },
     "xLunaCli": {}
   },
@@ -10337,6 +10604,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "type": "object",
             "required": [
               "createdAt",
+              "deleteCode",
               "deleteMessage",
               "deleteStatus",
               "icon",
@@ -10356,13 +10624,25 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "type": "object",
                 "truncated": true
               },
+              "deleteCode": {
+                "type": "string",
+                "description": "Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.",
+                "enum": [
+                  "",
+                  "service_binding_in_use",
+                  "application.delete_cleanup_failed",
+                  "application.delete_finalize_failed",
+                  "application.delete_enqueue_failed"
+                ]
+              },
               "deleteFinishedAt": {
                 "type": "string",
                 "format": "date-time",
                 "nullable": true
               },
               "deleteMessage": {
-                "type": "string"
+                "type": "string",
+                "description": "Diagnostic detail of the latest deletion failure. Clients display deleteCode instead."
               },
               "deleteStartedAt": {
                 "type": "string",
@@ -10597,6 +10877,15 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "schema": {
           "type": "string"
         }
+      },
+      {
+        "name": "includeRuntime",
+        "in": "query",
+        "description": "Include the same point-in-time runtime verdict, primary configured access URL and current release that listApplications returns with includeRuntime=true. The response is marked no-store.",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
       }
     ],
     "summary": "Get application",
@@ -10609,6 +10898,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "applicationId": {
           "type": "string"
+        },
+        "includeRuntime": {
+          "type": "boolean",
+          "default": false
         }
       },
       "required": [
@@ -10616,6 +10909,157 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "projectId"
       ],
       "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/ApplicationListItem",
+      "type": "object",
+      "required": [
+        "createdAt",
+        "deleteCode",
+        "deleteMessage",
+        "deleteStatus",
+        "icon",
+        "id",
+        "identifier",
+        "name",
+        "projectId",
+        "updatedAt"
+      ],
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "currentRelease": {
+          "ref": "#/components/schemas/ApplicationCurrentRelease",
+          "type": "object",
+          "description": "Most recent succeeded release by finished time on an existing deployment target. It is a workflow result returned only when includeRuntime=true, not the live Kubernetes image.",
+          "required": [
+            "deployedAt",
+            "deploymentTargetId",
+            "id",
+            "imageRef"
+          ],
+          "properties": {
+            "deployedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "deploymentTargetId": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "imageRef": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "deleteCode": {
+          "type": "string",
+          "description": "Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.",
+          "enum": [
+            "",
+            "service_binding_in_use",
+            "application.delete_cleanup_failed",
+            "application.delete_finalize_failed",
+            "application.delete_enqueue_failed"
+          ]
+        },
+        "deleteFinishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "deleteMessage": {
+          "type": "string",
+          "description": "Diagnostic detail of the latest deletion failure. Clients display deleteCode instead."
+        },
+        "deleteStartedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "deleteStatus": {
+          "type": "string"
+        },
+        "deploymentSummary": {
+          "ref": "#/components/schemas/ApplicationDeploymentSummary",
+          "type": "object",
+          "description": "Point-in-time application runtime verdict returned only when includeRuntime=true and never persisted as current state. Only enabled deployment targets with at least one succeeded release participate: status is the most severe participating target status (unavailable, degraded, not-found, not-configured, progressing, unknown, ready, scaled-to-zero), and replica totals only count participating targets. Without participating targets status is not-deployed. Disabled targets never affect health.",
+          "required": [
+            "desiredReplicas",
+            "readyReplicas",
+            "status",
+            "targetCount",
+            "targets"
+          ],
+          "properties": {
+            "desiredReplicas": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "readyReplicas": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "scaled-to-zero",
+                "degraded",
+                "progressing",
+                "not-found",
+                "not-configured",
+                "unavailable",
+                "unknown",
+                "not-deployed"
+              ]
+            },
+            "targetCount": {
+              "type": "integer",
+              "description": "Number of existing deployment targets, including disabled and never deployed ones.",
+              "minimum": 0
+            },
+            "targets": {
+              "type": "array",
+              "description": "Per deployment target verdicts, ordered by runtime severity and then stage priority.",
+              "items": {
+                "ref": "#/components/schemas/ApplicationDeploymentTargetSummary",
+                "type": "object",
+                "truncated": true
+              }
+            }
+          }
+        },
+        "icon": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "identifier": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "primaryAccessUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Configured access URL of the application's primary enabled gateway route (default route first, then production stage). Returned only when includeRuntime=true and a route exists; it is derived from configuration and does not prove reachability."
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     },
     "xLunaCli": {}
   },
@@ -15465,6 +15909,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "properties": {
             "consistency": {
               "type": "string",
+              "description": "auto exports an unmounted volume directly; for a mounted volume it uses a VolumeSnapshot when the PVC StorageClass has a matching VolumeSnapshotClass, otherwise falls back to live for Filesystem volumes and rejects Block volumes with volume.snapshot_unsupported. snapshot is rejected with volume.snapshot_unsupported when unsupported; capability lookup failures return volume.cluster_unavailable. A snapshot that is not ready within 10 minutes fails the transfer with volume_transfer.snapshot_timeout.",
               "enum": [
                 "auto",
                 "snapshot",
@@ -18049,14 +18494,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
               "type": "string",
               "description": "Runtime cluster ID available to the project. Empty selects the platform default cluster."
             },
-            "concurrencyPolicy": {
-              "type": "string",
-              "enum": [
-                "queue",
-                "parallel"
-              ],
-              "default": "queue"
-            },
             "configFiles": {
               "type": "string",
               "description": "JSON array of runtime configuration file mounts."
@@ -18434,6 +18871,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "buildTemplateVersion": {
           "type": "string"
         },
+        "clusterId": {
+          "type": "string",
+          "description": "Explicitly selected runtime cluster; empty selects the platform default."
+        },
         "dataVolumes": {
           "type": "array",
           "items": {
@@ -18489,9 +18930,32 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "additionalProperties": false
           }
         },
+        "deleteCode": {
+          "type": "string",
+          "description": "Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.",
+          "enum": [
+            "",
+            "service_binding_in_use",
+            "deployment_target.delete_cleanup_failed",
+            "deployment_target.delete_finalize_failed",
+            "deployment_target.delete_enqueue_failed"
+          ]
+        },
+        "deleteMessage": {
+          "type": "string",
+          "description": "Diagnostic detail of the latest deletion failure. Clients display deleteCode instead."
+        },
+        "deleteStatus": {
+          "type": "string",
+          "description": "active, deleting, delete_failed or deleted."
+        },
         "desiredReplicas": {
           "type": "integer",
           "minimum": 0
+        },
+        "effectiveClusterId": {
+          "type": "string",
+          "description": "Runtime cluster the target resolves to for this request. An explicit clusterId must reference an active cluster; an empty clusterId resolves to the active global default cluster, or the earliest created active global cluster when none is marked default. Project or user scoped clusters are never implicit. Empty when no active cluster applies; clients must use this field instead of inferring a default."
         },
         "environmentVariables": {
           "type": "array",
@@ -18603,7 +19067,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "status": {
           "type": "string",
-          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.",
+          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state. Disabled targets report disabled while replica counts and observationCode still reflect the workload, because disabling does not stop a running workload.",
           "enum": [
             "ready",
             "scaled-to-zero",
@@ -18908,14 +19372,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "clusterId": {
               "type": "string",
               "description": "Runtime cluster ID available to the project. Empty selects the platform default cluster."
-            },
-            "concurrencyPolicy": {
-              "type": "string",
-              "enum": [
-                "queue",
-                "parallel"
-              ],
-              "default": "queue"
             },
             "configFiles": {
               "type": "string",
@@ -19295,6 +19751,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "buildTemplateVersion": {
           "type": "string"
         },
+        "clusterId": {
+          "type": "string",
+          "description": "Explicitly selected runtime cluster; empty selects the platform default."
+        },
         "dataVolumes": {
           "type": "array",
           "items": {
@@ -19350,9 +19810,32 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "additionalProperties": false
           }
         },
+        "deleteCode": {
+          "type": "string",
+          "description": "Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.",
+          "enum": [
+            "",
+            "service_binding_in_use",
+            "deployment_target.delete_cleanup_failed",
+            "deployment_target.delete_finalize_failed",
+            "deployment_target.delete_enqueue_failed"
+          ]
+        },
+        "deleteMessage": {
+          "type": "string",
+          "description": "Diagnostic detail of the latest deletion failure. Clients display deleteCode instead."
+        },
+        "deleteStatus": {
+          "type": "string",
+          "description": "active, deleting, delete_failed or deleted."
+        },
         "desiredReplicas": {
           "type": "integer",
           "minimum": 0
+        },
+        "effectiveClusterId": {
+          "type": "string",
+          "description": "Runtime cluster the target resolves to for this request. An explicit clusterId must reference an active cluster; an empty clusterId resolves to the active global default cluster, or the earliest created active global cluster when none is marked default. Project or user scoped clusters are never implicit. Empty when no active cluster applies; clients must use this field instead of inferring a default."
         },
         "environmentVariables": {
           "type": "array",
@@ -19464,7 +19947,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "status": {
           "type": "string",
-          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.",
+          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state. Disabled targets report disabled while replica counts and observationCode still reflect the workload, because disabling does not stop a running workload.",
           "enum": [
             "ready",
             "scaled-to-zero",
@@ -20289,14 +20772,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
                 "clusterId": {
                   "type": "string",
                   "description": "Runtime cluster ID available to the project. Empty selects the platform default cluster."
-                },
-                "concurrencyPolicy": {
-                  "type": "string",
-                  "enum": [
-                    "queue",
-                    "parallel"
-                  ],
-                  "default": "queue"
                 },
                 "configFiles": {
                   "type": "string",
@@ -21710,6 +22185,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "buildTemplateVersion": {
           "type": "string"
         },
+        "clusterId": {
+          "type": "string",
+          "description": "Explicitly selected runtime cluster; empty selects the platform default."
+        },
         "dataVolumes": {
           "type": "array",
           "items": {
@@ -21765,9 +22244,32 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "additionalProperties": false
           }
         },
+        "deleteCode": {
+          "type": "string",
+          "description": "Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.",
+          "enum": [
+            "",
+            "service_binding_in_use",
+            "deployment_target.delete_cleanup_failed",
+            "deployment_target.delete_finalize_failed",
+            "deployment_target.delete_enqueue_failed"
+          ]
+        },
+        "deleteMessage": {
+          "type": "string",
+          "description": "Diagnostic detail of the latest deletion failure. Clients display deleteCode instead."
+        },
+        "deleteStatus": {
+          "type": "string",
+          "description": "active, deleting, delete_failed or deleted."
+        },
         "desiredReplicas": {
           "type": "integer",
           "minimum": 0
+        },
+        "effectiveClusterId": {
+          "type": "string",
+          "description": "Runtime cluster the target resolves to for this request. An explicit clusterId must reference an active cluster; an empty clusterId resolves to the active global default cluster, or the earliest created active global cluster when none is marked default. Project or user scoped clusters are never implicit. Empty when no active cluster applies; clients must use this field instead of inferring a default."
         },
         "environmentVariables": {
           "type": "array",
@@ -21879,7 +22381,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "status": {
           "type": "string",
-          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.",
+          "description": "Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state. Disabled targets report disabled while replica counts and observationCode still reflect the workload, because disabling does not stop a running workload.",
           "enum": [
             "ready",
             "scaled-to-zero",
@@ -39943,7 +40445,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       }
     ],
     "summary": "Install an app template into a project",
-    "description": "Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. When installNow is true, read every returned Release back to verify its terminal state.",
+    "description": "Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. Every component reference to another component ({{components.<key>.host}}) is also persisted in the same transaction as a host/port service binding that injects <KEY>_HOST and <KEY>_PORT, appears in the project topology, and blocks deleting the referenced component while the dependant exists; all component Releases are queued together and dependants may restart until their dependencies are ready. The installation record has no stored status; when installNow is true, read every returned Release back to verify its terminal state. Stable error codes are app_template.value_required (400), app_template.install_conflict (409), app_template.catalog_unavailable, app_template.secret_generation_failed, app_template.dependency_invalid, and app_template.install_failed (500); raw storage errors are never returned.",
     "operationId": "installAppTemplate",
     "requestBody": {
       "required": true,
@@ -40939,6 +41441,27 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "deploymentTargetId": {
           "type": "string"
         },
+        "failureCode": {
+          "type": "string",
+          "description": "Stable reason for a failed, timed-out or canceled build; empty while active or succeeded.",
+          "enum": [
+            "",
+            "canceled_by_user",
+            "timeout",
+            "queue_timeout",
+            "dispatch_failed",
+            "project_unavailable",
+            "deployment_target_unavailable",
+            "cluster_unavailable",
+            "capacity_check_failed",
+            "namespace_failed",
+            "task_resolve_failed",
+            "job_start_failed",
+            "job_failed",
+            "observation_failed",
+            "internal_error"
+          ]
+        },
         "id": {
           "type": "string",
           "minLength": 1
@@ -40961,7 +41484,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "succeeded",
             "failed",
             "canceled",
-            "lost",
             "timeout"
           ]
         },
@@ -41103,6 +41625,27 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "deploymentTargetId": {
           "type": "string"
         },
+        "failureCode": {
+          "type": "string",
+          "description": "Stable reason for a failed, timed-out or canceled build; empty while active or succeeded.",
+          "enum": [
+            "",
+            "canceled_by_user",
+            "timeout",
+            "queue_timeout",
+            "dispatch_failed",
+            "project_unavailable",
+            "deployment_target_unavailable",
+            "cluster_unavailable",
+            "capacity_check_failed",
+            "namespace_failed",
+            "task_resolve_failed",
+            "job_start_failed",
+            "job_failed",
+            "observation_failed",
+            "internal_error"
+          ]
+        },
         "id": {
           "type": "string",
           "minLength": 1
@@ -41125,7 +41668,6 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "succeeded",
             "failed",
             "canceled",
-            "lost",
             "timeout"
           ]
         },
@@ -42497,6 +43039,32 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "deploymentTargetId": {
           "type": "string"
         },
+        "failureCode": {
+          "type": "string",
+          "description": "Stable reason for a failed or canceled release; empty while active or succeeded. `message` keeps the raw diagnostic text.",
+          "enum": [
+            "",
+            "canceled_by_user",
+            "timeout",
+            "dispatch_failed",
+            "project_unavailable",
+            "application_unavailable",
+            "deployment_target_unavailable",
+            "namespace_failed",
+            "service_binding_failed",
+            "preflight_failed",
+            "runtime_config_failed",
+            "pre_hook_failed",
+            "dependencies_failed",
+            "apply_failed",
+            "rollout_failed",
+            "rollout_timeout",
+            "volume_mount_failed",
+            "post_hook_failed",
+            "superseded",
+            "internal_error"
+          ]
+        },
         "finishedAt": {
           "type": "string",
           "format": "date-time",
@@ -42536,7 +43104,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "pending",
             "running",
             "succeeded",
-            "failed"
+            "failed",
+            "canceled"
           ]
         },
         "type": {
@@ -42700,6 +43269,32 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "deploymentTargetId": {
           "type": "string"
         },
+        "failureCode": {
+          "type": "string",
+          "description": "Stable reason for a failed or canceled release; empty while active or succeeded. `message` keeps the raw diagnostic text.",
+          "enum": [
+            "",
+            "canceled_by_user",
+            "timeout",
+            "dispatch_failed",
+            "project_unavailable",
+            "application_unavailable",
+            "deployment_target_unavailable",
+            "namespace_failed",
+            "service_binding_failed",
+            "preflight_failed",
+            "runtime_config_failed",
+            "pre_hook_failed",
+            "dependencies_failed",
+            "apply_failed",
+            "rollout_failed",
+            "rollout_timeout",
+            "volume_mount_failed",
+            "post_hook_failed",
+            "superseded",
+            "internal_error"
+          ]
+        },
         "finishedAt": {
           "type": "string",
           "format": "date-time",
@@ -42739,7 +43334,8 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
             "pending",
             "running",
             "succeeded",
-            "failed"
+            "failed",
+            "canceled"
           ]
         },
         "type": {
@@ -43500,6 +44096,236 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "description": "Extensible business object returned by an API whose domain model is not shared across operations.",
       "additionalProperties": true
+    },
+    "errorSchema": {
+      "ref": "#/components/schemas/ErrorResponse",
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "requestId"
+      ],
+      "properties": {
+        "allowedValues": {
+          "type": "array",
+          "description": "Allowed enum values for a structured validation error.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "code": {
+          "type": "string",
+          "description": "Stable machine-readable error code."
+        },
+        "details": {
+          "type": "object",
+          "description": "Development-only machine-readable diagnostic context; omitted in production responses.",
+          "additionalProperties": true
+        },
+        "developerDetail": {
+          "type": "string",
+          "description": "Credential-redacted development-only diagnostic detail; omitted in production responses."
+        },
+        "message": {
+          "type": "string",
+          "description": "Stable frontend localization key for a generic safe message; clients should localize primarily from code."
+        },
+        "observationCode": {
+          "type": "string",
+          "description": "Stable machine-readable observation reason when status is unavailable."
+        },
+        "path": {
+          "type": "string",
+          "description": "Stable argument path associated with a structured validation error."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Request identifier for support and log correlation."
+        },
+        "requiredScope": {
+          "type": "string",
+          "description": "Stable scope required by an auth.token.scope_insufficient error; omitted for other error codes."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Whether retrying the same operation without changing arguments may succeed."
+        },
+        "status": {
+          "type": "string",
+          "description": "Stable resource observation status when an upstream source cannot provide a current fact.",
+          "enum": [
+            "unavailable"
+          ]
+        },
+        "traceId": {
+          "type": "string",
+          "description": "Trace identifier when the request has a valid trace context.",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "xLunaCli": {}
+  },
+  {
+    "method": "post",
+    "path": "/api/v1/projects/{projectId}/releases/{releaseId}/cancel",
+    "tags": [
+      "Releases"
+    ],
+    "deprecated": false,
+    "parameters": [
+      {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "releaseId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "summary": "Cancel Release",
+    "description": "Stops a pending or running release workflow and records status `canceled` with failureCode `canceled_by_user`. Resources already applied to the cluster are not rolled back. Repeating the request for a canceled release returns the same state.",
+    "operationId": "cancelRelease",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string"
+        },
+        "releaseId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectId",
+        "releaseId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "ref": "#/components/schemas/Release",
+      "type": "object",
+      "required": [
+        "applicationId",
+        "createdAt",
+        "createdBy",
+        "deploymentTargetId",
+        "forceImagePull",
+        "id",
+        "imageRef",
+        "projectId",
+        "revision",
+        "status",
+        "type",
+        "updatedAt"
+      ],
+      "properties": {
+        "applicationId": {
+          "type": "string"
+        },
+        "buildRunId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "deploymentTargetId": {
+          "type": "string"
+        },
+        "failureCode": {
+          "type": "string",
+          "description": "Stable reason for a failed or canceled release; empty while active or succeeded. `message` keeps the raw diagnostic text.",
+          "enum": [
+            "",
+            "canceled_by_user",
+            "timeout",
+            "dispatch_failed",
+            "project_unavailable",
+            "application_unavailable",
+            "deployment_target_unavailable",
+            "namespace_failed",
+            "service_binding_failed",
+            "preflight_failed",
+            "runtime_config_failed",
+            "pre_hook_failed",
+            "dependencies_failed",
+            "apply_failed",
+            "rollout_failed",
+            "rollout_timeout",
+            "volume_mount_failed",
+            "post_hook_failed",
+            "superseded",
+            "internal_error"
+          ]
+        },
+        "finishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "forceImagePull": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "imageRef": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "projectId": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "format": "int32",
+          "minimum": 1
+        },
+        "rollbackFromId": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "nullable": true
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "running",
+            "succeeded",
+            "failed",
+            "canceled"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "deploy",
+            "rollback"
+          ]
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
     },
     "errorSchema": {
       "ref": "#/components/schemas/ErrorResponse",
@@ -44822,8 +45648,12 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "accountScope",
         "in": "query",
         "required": false,
+        "description": "`current` reads the caller's own wallet (or the selected user for administrators).",
         "schema": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "current"
+          ]
         }
       },
       {
@@ -44849,6 +45679,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodStart",
         "in": "query",
         "required": false,
+        "description": "Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time.",
         "schema": {
           "type": "string"
         }
@@ -44857,6 +45688,16 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodEnd",
         "in": "query",
         "required": false,
+        "description": "Exclusive RFC3339 end, provided together with periodStart.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      {
+        "name": "timeZone",
+        "in": "query",
+        "required": false,
+        "description": "IANA time zone that defines todaySpend and monthSpend boundaries (local midnight). Defaults to UTC.",
         "schema": {
           "type": "string"
         }
@@ -44868,7 +45709,10 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "type": "object",
       "properties": {
         "accountScope": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "current"
+          ]
         },
         "userId": {
           "type": "string"
@@ -44884,6 +45728,9 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         },
         "periodEnd": {
           "type": "string"
+        },
+        "timeZone": {
+          "type": "string"
         }
       },
       "additionalProperties": false
@@ -44891,43 +45738,122 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
     "outputSchema": {
       "ref": "#/components/schemas/BillingSummary",
       "type": "object",
+      "description": "Spend is counted at usage occurrence time (usage period start); manual adjustments at posting time.",
+      "required": [
+        "availableCredits",
+        "balanceCredits",
+        "balanceScope",
+        "lowBalanceLimit",
+        "monthSpend",
+        "monthlyCategories",
+        "pendingSpend",
+        "periodCategories",
+        "periodSpend",
+        "todaySpend"
+      ],
       "properties": {
-        "balanceCredits": {
-          "type": "number"
-        },
-        "buildSpendCredits": {
-          "type": "number"
-        },
-        "gatewaySpendCredits": {
-          "type": "number"
-        },
-        "periodEnd": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "periodSpendCredits": {
-          "type": "number"
-        },
-        "periodStart": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "runtimeSpendCredits": {
-          "type": "number"
-        },
-        "storageSpendCredits": {
-          "type": "number"
-        },
-        "todaySpendCredits": {
-          "type": "number"
-        },
-        "unsettledCredits": {
-          "type": "number"
-        },
-        "userId": {
+        "availableCredits": {
           "type": "string"
+        },
+        "balanceCredits": {
+          "type": "string",
+          "description": "Decimal credits."
+        },
+        "balanceScope": {
+          "type": "string",
+          "description": "`platform_total` sums every wallet for an administrator without a selected user; it has no balanceStatus.",
+          "enum": [
+            "account",
+            "platform_total"
+          ]
+        },
+        "balanceStatus": {
+          "type": "string",
+          "description": "Present only for balanceScope account.",
+          "enum": [
+            "ok",
+            "low",
+            "insufficient"
+          ]
+        },
+        "lowBalanceLimit": {
+          "type": "string"
+        },
+        "monthlyCategories": {
+          "type": "array",
+          "items": {
+            "ref": "#/components/schemas/BillingSpendCategory",
+            "type": "object",
+            "required": [
+              "amountCredits",
+              "category"
+            ],
+            "properties": {
+              "amountCredits": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "build",
+                  "runtime",
+                  "storage",
+                  "gateway",
+                  "ai",
+                  "adjustment",
+                  "other"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "monthSpend": {
+          "type": "string",
+          "description": "Debits occurring since the first day of the month in the requested timeZone."
+        },
+        "pendingSpend": {
+          "type": "string"
+        },
+        "periodCategories": {
+          "type": "array",
+          "items": {
+            "ref": "#/components/schemas/BillingSpendCategory",
+            "type": "object",
+            "required": [
+              "amountCredits",
+              "category"
+            ],
+            "properties": {
+              "amountCredits": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "build",
+                  "runtime",
+                  "storage",
+                  "gateway",
+                  "ai",
+                  "adjustment",
+                  "other"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "periodSpend": {
+          "type": "string",
+          "description": "Debits occurring in [periodStart, periodEnd); equals monthSpend without a period."
+        },
+        "todaySpend": {
+          "type": "string",
+          "description": "Debits occurring since local midnight in the requested timeZone."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "errorSchema": {
       "ref": "#/components/schemas/ErrorResponse",
@@ -45029,6 +45955,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodStart",
         "in": "query",
         "required": false,
+        "description": "Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time.",
         "schema": {
           "type": "string"
         }
@@ -45037,6 +45964,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodEnd",
         "in": "query",
         "required": false,
+        "description": "Exclusive RFC3339 end, provided together with periodStart.",
         "schema": {
           "type": "string"
         }
@@ -45137,7 +46065,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       "additionalProperties": false
     },
     "outputSchema": {
-      "ref": "#/components/schemas/PaginatedBusinessObjects",
+      "ref": "#/components/schemas/PaginatedBillingDeploymentSpend",
       "type": "object",
       "required": [
         "items",
@@ -45150,13 +46078,85 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
       ],
       "properties": {
         "items": {
-          "ref": "#/components/schemas/BusinessObjectList",
           "type": "array",
           "items": {
-            "ref": "#/components/schemas/BusinessObject",
+            "ref": "#/components/schemas/BillingDeploymentSpend",
             "type": "object",
-            "description": "Extensible business object returned by an API whose domain model is not shared across operations.",
-            "additionalProperties": true
+            "required": [
+              "amountCredits",
+              "applicationId",
+              "applicationIdentifier",
+              "applicationName",
+              "buildCredits",
+              "deploymentTargetId",
+              "deploymentTargetName",
+              "deploymentTargetStage",
+              "gatewayCredits",
+              "otherCredits",
+              "projectId",
+              "projectIdentifier",
+              "projectName",
+              "runtimeCredits",
+              "spendGroup",
+              "storageCredits"
+            ],
+            "properties": {
+              "amountCredits": {
+                "type": "string"
+              },
+              "applicationId": {
+                "type": "string"
+              },
+              "applicationIdentifier": {
+                "type": "string"
+              },
+              "applicationName": {
+                "type": "string"
+              },
+              "buildCredits": {
+                "type": "string"
+              },
+              "deploymentTargetId": {
+                "type": "string"
+              },
+              "deploymentTargetName": {
+                "type": "string"
+              },
+              "deploymentTargetStage": {
+                "type": "string"
+              },
+              "gatewayCredits": {
+                "type": "string"
+              },
+              "otherCredits": {
+                "type": "string"
+              },
+              "projectId": {
+                "type": "string"
+              },
+              "projectIdentifier": {
+                "type": "string"
+              },
+              "projectName": {
+                "type": "string"
+              },
+              "runtimeCredits": {
+                "type": "string"
+              },
+              "spendGroup": {
+                "type": "string",
+                "description": "`project_storage` groups project volume storage and transfers, which never belong to a deployment target.",
+                "enum": [
+                  "deployment_target",
+                  "project_storage",
+                  "unassigned"
+                ]
+              },
+              "storageCredits": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "page": {
@@ -45186,8 +46186,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "integer",
           "minimum": 0
         }
-      },
-      "additionalProperties": true
+      }
     },
     "errorSchema": {
       "ref": "#/components/schemas/ErrorResponse",
@@ -45297,6 +46296,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodStart",
         "in": "query",
         "required": false,
+        "description": "Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time.",
         "schema": {
           "type": "string"
         }
@@ -45305,6 +46305,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodEnd",
         "in": "query",
         "required": false,
+        "description": "Exclusive RFC3339 end, provided together with periodStart.",
         "schema": {
           "type": "string"
         }
@@ -45334,6 +46335,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string",
           "enum": [
             "createdAt",
+            "occurredAt",
             "amountCredits",
             "reason"
           ],
@@ -45389,6 +46391,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string",
           "enum": [
             "createdAt",
+            "occurredAt",
             "amountCredits",
             "reason"
           ],
@@ -45566,6 +46569,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodStart",
         "in": "query",
         "required": false,
+        "description": "Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time.",
         "schema": {
           "type": "string"
         }
@@ -45574,6 +46578,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
         "name": "periodEnd",
         "in": "query",
         "required": false,
+        "description": "Exclusive RFC3339 end, provided together with periodStart.",
         "schema": {
           "type": "string"
         }
@@ -45603,6 +46608,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string",
           "enum": [
             "createdAt",
+            "periodStart",
             "amountCredits",
             "meter"
           ],
@@ -45658,6 +46664,7 @@ export const OPENAPI_OPERATION_SNAPSHOTS = [
           "type": "string",
           "enum": [
             "createdAt",
+            "periodStart",
             "amountCredits",
             "meter"
           ],

@@ -1120,6 +1120,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get project space overview counts
+         * @description Counts computed by the database for the project-space overview. Applications that are being deleted or were deleted are excluded; failed releases only count releases that failed within the last failedReleaseWindowDays days. accessRoutes is a live gateway observation returned with Cache-Control no-store; when any enabled route cannot be observed it reports unavailable without a ready count.
+         */
+        get: operations["getProjectOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/pin": {
         parameters: {
             query?: never;
@@ -3130,7 +3150,7 @@ export interface paths {
         put?: never;
         /**
          * Install an app template into a project
-         * @description Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. When installNow is true, read every returned Release back to verify its terminal state.
+         * @description Creates an application and deployment target from the selected template. A multi-component template (non-empty components) creates one application, deployment target, and optional first Release per component, returns them in components, and anchors installation to the first component. Shared Secret values are generated once and injected into every component that references them through Secret references. Every component reference to another component ({{components.<key>.host}}) is also persisted in the same transaction as a host/port service binding that injects <KEY>_HOST and <KEY>_PORT, appears in the project topology, and blocks deleting the referenced component while the dependant exists; all component Releases are queued together and dependants may restart until their dependencies are ready. The installation record has no stored status; when installNow is true, read every returned Release back to verify its terminal state. Stable error codes are app_template.value_required (400), app_template.install_conflict (409), app_template.catalog_unavailable, app_template.secret_generation_failed, app_template.dependency_invalid, and app_template.install_failed (500); raw storage errors are never returned.
          */
         post: operations["installAppTemplate"];
         delete?: never;
@@ -3467,6 +3487,26 @@ export interface paths {
         put?: never;
         /** Rollback Release */
         post: operations["rollbackRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/releases/{releaseId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Release
+         * @description Stops a pending or running release workflow and records status `canceled` with failureCode `canceled_by_user`. Resources already applied to the cluster are not rolled back. Repeating the request for a canceled release returns the same state.
+         */
+        post: operations["cancelRelease"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5328,6 +5368,7 @@ export interface components {
             pinned: boolean;
             /** Format: int64 */
             applicationCount: number;
+            /** @description Latest event of this project space, queried per project and independent of the global recent activity window; null when the project space has no events. */
             latestActivity: components["schemas"]["DashboardActivity"] | null;
         };
         DashboardAttentionItem: {
@@ -5387,13 +5428,60 @@ export interface components {
             /** Format: date-time */
             observedAt: string;
         };
+        ProjectOverview: {
+            /**
+             * Format: int64
+             * @description Applications in the project space, excluding applications that are being deleted or were deleted.
+             */
+            applications: number;
+            /**
+             * Format: int64
+             * @description Releases that are pending or running.
+             */
+            activeReleases: number;
+            /**
+             * Format: int64
+             * @description Releases that failed within the last failedReleaseWindowDays days.
+             */
+            failedReleases: number;
+            failedReleaseWindowDays: number;
+            accessRoutes: components["schemas"]["ProjectOverviewAccessRoutes"];
+        };
+        /** @description Live readiness of the project space's enabled access routes, observed from the gateway on every request. Disabled routes and routes being deleted are excluded. */
+        ProjectOverviewAccessRoutes: {
+            /**
+             * @description ready when every enabled route is ready; degraded when some are not ready; not-configured when there are no enabled routes; unavailable when at least one route could not be observed.
+             * @enum {string}
+             */
+            status: "ready" | "degraded" | "not-configured" | "unavailable";
+            /**
+             * Format: int64
+             * @description Enabled routes observed as ready. Omitted when status is unavailable; clients must not treat a missing value as zero.
+             */
+            ready?: number;
+            /**
+             * Format: int64
+             * @description Enabled routes in the project space, read from the desired configuration.
+             */
+            total: number;
+            /**
+             * @description Stable reason when status is not ready.
+             * @enum {string}
+             */
+            observationCode?: "project_overview.access_routes_not_configured" | "project_overview.access_routes_not_ready" | "project_overview.access_routes_unavailable";
+            /** Format: date-time */
+            observedAt: string;
+        };
         DashboardOverview: {
             /** Format: date-time */
             generatedAt: string;
             summary: {
                 /** Format: int64 */
                 projects: number;
-                /** Format: int64 */
+                /**
+                 * Format: int64
+                 * @description Applications in visible project spaces, excluding applications that are being deleted or were deleted.
+                 */
                 applications: number;
                 /** Format: int64 */
                 activeBuilds: number;
@@ -5406,6 +5494,8 @@ export interface components {
             projects: components["schemas"]["DashboardProjectShortcut"][];
             attention: components["schemas"]["DashboardAttentionItem"][];
             activities: components["schemas"]["DashboardActivity"][];
+            /** @description Latest event of each application in the returned project shortcuts, newest first. Unlike activities it is not limited to the most recent events, so quiet applications keep their own latest activity. Applications that are being deleted or were deleted are excluded. */
+            applicationActivities: components["schemas"]["DashboardActivity"][];
             readiness: {
                 clusters: components["schemas"]["DashboardReadinessItem"];
                 registries: components["schemas"]["DashboardReadinessItem"];
@@ -5500,24 +5590,35 @@ export interface components {
             /** @description Curated icon name or supported image reference; empty selects the default application icon. */
             icon?: string;
         };
-        /** @description Point-in-time aggregate of Kubernetes replicas for an application. It is returned only when includeRuntime=true and is never persisted as current state. */
+        /** @description Point-in-time application runtime verdict returned only when includeRuntime=true and never persisted as current state. Only enabled deployment targets with at least one succeeded release participate: status is the most severe participating target status (unavailable, degraded, not-found, not-configured, progressing, unknown, ready, scaled-to-zero), and replica totals only count participating targets. Without participating targets status is not-deployed. Disabled targets never affect health. */
         ApplicationDeploymentSummary: {
+            /** @description Number of existing deployment targets, including disabled and never deployed ones. */
             targetCount: number;
             desiredReplicas: number;
             readyReplicas: number;
             /** @enum {string} */
-            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "unavailable" | "not-deployed";
-            /** @description Point-in-time Kubernetes runtime summaries for each deployment target, ordered by runtime severity and then stage priority. */
+            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "unknown" | "not-deployed";
+            /** @description Per deployment target verdicts, ordered by runtime severity and then stage priority. */
             targets: components["schemas"]["ApplicationDeploymentTargetSummary"][];
         };
         ApplicationDeploymentTargetSummary: {
             id: string;
             stage: string;
+            enabled: boolean;
+            /** @description Whether the target has at least one succeeded release. */
+            deployed: boolean;
             desiredReplicas: number;
             readyReplicas: number;
-            /** @enum {string} */
-            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "disabled" | "unknown";
+            /**
+             * @description disabled for disabled targets, not-deployed for enabled targets without a succeeded release, otherwise the live Kubernetes observation.
+             * @enum {string}
+             */
+            status: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "disabled" | "unknown" | "not-deployed";
+            /** @description Stable code explaining why the live observation is not ready, when available. */
+            observationCode?: string;
+            currentRelease?: components["schemas"]["ApplicationCurrentRelease"];
         };
+        /** @description Usage, request floor and limit cover every regular container (application and sidecars) of every desired replica, read from the same Kubernetes observation; replica* fields are the per-replica Pod template envelope. */
         DeploymentTargetMetrics: {
             available: boolean;
             /** @enum {string} */
@@ -5529,12 +5630,24 @@ export interface components {
             availableReplicas: number;
             podCount: number;
             containerCount: number;
+            /** @description Usage summed over all replicas. */
             cpuUsageMilli: number;
-            cpuCapacityMilli: number;
-            cpuUsagePercent: number;
+            /** @description Request floor summed over desired replicas. */
+            cpuRequestMilli: number;
+            /** @description Limit summed over desired replicas; 0 when any container has no CPU limit. */
+            cpuLimitMilli: number;
+            /** @description cpuUsageMilli / cpuLimitMilli; omitted when cpuLimitMilli is 0. */
+            cpuUsagePercent?: number;
             memoryUsageBytes: number;
-            memoryCapacityBytes: number;
-            memoryUsagePercent: number;
+            memoryRequestBytes: number;
+            /** @description 0 when any container has no memory limit. */
+            memoryLimitBytes: number;
+            /** @description memoryUsageBytes / memoryLimitBytes; omitted when memoryLimitBytes is 0. */
+            memoryUsagePercent?: number;
+            replicaCpuRequestMilli: number;
+            replicaCpuLimitMilli: number;
+            replicaMemoryRequestBytes: number;
+            replicaMemoryLimitBytes: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -5545,7 +5658,13 @@ export interface components {
             name: string;
             icon: string;
             deleteStatus: string;
+            /** @description Diagnostic detail of the latest deletion failure. Clients display deleteCode instead. */
             deleteMessage: string;
+            /**
+             * @description Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.
+             * @enum {string}
+             */
+            deleteCode: "" | "service_binding_in_use" | "application.delete_cleanup_failed" | "application.delete_finalize_failed" | "application.delete_enqueue_failed";
             /** Format: date-time */
             deleteStartedAt?: string | null;
             /** Format: date-time */
@@ -5562,7 +5681,7 @@ export interface components {
             primaryAccessUrl?: string;
             currentRelease?: components["schemas"]["ApplicationCurrentRelease"];
         };
-        /** @description Most recent succeeded release on an existing deployment target. It is a workflow result returned only when includeRuntime=true, not the live Kubernetes image. */
+        /** @description Most recent succeeded release by finished time on an existing deployment target. It is a workflow result returned only when includeRuntime=true, not the live Kubernetes image. */
         ApplicationCurrentRelease: {
             id: string;
             deploymentTargetId: string;
@@ -5862,7 +5981,10 @@ export interface components {
         };
         VolumeExportCreateInput: {
             format: components["schemas"]["VolumeTransferFormat"];
-            /** @enum {string} */
+            /**
+             * @description auto exports an unmounted volume directly; for a mounted volume it uses a VolumeSnapshot when the PVC StorageClass has a matching VolumeSnapshotClass, otherwise falls back to live for Filesystem volumes and rejects Block volumes with volume.snapshot_unsupported. snapshot is rejected with volume.snapshot_unsupported when unsupported; capability lookup failures return volume.cluster_unavailable. A snapshot that is not ready within 10 minutes fails the transfer with volume_transfer.snapshot_timeout.
+             * @enum {string}
+             */
             consistency: "auto" | "snapshot" | "live";
         };
         VolumeTransferDownloadAuthorization: {
@@ -6019,6 +6141,8 @@ export interface components {
             webConsoleEnabled: boolean;
             /** @description Role of the current authenticated user in this project space. Omitted for platform administrators. */
             currentUserRole?: components["schemas"]["ProjectRole"];
+            /** @description Project actions (internal/authz policy keys such as project:write or volume:export) the current user's platform and project roles allow right now; returned by getProject only. It does not reflect access-token scope restrictions, and the server still authorizes every request. */
+            currentUserActions?: string[];
             /** Format: date-time */
             createdAt: string;
         };
@@ -6221,11 +6345,6 @@ export interface components {
             autoDeploy: boolean;
             branchPattern?: string;
             tagPattern?: string;
-            /**
-             * @default queue
-             * @enum {string}
-             */
-            concurrencyPolicy: "queue" | "parallel";
             runtimeConfigRefs?: {
                 setId: string;
                 /**
@@ -6276,10 +6395,14 @@ export interface components {
             environmentVariables?: components["schemas"]["RuntimeEnvironmentVariable"][];
             dataVolumes: components["schemas"]["DeploymentDataVolume"][];
             /**
-             * @description Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state.
+             * @description Point-in-time Kubernetes observation. scaled-to-zero is an observed zero-desired-replica runtime, not a serving-ready state. Disabled targets report disabled while replica counts and observationCode still reflect the workload, because disabling does not stop a running workload.
              * @enum {string}
              */
             status?: "ready" | "scaled-to-zero" | "degraded" | "progressing" | "not-found" | "not-configured" | "unavailable" | "unknown" | "disabled";
+            /** @description Explicitly selected runtime cluster; empty selects the platform default. */
+            clusterId?: string;
+            /** @description Runtime cluster the target resolves to for this request. An explicit clusterId must reference an active cluster; an empty clusterId resolves to the active global default cluster, or the earliest created active global cluster when none is marked default. Project or user scoped clusters are never implicit. Empty when no active cluster applies; clients must use this field instead of inferring a default. */
+            effectiveClusterId?: string;
             observationCode?: string;
             /** Format: date-time */
             lastCheckedAt?: string;
@@ -6287,6 +6410,15 @@ export interface components {
             updatedReplicas?: number;
             readyReplicas?: number;
             availableReplicas?: number;
+            /** @description active, deleting, delete_failed or deleted. */
+            deleteStatus?: string;
+            /** @description Diagnostic detail of the latest deletion failure. Clients display deleteCode instead. */
+            deleteMessage?: string;
+            /**
+             * @description Stable reason of the latest deletion failure; empty unless deleteStatus is delete_failed.
+             * @enum {string}
+             */
+            deleteCode?: "" | "service_binding_in_use" | "deployment_target.delete_cleanup_failed" | "deployment_target.delete_finalize_failed" | "deployment_target.delete_enqueue_failed";
             /** @description Nullable target restriction. Effective policy is `project.webConsoleEnabled && webConsoleEnabled != false`; a true value is treated as inheritance. */
             webConsoleEnabled: boolean | null;
         } & {
@@ -7426,7 +7558,12 @@ export interface components {
             applicationId?: string;
             deploymentTargetId?: string;
             /** @enum {string} */
-            status: "queued" | "running" | "succeeded" | "failed" | "canceled" | "lost" | "timeout";
+            status: "queued" | "running" | "succeeded" | "failed" | "canceled" | "timeout";
+            /**
+             * @description Stable reason for a failed, timed-out or canceled build; empty while active or succeeded.
+             * @enum {string}
+             */
+            failureCode?: "" | "canceled_by_user" | "timeout" | "queue_timeout" | "dispatch_failed" | "project_unavailable" | "deployment_target_unavailable" | "cluster_unavailable" | "capacity_check_failed" | "namespace_failed" | "task_resolve_failed" | "job_start_failed" | "job_failed" | "observation_failed" | "internal_error";
             imageRef?: string;
             imageDigest?: string;
             /** Format: date-time */
@@ -7471,7 +7608,12 @@ export interface components {
             /** @enum {string} */
             type: "deploy" | "rollback";
             /** @enum {string} */
-            status: "pending" | "running" | "succeeded" | "failed";
+            status: "pending" | "running" | "succeeded" | "failed" | "canceled";
+            /**
+             * @description Stable reason for a failed or canceled release; empty while active or succeeded. `message` keeps the raw diagnostic text.
+             * @enum {string}
+             */
+            failureCode?: "" | "canceled_by_user" | "timeout" | "dispatch_failed" | "project_unavailable" | "application_unavailable" | "deployment_target_unavailable" | "namespace_failed" | "service_binding_failed" | "preflight_failed" | "runtime_config_failed" | "pre_hook_failed" | "dependencies_failed" | "apply_failed" | "rollout_failed" | "rollout_timeout" | "volume_mount_failed" | "post_hook_failed" | "superseded" | "internal_error";
             /** Format: int32 */
             revision: number;
             rollbackFromId?: string;
@@ -7597,20 +7739,68 @@ export interface components {
             /** Format: date-time */
             periodEnd: string;
         };
+        /** @description Spend is counted at usage occurrence time (usage period start); manual adjustments at posting time. */
         BillingSummary: {
-            userId?: string;
-            balanceCredits?: number;
-            periodSpendCredits?: number;
-            todaySpendCredits?: number;
-            unsettledCredits?: number;
-            buildSpendCredits?: number;
-            runtimeSpendCredits?: number;
-            storageSpendCredits?: number;
-            gatewaySpendCredits?: number;
-            /** Format: date-time */
-            periodStart?: string;
-            /** Format: date-time */
-            periodEnd?: string;
+            /**
+             * @description `platform_total` sums every wallet for an administrator without a selected user; it has no balanceStatus.
+             * @enum {string}
+             */
+            balanceScope: "account" | "platform_total";
+            /** @description Decimal credits. */
+            balanceCredits: string;
+            /** @description Debits occurring since local midnight in the requested timeZone. */
+            todaySpend: string;
+            /** @description Debits occurring since the first day of the month in the requested timeZone. */
+            monthSpend: string;
+            /** @description Debits occurring in [periodStart, periodEnd); equals monthSpend without a period. */
+            periodSpend: string;
+            pendingSpend: string;
+            availableCredits: string;
+            lowBalanceLimit: string;
+            /**
+             * @description Present only for balanceScope account.
+             * @enum {string}
+             */
+            balanceStatus?: "ok" | "low" | "insufficient";
+            monthlyCategories: components["schemas"]["BillingSpendCategory"][];
+            periodCategories: components["schemas"]["BillingSpendCategory"][];
+        };
+        BillingSpendCategory: {
+            /** @enum {string} */
+            category: "build" | "runtime" | "storage" | "gateway" | "ai" | "adjustment" | "other";
+            amountCredits: string;
+        };
+        BillingDeploymentSpend: {
+            projectId: string;
+            projectName: string;
+            projectIdentifier: string;
+            applicationId: string;
+            applicationName: string;
+            applicationIdentifier: string;
+            /**
+             * @description `project_storage` groups project volume storage and transfers, which never belong to a deployment target.
+             * @enum {string}
+             */
+            spendGroup: "deployment_target" | "project_storage" | "unassigned";
+            deploymentTargetId: string;
+            deploymentTargetName: string;
+            deploymentTargetStage: string;
+            amountCredits: string;
+            buildCredits: string;
+            runtimeCredits: string;
+            storageCredits: string;
+            gatewayCredits: string;
+            otherCredits: string;
+        };
+        PaginatedBillingDeploymentSpend: {
+            items: components["schemas"]["BillingDeploymentSpend"][];
+            page: number;
+            pageSize: number;
+            sortBy: string;
+            /** @enum {string} */
+            sortOrder: "asc" | "desc";
+            total: number;
+            totalPages: number;
         };
     };
     responses: {
@@ -9876,6 +10066,29 @@ export interface operations {
             };
         };
     };
+    getProjectOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project overview counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOverview"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
     pinProject: {
         parameters: {
             query?: never;
@@ -10132,7 +10345,10 @@ export interface operations {
     };
     getApplication: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Include the same point-in-time runtime verdict, primary configured access URL and current release that listApplications returns with includeRuntime=true. The response is marked no-store. */
+                includeRuntime?: boolean;
+            };
             header?: never;
             path: {
                 projectId: components["parameters"]["ProjectId"];
@@ -10147,7 +10363,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ApplicationListItem"];
+                };
             };
         };
     };
@@ -10188,8 +10406,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Application deletion was queued. */
+            /** @description Application deletion was queued. The Worker converges to deleteStatus=deleted or deleteStatus=delete_failed with a stable deleteCode; it never leaves the application deleting after its final attempt. */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description application.delete_in_progress, or service_binding_in_use when another application still has an enabled service binding to this application. Bindings between deployment targets of the same application do not block deletion. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description application.delete_enqueue_failed; the application is marked delete_failed and can be deleted again. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10996,8 +11228,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deployment target deletion accepted and queued for asynchronous runtime cleanup. */
+            /** @description Deployment target deletion accepted and queued for asynchronous runtime cleanup. The Worker checks incoming service bindings before cleaning any runtime resource and converges to removal or deleteStatus=delete_failed with a stable deleteCode; it never leaves the target deleting after its final attempt. */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description deployment_target.delete_in_progress, or service_binding_in_use when an enabled service binding still targets this deployment target. The check and the transition to deleting happen in one locked transaction. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description deployment_target.delete_enqueue_failed; the deployment target is marked delete_failed and can be deleted again. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14156,6 +14402,13 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description service_binding_env_conflict, or service_binding_target_deleting when the target application or deployment target is deleting or its last deletion failed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     updateServiceBinding: {
@@ -14434,6 +14687,15 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            /** @description The template catalog, secret generation, component dependency contract, or installation transaction failed; see the stable error code. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     searchProjectMemberCandidates: {
@@ -14974,6 +15236,15 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description `runtime.container_not_started`: the selected replica's container has never started (for example image pull failure or still creating), so no logs exist yet; choose another replica or read the release log. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     execReleaseRuntimeCommand: {
@@ -15079,6 +15350,48 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    cancelRelease: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                releaseId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release is canceled. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Release"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The release already reached succeeded or failed. Stable code is `release.not_cancelable`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "code": "release.not_cancelable",
+                     *       "message": "only pending or running releases can be canceled",
+                     *       "requestId": "req_example"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     listGatewayRoutes: {
@@ -15285,11 +15598,16 @@ export interface operations {
     getBillingSummary: {
         parameters: {
             query?: {
-                accountScope?: string;
+                /** @description `current` reads the caller's own wallet (or the selected user for administrators). */
+                accountScope?: "current";
                 userId?: string;
                 projectId?: string[];
+                /** @description Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time. */
                 periodStart?: string;
+                /** @description Exclusive RFC3339 end, provided together with periodStart. */
                 periodEnd?: string;
+                /** @description IANA time zone that defines todaySpend and monthSpend boundaries (local midnight). Defaults to UTC. */
+                timeZone?: string;
             };
             header?: never;
             path?: never;
@@ -15316,7 +15634,9 @@ export interface operations {
             query?: {
                 userId?: string;
                 projectId?: string[];
+                /** @description Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time. */
                 periodStart?: string;
+                /** @description Exclusive RFC3339 end, provided together with periodStart. */
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
@@ -15335,7 +15655,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedBusinessObjects"];
+                    "application/json": components["schemas"]["PaginatedBillingDeploymentSpend"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -15349,11 +15669,13 @@ export interface operations {
                 userId?: string;
                 projectId?: string[];
                 type?: string;
+                /** @description Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time. */
                 periodStart?: string;
+                /** @description Exclusive RFC3339 end, provided together with periodStart. */
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
-                sortBy?: "createdAt" | "amountCredits" | "reason";
+                sortBy?: "createdAt" | "occurredAt" | "amountCredits" | "reason";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
@@ -15382,11 +15704,13 @@ export interface operations {
                 userId?: string;
                 projectId?: string[];
                 meter?: string;
+                /** @description Inclusive RFC3339 start. Usage is counted at its usage period start (occurrence time); entries without a usage record use their posting time. */
                 periodStart?: string;
+                /** @description Exclusive RFC3339 end, provided together with periodStart. */
                 periodEnd?: string;
                 page?: number;
                 pageSize?: number;
-                sortBy?: "createdAt" | "amountCredits" | "meter";
+                sortBy?: "createdAt" | "periodStart" | "amountCredits" | "meter";
                 sortOrder?: components["parameters"]["SortOrder"];
             };
             header?: never;
